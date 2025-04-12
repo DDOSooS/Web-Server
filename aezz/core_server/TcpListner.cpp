@@ -47,9 +47,8 @@ int TcpListner::run(){
     bool running = true;
     int fdmax = m_socket;
     sockaddr client_saddr;
-    sockaddr_in *ipv4_addr;
-    sockaddr_in6 *ipv6_addr;
-    char str[INET6_ADDRSTRLEN];
+    sockaddr_in *ipv4;
+    char ip_addr[INET_ADDRSTRLEN];
 
     while (running) {
         fd_set readfds = m_master;  
@@ -72,46 +71,35 @@ int TcpListner::run(){
                     onClientConnected(clientSocket);
                     if (clientSocket > fdmax)
                         fdmax = clientSocket;
-
-                    // print IP Address of the client
+                     // print IP Address of the client
                     if (client_saddr.sa_family == AF_INET) {
-                        ipv4_addr = (sockaddr_in *)&client_saddr;
-                        inet_ntop(AF_INET, &(ipv4_addr->sin_addr), str, sizeof(str));
-                    }
-                    else if (client_saddr.sa_family == AF_INET6) {
-                        ipv6_addr = (sockaddr_in6 *)&client_saddr;
-                        inet_ntop(AF_INET, &(ipv6_addr->sin6_addr), str, sizeof(str));
+                        ipv4 = (sockaddr_in *)&client_saddr;
+                        inet_ntop(AF_INET, &(ipv4->sin_addr), ip_addr, sizeof(ip_addr));
                     }
                     else {
-                        ipv4_addr = nullptr;
+                        ipv4 = nullptr;
                         fprintf(stderr, "Address family is neither AF_INET nor AF_INET6\n");
                     }
-                    if (ipv4_addr){
+                    if (ipv4){
                         //TODO: access log
                         /*syslog()*/   
                     }
+        
                 }
                 else { // data from existing client .. recieve it?
                     char buf[BUFFER_SIZE]; // TODO: configure how much bytes can I read ...
                     memset(buf, '\0', BUFFER_SIZE); // TODO: in a better elegant way
                     int bytesIn = recv(fd, buf, BUFFER_SIZE, 0);
-                    
-                    
                     // Recieve the message
                     if (bytesIn <= 0){
                         // Drop the client
                         //TODO: client disconnected ... closesocket(fd)
-                        onClientDisconnected(fd);
                         FD_CLR(fd, &m_master);
+                        close(fd);
+                        onClientDisconnected(fd);
                     }
                     else {
                         // check to see if it's a command. \quit the server
-                        if (buf[0] == '\\') {
-                            running = false;
-                            //TODO: quit server ...
-                            close(m_socket);
-                        }
-                        else {
                             onMessageReceived(fd, buf,bytesIn);
                         }
                     }
@@ -119,15 +107,20 @@ int TcpListner::run(){
 
             }
         }
-    }
     close(m_socket);
     return (0);
 };
 
 
-void TcpListner::sendToCleint(int clientSocket, const char *message, int lenght){
-    send(clientSocket, message, lenght, 0);
-    //TODO: is it okay for the last flag to be just a zero ???  
+void TcpListner::sendToClient(int clientSocket, const char* message, int length) {
+    int bytesSent = send(clientSocket, message, length, 0);
+    if (bytesSent < 0) {
+        perror("send failed");
+    } else if (bytesSent < length) {
+        // Partial send occurred; need to send remaining data
+        printf("Partial send: %d of %d bytes\n", bytesSent, length);
+        // TODO: Handle remaining data (see below)
+    }
 }
 
 void TcpListner::onClientConnected(int clientSocket) {

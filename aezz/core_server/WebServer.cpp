@@ -30,5 +30,5 @@ void WebServer::onMessageReceived(int clientSocket, const char* message, int len
     std::string response = oss.str();
     int size = response.size() + 1;
 
-    sendToCleint(clientSocket, response.c_str(), size);
+    sendToClient(clientSocket, response.c_str(), size);
 }

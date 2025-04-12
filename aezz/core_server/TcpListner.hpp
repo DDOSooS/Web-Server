@@ -27,7 +27,7 @@ protected:
     // Handler when a message is recieved from the client
     virtual void onMessageReceived(int clientSocket, const char *message, int length);
     // Broadcast a message rom a client ?? TODO: why we need this @aezzahir?
-    void sendToCleint(int clientSocket, const char *message, int lenght);
+    void sendToClient(int clientSocket, const char *message, int lenght);
 
 
 private:
