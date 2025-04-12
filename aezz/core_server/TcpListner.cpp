@@ -94,9 +94,9 @@ int TcpListner::run(){
                     if (bytesIn <= 0){
                         // Drop the client
                         //TODO: client disconnected ... closesocket(fd)
-                        FD_CLR(fd, &m_master);
-                        close(fd);
                         onClientDisconnected(fd);
+                        close(fd);
+                        FD_CLR(fd, &m_master);
                     }
                     else {
                         // check to see if it's a command. \quit the server

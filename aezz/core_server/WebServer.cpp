@@ -23,7 +23,7 @@ void WebServer::onMessageReceived(int clientSocket, const char* message, int len
     std::ostringstream oss;
     oss << "HTTP/1.1 200 OK\r\n";
     oss << "Cache-Control: no-cache, private\r\n";
-    oss << "Content-lenght: 31\r\n";
+    oss << "Content-lenght: 25\r\n";
     oss << "\r\n";
     oss << "<h1>Hello From Web Server</h1>";
 
@@ -31,4 +31,5 @@ void WebServer::onMessageReceived(int clientSocket, const char* message, int len
     int size = response.size() + 1;
 
     sendToClient(clientSocket, response.c_str(), size);
+    //close(clientSocket); // is this the write thing to do ?
 }
