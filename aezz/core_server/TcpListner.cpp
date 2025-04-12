@@ -1,6 +1,8 @@
 #include "TcpListner.hpp"
 
 
+TcpListner::TcpListner() : m_ipAddress("0.0.0.0"), m_port(8080), m_socket(0) {};
+
 
 TcpListner::TcpListner(const char *ipAddress, int port): m_ipAddress(ipAddress), m_port(port), m_socket(0) {};
 
@@ -94,13 +96,12 @@ int TcpListner::run(){
                     memset(buf, '\0', BUFFER_SIZE); // TODO: in a better elegant way
                     int bytesIn = recv(fd, buf, BUFFER_SIZE, 0);
                     
-                    onMessageRecieved(fd, buf,bytesIn);
                     
                     // Recieve the message
                     if (bytesIn <= 0){
                         // Drop the client
                         //TODO: client disconnected ... closesocket(fd)
-                        close(fd);
+                        onClientDisconnected(fd);
                         FD_CLR(fd, &m_master);
                     }
                     else {
@@ -110,14 +111,16 @@ int TcpListner::run(){
                             //TODO: quit server ...
                             close(m_socket);
                         }
-                        printf("the client fd[%d] ip[%s] message is : \n%s\n",fd, str, buf);
+                        else {
+                            onMessageReceived(fd, buf,bytesIn);
+                        }
                     }
-
                 }
 
             }
         }
     }
+    close(m_socket);
     return (0);
 };
 
@@ -135,6 +138,6 @@ void TcpListner::onClientDisconnected(int clientSocket) {
 
 }
 // Handler when a message is recieved from the client
-void TcpListner::onMessageRecieved(int clientSocket, const char *message, int lenght){
+void TcpListner::onMessageReceived(int clientSocket, const char *message, int lenght){
 
 }

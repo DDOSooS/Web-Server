@@ -14,6 +14,7 @@
 class  TcpListner {
 
 public:
+    TcpListner();
     TcpListner(const char *ipAddress, int port);
     int init();
     int run();
@@ -24,7 +25,7 @@ protected:
     // Handler for client disconnection
     virtual void onClientDisconnected(int clientSocket);
     // Handler when a message is recieved from the client
-    virtual void onMessageRecieved(int clientSocket, const char *message, int lenght);
+    virtual void onMessageReceived(int clientSocket, const char *message, int length);
     // Broadcast a message rom a client ?? TODO: why we need this @aezzahir?
     void sendToCleint(int clientSocket, const char *message, int lenght);
 

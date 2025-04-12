@@ -1,8 +1,12 @@
-#include "TcpListner.hpp"
+#include "WebServer.hpp"
 
 int main() {
-    TcpListner* server = new TcpListner("0.0.0.0", 1342);
-    server->init();
-    server->run();
-    return (0);
+    WebServer* webserver = new WebServer("0.0.0.0", 8080);
+
+    if (webserver->init() != 0) {
+        return -1;
+    }
+
+    webserver->run();
+    return 0;
 }
