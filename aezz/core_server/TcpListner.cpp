@@ -62,13 +62,14 @@ int TcpListner::run(){
             if (FD_ISSET(fd, &readfds)) { // fd is ready for readig
                 if (fd == m_socket) { // request for new connection
                     addrlen =  sizeof(sockaddr_storage);
-                    int fd_new;
-                    if ((fd_new = accept(m_socket, &client_saddr, &addrlen)) == -1)
+                    int clientSocket;
+                    if ((clientSocket = accept(m_socket, &client_saddr, &addrlen)) == -1)
                         perror("failed to accept new connection");
-                    FD_SET(fd_new, &m_master);
-                    // TODO: Client connected? 
-                    if (fd_new > fdmax)
-                        fdmax = fd_new;
+                    FD_SET(clientSocket, &m_master);
+                    // TODO: Client connected?
+                    onClientConnected(clientSocket);
+                    if (clientSocket > fdmax)
+                        fdmax = clientSocket;
 
                     // print IP Address of the client
                     if (client_saddr.sa_family == AF_INET) {
@@ -91,9 +92,11 @@ int TcpListner::run(){
                 else { // data from existing client .. recieve it?
                     char buf[BUFFER_SIZE]; // TODO: configure how much bytes can I read ...
                     memset(buf, '\0', BUFFER_SIZE); // TODO: in a better elegant way
+                    int bytesIn = recv(fd, buf, BUFFER_SIZE, 0);
+                    
+                    onMessageRecieved(fd, buf,bytesIn);
                     
                     // Recieve the message
-                    int bytesIn = recv(fd, buf, BUFFER_SIZE, 0);
                     if (bytesIn <= 0){
                         // Drop the client
                         //TODO: client disconnected ... closesocket(fd)
@@ -117,3 +120,21 @@ int TcpListner::run(){
     }
     return (0);
 };
+
+
+void TcpListner::sendToCleint(int clientSocket, const char *message, int lenght){
+    send(clientSocket, message, lenght, 0);
+    //TODO: is it okay for the last flag to be just a zero ???  
+}
+
+void TcpListner::onClientConnected(int clientSocket) {
+
+}
+// Handler for client disconnection
+void TcpListner::onClientDisconnected(int clientSocket) {
+
+}
+// Handler when a message is recieved from the client
+void TcpListner::onMessageRecieved(int clientSocket, const char *message, int lenght){
+
+}
