@@ -128,7 +128,8 @@ void TcpListner::sendToCleint(int clientSocket, const char *message, int lenght)
 }
 
 void TcpListner::onClientConnected(int clientSocket) {
-
+    const char *message = "POST /users HTTP/1.1\r\n\rHost: example.com\r\n\rContent-Type: application/x-www-form-urlencoded\r\n\rContent-Length: 50\r\n\r<h1>Hello From 42 Server</h1>";
+    sendToCleint(clientSocket, message, 144);
 }
 // Handler for client disconnection
 void TcpListner::onClientDisconnected(int clientSocket) {
