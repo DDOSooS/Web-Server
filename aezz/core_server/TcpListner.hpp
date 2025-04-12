@@ -20,16 +20,13 @@ public:
 
 protected:
     // Handler for client connection
-    void onClientConnected(int clientSocket);
+    virtual void onClientConnected(int clientSocket);
     // Handler for client disconnection
-    void onClientDisconnected(int clientSocket);
+    virtual void onClientDisconnected(int clientSocket);
     // Handler when a message is recieved from the client
-    void onMessageRecieved(int clientSocket, const char *message, int lenght);
+    virtual void onMessageRecieved(int clientSocket, const char *message, int lenght);
     // Broadcast a message rom a client ?? TODO: why we need this @aezzahir?
     void sendToCleint(int clientSocket, const char *message, int lenght);
-
-    void broadcastToClients(int sendingClient, const char *message, int lenght);//TODO: do we need this ??
-
 
 
 private:
