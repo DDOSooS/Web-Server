@@ -7,9 +7,12 @@
 #include <errno.h>
 #include <string>
 #include <sstream>
+#include <fstream>
 #include <sys/select.h>
 #include <poll.h>
+#include <unordered_map>
 #define BUFFER_SIZE 4096
+#include "ClientData.hpp"
 
 
 class  WebServer {
@@ -19,18 +22,16 @@ public:
     WebServer(const char *ipAddress, int port);
     ~WebServer();
     int init();
+    void acceptNewConnection();
     int run();
 
 protected:
-    // Handler for client connection
-    virtual void onClientConnected(int clientSocket);
-    // Handler for client disconnection
-    virtual void onClientDisconnected(int clientSocket);
-    // Handler when a message is recieved from the client
-    virtual void onMessageReceived(int clientSocket, const char *message, int length);
-    // Broadcast a message rom a client ?? TODO: why we need this @aezzahir?
-    void sendToClient(int clientSocket, const char *message, int lenght);
-    void removeClient(int clientSocket);
+    void closeClientConnection(int clientSocket);
+    void updatePollEvents(int fd, short events);
+    void handleClientRequest(int fd);
+    void processHttpRequest(int fd);
+    void handleClientWrite(int fd);
+    void sendErrorResponse(int fd, int code, const std::string& message);
 
 
 private:
@@ -43,4 +44,9 @@ private:
     int maxfds = 0, numfds = 0;
     
     static const int DEFAULT_MAX_CONNECTIONS = 1024;
+
+
+    std::unordered_map<int, ClientData> clients;  // Map of fd to ClientData
 };
+
+

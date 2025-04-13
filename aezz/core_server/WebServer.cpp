@@ -1,6 +1,7 @@
 #include "WebServer.hpp"
 #include <vector>
 #include <algorithm>
+#include <fcntl.h>
 
 WebServer::WebServer() : m_ipAddress("0.0.0.0"), m_port(8080), m_socket(0), maxfds(DEFAULT_MAX_CONNECTIONS) {
     pollfds = new struct pollfd[maxfds];
@@ -77,164 +78,272 @@ int WebServer::init() {
 }
 
 int WebServer::run() {
-    if (m_socket <= 0) {
-        fprintf(stderr, "Server not initialized\n");
-        return -1;
+    bool running = true;
+
+    while (running) {
+    int ready = poll(pollfds, numfds, -1);
+    if (ready == -1) {
+        perror("poll");
+        continue;
     }
 
-    sockaddr_in client_addr;
-    socklen_t addrlen = sizeof(client_addr);
-    char ip_addr[INET_ADDRSTRLEN];
+    for (int i = 0; i < numfds; i++) {
+        if (pollfds[i].revents == 0) continue;
 
-    while (true) {
-        int poll_count = poll(pollfds, numfds, -1);
-        if (poll_count == -1) {
-            perror("poll");
+        int fd = pollfds[i].fd;
+        
+        // always check for errors first
+        if (pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
+            closeClientConnection(fd);
             continue;
         }
 
-        for (int i = 0; i < numfds; i++) {
-            if (pollfds[i].revents == 0)
-                continue;
-
-            if (pollfds[i].revents & POLLIN) {
-                if (pollfds[i].fd == m_socket) {
-                    // Handle new connection
-                    int client_fd = accept(m_socket, (struct sockaddr*)&client_addr, &addrlen);
-                    if (client_fd < 0) {
-                        perror("accept");
-                        continue;
-                    }
-
-                    // Add client to poll set
-                    if (numfds >= maxfds) {
-                        fprintf(stderr, "Maximum connections reached (%d)\n", maxfds);
-                        close(client_fd);
-                        continue;
-                    }
-
-                    pollfds[numfds].fd = client_fd;
-                    pollfds[numfds].events = POLLIN;
-                    numfds++;
-
-                    // Get client IP
-                    inet_ntop(AF_INET, &client_addr.sin_addr, ip_addr, INET_ADDRSTRLEN);
-                    printf("New connection from %s:%d\n", ip_addr, ntohs(client_addr.sin_port));
-                } else {
-                    // Handle data from client
-                    char buf[BUFFER_SIZE];
-                    ssize_t bytes_recv = recv(pollfds[i].fd, buf, BUFFER_SIZE, 0);
-
-                    if (bytes_recv <= 0) {
-                        // Client disconnected
-                        if (bytes_recv == 0) {
-                            printf("Client %d disconnected\n", pollfds[i].fd);
-                        } else {
-                            perror("recv");
-                        }
-                        onClientDisconnected(pollfds[i].fd);
-                        close(pollfds[i].fd);
-                        // Remove from poll set by swapping with last element
-                        removeClient(pollfds[i].fd);
-                        continue;  // Skip the rest of the loop
-                    } else {
-                        onMessageReceived(pollfds[i].fd, buf, bytes_recv);
-                        close(pollfds[i].fd);
-                        removeClient(pollfds[i].fd);
-                    }
-                }
-            } else if (pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
-                // Handle error conditions
-                onClientDisconnected(pollfds[i].fd);
-                close(pollfds[i].fd);
-
-                // Remove from poll set
-                pollfds[i] = pollfds[numfds-1];
-                numfds--;
-                i--;
+        // handle incoming data
+        if (pollfds[i].revents & POLLIN) {
+            if (fd == m_socket) {
+                acceptNewConnection();
+            } else {
+                handleClientRequest(fd);
             }
         }
-    }
 
-    return 0;
-}
-
-void WebServer::sendToClient(int clientSocket, const char* message, int length) {
-    std::ostringstream oss;
-    oss << "HTTP/1.1 200 OK\r\n"
-        << "Content-Type: text/html\r\n"
-        << "Content-Length: " << length << "\r\n"
-        << "Connection: close\r\n"  // Explicitly close connection
-        << "\r\n"  // End of headers
-        << std::string(message, length);
-    
-    std::string response = oss.str();
-    int total_sent = 0;
-    while (total_sent < response.size()) {
-        int bytes_sent = send(clientSocket, response.c_str() + total_sent, 
-                             response.size() - total_sent, 0);
-        if (bytes_sent <= 0) {
-            perror("send failed");
-            onClientDisconnected(clientSocket);
-            close(clientSocket);
-            removeClient(clientSocket);
-            break;
+        // handle outgoing data
+        if (pollfds[i].revents & POLLOUT) {
+            handleClientWrite(fd);
         }
-        total_sent += bytes_sent;
     }
-    
-    // Close the socket after sending response TODO: keep alive
-    shutdown(clientSocket, SHUT_WR);
+}
+return (0);
 }
 
-void WebServer::removeClient(int clientSocket) {
+// Modified acceptNewConnection
+void WebServer::acceptNewConnection() {
+        sockaddr_in clientAddr;
+        socklen_t addrLen = sizeof(clientAddr);
+        int clientFd = accept(m_socket, (struct sockaddr*)&clientAddr, &addrLen);
+        
+        if (clientFd < 0) {
+            perror("accept");
+            return;
+        }
+        
+        // Set non-blocking
+        fcntl(clientFd, F_SETFL, O_NONBLOCK);
+        
+        // Create and store ClientData
+        clients.emplace(std::piecewise_construct,
+                       std::forward_as_tuple(clientFd),
+                       std::forward_as_tuple(clientFd, clientAddr));
+        
+        // Add to poll set
+        if (numfds >= maxfds) {
+            close(clientFd);
+            clients.erase(clientFd);
+            return;
+        }
+        
+        pollfds[numfds].fd = clientFd;
+        pollfds[numfds].events = POLLIN;
+        numfds++;
+}
+
+// Close client connection
+void WebServer::closeClientConnection(int clientSocket) {
+    auto it = clients.find(clientSocket);
+    if (it != clients.end()) {
+        close(clientSocket);
+        clients.erase(it);
+            
+// Remove from poll set
     for (int i = 0; i < numfds; i++) {
         if (pollfds[i].fd == clientSocket) {
-            pollfds[i] = pollfds[numfds-1]; // Swap it with the last element;
+            pollfds[i] = pollfds[numfds-1];
             numfds--;
             break;
         }
     }
+    }
 }
 
 
-void WebServer::onClientConnected(int clientSocket) {
-    std::cout << "Client connected Number : " << clientSocket << std::endl;
-    // TODO: 
+void WebServer::updatePollEvents(int fd, short events) {
+    for (int i = 0; i < numfds; i++) {
+        if (pollfds[i].fd == fd) {
+            pollfds[i].events = events;
+            break;
+        }
+    }
 }
 
-void WebServer::onClientDisconnected(int clientSocket) {
-    std::cout << "Client disconnected Number: " << clientSocket << std::endl;
-    // TODO:
-}
-
-void WebServer::onMessageReceived(int clientSocket, const char *message, int length) {
-    std::string request(message, length);
+void WebServer::handleClientRequest(int fd) {
+    ClientData& client = clients[fd];
     
-    // Simple check if this is a HTTP GET request
-    if (request.find("GET ") == 0) {
-        std::string response = 
-            "<html><body><h1>Hello World</h1></body></html>";
-        
-        sendToClient(clientSocket, response.c_str(), response.size());
-    }
-    else if (request.find("POST ") == 0) {
-        std::string response = 
-            "<html><body><h1>This is a post request</h1></body></html>";
-        
-        sendToClient(clientSocket, response.c_str(), response.size());
-    }
-    else {
-        // Handle other cases or invalid requests
-        std::string response = 
-            "HTTP/1.1 400 Bad Request\r\n"
-            "Content-Length: 0\r\n"
-            "Connection: close\r\n\r\n";
-        
-        send(clientSocket, response.c_str(), response.size(), 0);
+    char buf[4096];
+    ssize_t bytes_recv = recv(fd, buf, sizeof(buf), 0);
+    
+    if (bytes_recv <= 0) {
+        closeClientConnection(fd);
+        return;
     }
     
-    // Close the connection after response
-    close(clientSocket);
-    removeClient(clientSocket);
+    client.requestHeaders.append(buf, bytes_recv);
+    processHttpRequest(fd);
+}
+
+
+void WebServer::handleClientWrite(int fd) {
+    ClientData& client = clients[fd];
+    
+    if (client.sendBuffer.empty()) {
+        // No more data to send, switch back to reading
+        updatePollEvents(fd, POLLIN);
+        return;
+    }
+
+    ssize_t bytes_sent = send(fd, 
+                            client.sendBuffer.data(), 
+                            client.sendBuffer.size(), 
+                            MSG_NOSIGNAL);
+
+    if (bytes_sent <= 0) {
+        if (errno != EAGAIN && errno != EWOULDBLOCK) {
+            closeClientConnection(fd);
+        }
+        return;
+    }
+
+    // Remove sent data from buffer
+    client.sendBuffer.erase(0, bytes_sent);
+
+    // If buffer is empty and connection should close
+    if (client.sendBuffer.empty() && !client.keepAlive) {
+        closeClientConnection(fd);
+    }
+    // If buffer is empty but keep-alive
+    else if (client.sendBuffer.empty()) {
+        updatePollEvents(fd, POLLIN); // Back to reading
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void WebServer::processHttpRequest(int fd) {
+    ClientData& client = clients[fd];
+    
+    // Check if we have complete headers
+    size_t header_end = client.requestHeaders.find("\r\n\r\n");
+    if (header_end == std::string::npos) {
+        return; // Incomplete headers, wait for more data
+    }
+
+    // Extract request line (first line of headers)
+    size_t line_end = client.requestHeaders.find("\r\n");
+    if (line_end == std::string::npos) {
+        sendErrorResponse(fd, 400, "Bad Request");
+        return;
+    }
+
+    std::string request_line = client.requestHeaders.substr(0, line_end);
+    
+    // Parse request method and path
+    std::istringstream iss(request_line);
+    std::string method, path, protocol;
+    iss >> method >> path >> protocol;
+    
+    // Only handle GET requests
+    if (method != "GET") {
+        sendErrorResponse(fd, 501, "Not Implemented");
+        return;
+    }
+
+    // Default to index.html if path is /
+    if (path == "/") {
+        path = "/index.html";
+    }
+
+    // Security: prevent path traversal
+    if (path.find("../") != std::string::npos) {
+        sendErrorResponse(fd, 403, "Forbidden");
+        return;
+    }
+
+    // Build filesystem path (assuming web root is in "./www")
+    std::string full_path = "./www" + path;
+    
+    // Try to open the file
+    std::ifstream file(full_path, std::ios::binary | std::ios::ate);
+    if (!file.is_open()) {
+        sendErrorResponse(fd, 404, "Not Found");
+        return;
+    }
+
+    // Get file size
+    std::streamsize file_size = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    // Read file content
+    std::vector<char> file_data(file_size);
+    if (!file.read(file_data.data(), file_size)) {
+        sendErrorResponse(fd, 500, "Internal Server Error");
+        return;
+    }
+
+    // Determine content type
+    std::string content_type = "text/plain";
+    size_t dot_pos = path.rfind('.');
+    if (dot_pos != std::string::npos) {
+        std::string ext = path.substr(dot_pos + 1);
+        if (ext == "html") content_type = "text/html";
+        else if (ext == "css") content_type = "text/css";
+        else if (ext == "js") content_type = "application/javascript";
+        else if (ext == "png") content_type = "image/png";
+        else if (ext == "jpg" || ext == "jpeg") content_type = "image/jpeg";
+        else if (ext == "gif") content_type = "image/gif";
+    }
+
+    // Build response
+    client.responseHeaders = "HTTP/1.1 200 OK\r\n";
+    client.responseHeaders += "Content-Type: " + content_type + "\r\n";
+    client.responseHeaders += "Content-Length: " + std::to_string(file_size) + "\r\n";
+    
+    // Check for keep-alive
+    bool keepAlive = (client.requestHeaders.find("Connection: keep-alive") != std::string::npos);
+    if (keepAlive) {
+        client.responseHeaders += "Connection: keep-alive\r\n";
+    } else {
+        client.responseHeaders += "Connection: close\r\n";
+    }
+    client.responseHeaders += "\r\n";
+    
+    // Combine headers and body
+    client.sendBuffer = client.responseHeaders + std::string(file_data.data(), file_size);
+    
+    // Update poll events
+    updatePollEvents(fd, POLLOUT);
+    client.requestHeaders.clear(); // Prepare for next request if keep-alive
+}
+
+void WebServer::sendErrorResponse(int fd, int code, const std::string& message) {
+    std::string body = "<html><body><h1>" + std::to_string(code) + " " + message + "</h1></body></html>";
+    
+    std::string response = "HTTP/1.1 " + std::to_string(code) + " " + message + "\r\n";
+    response += "Content-Type: text/html\r\n";
+    response += "Content-Length: " + std::to_string(body.size()) + "\r\n";
+    response += "Connection: close\r\n"; // Always close on errors
+    response += "\r\n";
+    response += body;
+    
+    clients[fd].sendBuffer = response;
+    updatePollEvents(fd, POLLOUT);
 }
