@@ -3,182 +3,242 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="./css/style.css">
-    <title>SpectrumGuard - Advanced Electronic Warfare Drone Systems</title>
+    <title>42 Web Server</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #282c34;
+            color: #abb2bf;
+            line-height: 1.6;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background-color: #21252b;
+            border-radius: 8px;
+            padding: 40px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+            border: 1px solid #3e4451;
+        }
+        
+        header {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .logo {
+            font-size: 72px;
+            font-weight: bold;
+            color: #61afef;
+            letter-spacing: -2px;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 18px;
+            color: #98c379;
+            font-weight: normal;
+        }
+        
+        hr {
+            border: none;
+            height: 1px;
+            background-color: #3e4451;
+            margin: 30px 0;
+        }
+        
+        .status-info {
+            margin-bottom: 30px;
+        }
+        
+        .status {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .status-label {
+            font-weight: bold;
+            color: #e5c07b;
+        }
+        
+        .status-value {
+            color: #56b6c2;
+        }
+        
+        .status-ok {
+            color: #98c379;
+        }
+        
+        .server-info {
+            background-color: #2c313a;
+            border-radius: 6px;
+            padding: 20px;
+            font-family: "SFMono-Regular", Monaco, Consolas, monospace;
+            margin-bottom: 30px;
+            border-left: 4px solid #61afef;
+        }
+        
+        .server-info pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .documentation {
+            padding: 20px;
+            border-radius: 6px;
+            background-color: #2c313a;
+            border-left: 4px solid #c678dd;
+        }
+        
+        .documentation h2 {
+            color: #c678dd;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        .documentation ul {
+            list-style-type: none;
+            padding-left: 10px;
+        }
+        
+        .documentation li {
+            margin-bottom: 8px;
+        }
+        
+        .documentation a {
+            color: #61afef;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        
+        .documentation a:hover {
+            color: #56b6c2;
+            text-decoration: underline;
+        }
+        
+        footer {
+            margin-top: 30px;
+            font-size: 12px;
+            text-align: center;
+            color: #5c6370;
+        }
+        
+        .blinking {
+            animation: blink 1.5s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        .terminal-cursor {
+            display: inline-block;
+            width: 10px;
+            height: 18px;
+            background-color: #abb2bf;
+            margin-left: 4px;
+            animation: blink 1s infinite;
+            vertical-align: middle;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+            
+            .logo {
+                font-size: 48px;
+            }
+        }
+    </style>
 </head>
 <body>
-    <header>
-        <nav>
-            <div class="logo">SpectrumGuard</div>
-            <ul class="nav-links">
-                <li><a href="#features">Features</a></li>
-                <li><a href="#products">Products</a></li>
-                <li><a href="#about">About</a></li>
-                <li><a href="#testimonials">Clients</a></li>
-                <li><a href="#contact">Contact</a></li>
+    <div class="container">
+        <header>
+            <div class="logo">42</div>
+            <div class="subtitle">web server is running<span class="terminal-cursor"></span></div>
+        </header>
+        
+        <div class="status-info">
+            <div class="status">
+                <span class="status-label">Status:</span>
+                <span class="status-value status-ok">Online</span>
+            </div>
+            <div class="status">
+                <span class="status-label">Version:</span>
+                <span class="status-value">42/1.23.4</span>
+            </div>
+            <div class="status">
+                <span class="status-label">Server Time:</span>
+                <span class="status-value" id="server-time">Loading...</span>
+            </div>
+            <div class="status">
+                <span class="status-label">Uptime:</span>
+                <span class="status-value" id="uptime">42d 0h 42m 42s</span>
+            </div>
+        </div>
+        
+        <div class="server-info">
+            <pre>
+Server Information:
+-----------------
+Server: 42/1.23.4
+Built: April 13, 2025 42:42:42
+OS: Linux/5.15.0-42-generic
+Architecture: x86_64
+Process ID: 4242
+Worker Connections: 1024
+Configuration: /etc/42/42.conf
+Access Log: /var/log/42/access.log
+Error Log: /var/log/42/error.log</pre>
+        </div>
+        
+        <div class="documentation">
+            <h2>Documentation & Resources</h2>
+            <ul>
+                <li><a href="#">Official Documentation</a></li>
+                <li><a href="#">Administration Guide</a></li>
+                <li><a href="#">Configuration Reference</a></li>
+                <li><a href="#">Module Index</a></li>
+                <li><a href="#">Troubleshooting</a></li>
             </ul>
-        </nav>
-        <div class="hero">
-            <h1>Advanced Electronic Warfare Drone Systems</h1>
-            <p>Deploying cutting-edge EW capabilities for tactical superiority in contested electromagnetic environments.</p>
-            <a href="#contact" class="btn">Request Demo</a>
         </div>
-    </header>
-
-    <section id="features" class="section">
-        <h2 class="section-title">Core Capabilities</h2>
-        <div class="features">
-            <div class="feature-card">
-                <img src="./images/drone.jpg" alt="Signal Intelligence" class="feature-img">
-                <div class="feature-content">
-                    <h3>Signal Intelligence (SIGINT)</h3>
-                    <p>Advanced spectrum monitoring and signals analysis with AI-powered threat identification and classification.</p>
-                </div>
-            </div>
-            <div class="feature-card">
-                <img src="/api/placeholder/400/200" alt="Electronic Attack" class="feature-img">
-                <div class="feature-content">
-                    <h3>Electronic Attack (EA)</h3>
-                    <p>Precision jamming capabilities targeting enemy communications, radar systems, and drone control frequencies.</p>
-                </div>
-            </div>
-            <div class="feature-card">
-                <img src="/api/placeholder/400/200" alt="Electronic Protection" class="feature-img">
-                <div class="feature-content">
-                    <h3>Electronic Protection (EP)</h3>
-                    <p>Adaptive countermeasures against hostile electronic attacks, ensuring operational continuity in contested environments.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section id="products" class="section products">
-        <h2 class="section-title" style="color: white;">Drone Systems</h2>
-        <div class="product-grid">
-            <div class="product-card">
-                <img src="/api/placeholder/400/250" alt="Phantom EW-1" class="product-img">
-                <div class="product-content">
-                    <h3>Phantom EW-1</h3>
-                    <p>Tactical electronic warfare drone designed for rapid deployment and battlefield dominance.</p>
-                    <div class="product-specs">
-                        <span>Range: 150km</span>
-                        <span>Flight Time: 4hrs</span>
-                        <span>Weight: 12kg</span>
-                    </div>
-                </div>
-            </div>
-            <div class="product-card">
-                <img src="/api/placeholder/400/250" alt="Spectra SIGINT-X" class="product-img">
-                <div class="product-content">
-                    <h3>Spectra SIGINT-X</h3>
-                    <p>High-altitude SIGINT platform with extended range for strategic intelligence gathering operations.</p>
-                    <div class="product-specs">
-                        <span>Range: 300km</span>
-                        <span>Flight Time: 12hrs</span>
-                        <span>Weight: 35kg</span>
-                    </div>
-                </div>
-            </div>
-            <div class="product-card">
-                <img src="/api/placeholder/400/250" alt="Guardian Swarm" class="product-img">
-                <div class="product-content">
-                    <h3>Guardian Swarm</h3>
-                    <p>Multi-drone networked EW system delivering coordinated electronic attack and protection capabilities.</p>
-                    <div class="product-specs">
-                        <span>Units: 5-12</span>
-                        <span>Coverage: 75km²</span>
-                        <span>Setup: 10min</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section id="about" class="section">
-        <div class="about">
-            <img src="/api/placeholder/600/400" alt="About SpectrumGuard" class="about-img">
-            <div class="about-content">
-                <h2>About SpectrumGuard</h2>
-                <p>Founded by experts with decades of experience in military electronic warfare systems, SpectrumGuard is dedicated to delivering next-generation EW drone solutions to defense and security organizations worldwide.</p>
-                <p>Our team combines cutting-edge aerospace engineering with advanced signal processing expertise to create unmanned systems that provide decisive advantages in electromagnetic spectrum operations.</p>
-                <p>With a focus on rapid deployment, autonomous operation, and seamless integration with existing military infrastructure, our solutions are designed for the asymmetric battlefields of tomorrow.</p>
-            </div>
-        </div>
-    </section>
-
-    <section id="testimonials" class="section testimonials">
-        <h2 class="section-title">Client Testimonials</h2>
-        <div class="testimonial-cards">
-            <div class="testimonial-card">
-                <p class="testimonial-text">"SpectrumGuard's EW drones have transformed our approach to tactical electromagnetic operations. The speed of deployment and effectiveness of their jamming capabilities have proven invaluable in field exercises."</p>
-                <div class="testimonial-author">
-                    <img src="/api/placeholder/100/100" alt="Colonel James Wilson" class="author-img">
-                    <div class="author-info">
-                        <h4>Colonel James Wilson</h4>
-                        <p>Defense Technology Acquisition Office</p>
-                    </div>
-                </div>
-            </div>
-            <div class="testimonial-card">
-                <p class="testimonial-text">"The Guardian Swarm system provided our border security teams with unprecedented situational awareness and control over the electromagnetic environment. Integration was seamless and support has been exceptional."</p>
-                <div class="testimonial-author">
-                    <img src="/api/placeholder/100/100" alt="Dr. Elena Kostas" class="author-img">
-                    <div class="author-info">
-                        <h4>Dr. Elena Kostas</h4>
-                        <p>National Security Agency</p>
-                    </div>
-                </div>
-            </div>
-            <div class="testimonial-card">
-                <p class="testimonial-text">"SpectrumGuard's SIGINT platforms delivered actionable intelligence that would have been impossible to gather through conventional means. The autonomous signal classification algorithms are particularly impressive."</p>
-                <div class="testimonial-author">
-                    <img src="/api/placeholder/100/100" alt="Major David Chen" class="author-img">
-                    <div class="author-info">
-                        <h4>Major David Chen</h4>
-                        <p>Special Operations Command</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section id="contact" class="section cta">
-        <h2>Ready to Dominate the Electromagnetic Spectrum?</h2>
-        <p>Contact our team to schedule a demonstration or discuss how SpectrumGuard's EW drone systems can enhance your operational capabilities.</p>
-        <div class="contact-form">
-            <form>
-                <div class="form-group">
-                    <input type="text" class="form-control" placeholder="Name *" required>
-                </div>
-                <div class="form-group">
-                    <input type="email" class="form-control" placeholder="Email *" required>
-                </div>
-                <div class="form-group">
-                    <input type="text" class="form-control" placeholder="Organization *" required>
-                </div>
-                <div class="form-group">
-                    <textarea class="form-control" rows="4" placeholder="Message *" required></textarea>
-                </div>
-                <button type="submit" class="btn">Submit Request</button>
-            </form>
-        </div>
-    </section>
-
-    <footer>
-        <div class="logo">SpectrumGuard</div>
-        <ul class="footer-links">
-            <li><a href="#features">Features</a></li>
-            <li><a href="#products">Products</a></li>
-            <li><a href="#about">About</a></li>
-            <li><a href="#testimonials">Clients</a></li>
-            <li><a href="#contact">Contact</a></li>
-        </ul>
-        <div class="social-links">
-            <a href="#">LinkedIn</a>
-            <a href="#">Twitter</a>
-            <a href="#">YouTube</a>
-        </div>
-        <p>&copy; 2025 SpectrumGuard Technologies, Inc. All rights reserved.</p>
-    </footer>
+        
+        <hr>
+        
+        <footer>
+            <p>42 Web Server v1.23.4 | The Ultimate Answer to Web Serving</p>
+            <p>© 2025 42 Server Project</p>
+        </footer>
+    </div>
+    
+    <script>
+        // Update server time
+        function updateServerTime() {
+            const now = new Date();
+            document.getElementById('server-time').textContent = now.toISOString().replace('T', ' ').slice(0, 19);
+        }
+        
+        // Initial time update
+        updateServerTime();
+        
+        // Update time every second
+        setInterval(updateServerTime, 1000);
+    </script>
 </body>
 </html>
