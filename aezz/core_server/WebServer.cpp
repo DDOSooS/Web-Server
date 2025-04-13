@@ -145,11 +145,15 @@ void WebServer::acceptNewConnection() {
         pollfds[numfds].fd = clientFd;
         pollfds[numfds].events = POLLIN;
         numfds++;
+        printf("Client ip: %s connected\n", clients[clientFd].ipAddress.c_str());
 }
 
 // Close client connection
 void WebServer::closeClientConnection(int clientSocket) {
     auto it = clients.find(clientSocket);
+    
+    printf("Client ip: %s disconnected\n",clients[clientSocket].ipAddress.c_str());
+    
     if (it != clients.end()) {
         close(clientSocket);
         clients.erase(it);
@@ -163,6 +167,7 @@ void WebServer::closeClientConnection(int clientSocket) {
         }
     }
     }
+
 }
 
 
