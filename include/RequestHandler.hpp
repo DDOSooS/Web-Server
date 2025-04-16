@@ -21,11 +21,6 @@ private:
     void handleGet(int fd, ClientData& client);
     void handlePost(int fd, ClientData& client);
     
-    // Special endpoint handlers
-    void handleTestGetEndpoint(int fd, ClientData& client);
-    void handleTestPostEndpoint(int fd, ClientData& client);
-    void handleTestUploadEndpoint(int fd, ClientData& client);
-    
     // Utility methods
     void serveFile(int fd, ClientData& client, const std::string& path);
     std::string determineContentType(const std::string& path);
