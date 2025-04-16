@@ -130,6 +130,65 @@
             text-decoration: underline;
         }
         
+        .test-interface {
+            padding: 20px;
+            border-radius: 6px;
+            background-color: #2c313a;
+            border-left: 4px solid #98c379;
+            margin-top: 20px;
+        }
+        
+        .test-interface h2 {
+            color: #98c379;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        .test-form {
+            margin-bottom: 20px;
+        }
+        
+        .test-form label {
+            display: block;
+            margin-bottom: 5px;
+            color: #e5c07b;
+        }
+        
+        .test-form input[type="text"],
+        .test-form textarea {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            background-color: #3e4451;
+            border: 1px solid #4b5263;
+            border-radius: 4px;
+            color: #abb2bf;
+        }
+        
+        .test-form button {
+            background-color: #61afef;
+            color: #282c34;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .test-form button:hover {
+            background-color: #56b6c2;
+        }
+        
+        .response-area {
+            background-color: #3e4451;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            min-height: 50px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        
         footer {
             margin-top: 30px;
             font-size: 12px;
@@ -219,6 +278,34 @@ Error Log: /var/log/42/error.log</pre>
             </ul>
         </div>
         
+        <div class="test-interface">
+            <h2>Test Interface</h2>
+            
+            <div class="test-form">
+                <h3>GET Request</h3>
+                <p>Test a simple GET request to the server</p>
+                <button onclick="testGet()">Test GET</button>
+                <div id="get-response" class="response-area">Response will appear here</div>
+            </div>
+        
+            <div class="test-form">
+                <h3>POST Request</h3>
+                <p>Send data to the server via POST</p>
+                <label for="post-data">Data to send:</label>
+                <textarea id="post-data" rows="4" placeholder="Enter any text data to send"></textarea>
+                <button onclick="testPost()">Test POST </button>
+                <div id="post-response" class="response-area">Response will appear here</div>
+            </div>
+        
+            <div class="test-form">
+                <h3>File Upload</h3>
+                <p>Upload a file to the server</p>
+                <input type="file" id="file-upload">
+                <button onclick="testFileUpload()">Upload File to /test-upload</button>
+                <div id="upload-response" class="response-area">Response will appear here</div>
+            </div>
+        </div>
+
         <hr>
         
         <footer>
@@ -228,17 +315,87 @@ Error Log: /var/log/42/error.log</pre>
     </div>
     
     <script>
-        // Update server time
-        function updateServerTime() {
-            const now = new Date();
-            document.getElementById('server-time').textContent = now.toISOString().replace('T', ' ').slice(0, 19);
+        // Test GET request
+        async function testGet() {
+            const responseArea = document.getElementById('get-response');
+            responseArea.textContent = "Sending GET request to /test-get...";
+            
+            try {
+                const startTime = performance.now();
+                const response = await fetch('/test-get');
+                const data = await response.text();
+                const endTime = performance.now();
+                
+                responseArea.textContent = data;
+                responseArea.innerHTML += `\n\nRequest took: ${(endTime - startTime).toFixed(2)}ms`;
+            } catch (error) {
+                responseArea.textContent = 'Error: ' + error.message;
+            }
         }
         
-        // Initial time update
-        updateServerTime();
+        // Test POST request
+        async function testPost() {
+            const responseArea = document.getElementById('post-response');
+            const data = document.getElementById('post-data').value;
+            
+            if (!data.trim()) {
+                responseArea.textContent = "Please enter some data to send";
+                return;
+            }
+            
+            responseArea.textContent = "Sending POST request to /test-post...";
+            
+            try {
+                const startTime = performance.now();
+                const response = await fetch('/test-post', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain',
+                    },
+                    body: data
+                });
+                const result = await response.text();
+                const endTime = performance.now();
+                
+                responseArea.textContent = result;
+                responseArea.innerHTML += `\n\nRequest took: ${(endTime - startTime).toFixed(2)}ms`;
+            } catch (error) {
+                responseArea.textContent = 'Error: ' + error.message;
+            }
+        }
         
-        // Update time every second
-        setInterval(updateServerTime, 1000);
+        // Test file upload
+        async function testFileUpload() {
+            const responseArea = document.getElementById('upload-response');
+            const fileInput = document.getElementById('file-upload');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                responseArea.textContent = 'Please select a file first';
+                return;
+            }
+    
+            responseArea.textContent = `Uploading ${file.name} to /test-upload...`;
+            
+            const formData = new FormData();
+            formData.append('file', file);
+    
+            try {
+                const startTime = performance.now();
+                const response = await fetch('/test-upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.text();
+                const endTime = performance.now();
+                
+                responseArea.textContent = result;
+                responseArea.innerHTML += `\n\nRequest took: ${(endTime - startTime).toFixed(2)}ms`;
+            } catch (error) {
+                responseArea.textContent = 'Error: ' + error.message;
+            }
+        }
     </script>
+    
 </body>
 </html>

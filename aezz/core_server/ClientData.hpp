@@ -1,3 +1,6 @@
+#ifndef CLIENTDATA_HPP
+#define CLIENTDATA_HPP
+
 #include <string>
 #include <ctime>
 #include <netinet/in.h>
@@ -54,3 +57,5 @@ struct ClientData {
         return (time(nullptr) - lastActivity) > timeoutSec;
     }
 };
+
+#endif
