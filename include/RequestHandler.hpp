@@ -26,6 +26,8 @@ private:
     std::string determineContentType(const std::string& path);
     void processMultipartData(int fd, ClientData& client);
     void processChunkedData(int fd, ClientData& client);
+    void listingDir (int fd, ClientData& client, const std::string& path);
+
 };
 
 #endif 

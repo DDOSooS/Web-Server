@@ -2,10 +2,15 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include "dirent.h"
+
 
 RequestHandler::RequestHandler(WebServer* server) : server(server) {}
 
-void RequestHandler::processRequest(int fd) {
+void RequestHandler::processRequest(int fd)
+{
     ClientData& client = server->getClient(fd);
     
     // Parse request line
@@ -32,12 +37,79 @@ void RequestHandler::processRequest(int fd) {
     }
 }
 
-void RequestHandler::handleGet(int fd, ClientData& client) {
-    std::string path = client.requestPath;
-    if (path == "/") {
-        path = "/index.html";
+/* Functions that validate request Path */
+
+// validate path
+bool isValidPath(std::string &path)
+{
+    struct stat path_stat;
+
+    return stat(path.c_str(), &path_stat) == 0;
+}
+
+//check if the path is refer to a directory
+bool isDir(std::string &path)
+{
+    struct stat path_stat;
+    
+    if(stat(path.c_str(), &path_stat) != 0)
+        return (false);
+    return S_ISDIR(path_stat.st_mode);
+}
+
+//check if the path refer to a regular file
+bool isFile(std::string &path)
+{
+    struct stat path_stat;
+
+    if (stat(path.c_str(), &path_stat) != 0)
+        return (false);
+    return S_ISREG(path_stat.st_mode);
+}
+
+
+
+void RequestHandler::handleGet(int fd, ClientData& client)
+{
+    std::string full_path;
+    
+    // Security: prevent path traversal
+    if (client.requestPath.find("../") != std::string::npos)
+    {
+        server->sendErrorResponse(fd, 403, "Forbidden");
+        return;
     }
-    serveFile(fd, client, path);
+    
+    full_path = "./www" + client.requestPath;
+    if (!isValidPath(full_path))
+    {
+        server->sendErrorResponse(fd, 404, "Not Found");
+        return ;
+    }
+    if (isDir(full_path))
+    {
+        std::cout << "path is refering to a DIR11111\n";
+        std::string tmp;
+        tmp =  full_path + "index.html";
+        std::cout << "FULL PATH: " << full_path << " TMP:" << tmp << std::endl; 
+        if (isFile(tmp))
+        {
+            std::cout << "listing a file 11  << \n";
+            serveFile(fd,client, tmp);
+        }
+        else
+        {
+            std::cout << "listing a Dir 222<< \n";
+            listingDir(fd, client, full_path);
+        }
+    }
+    else if (isFile(full_path))
+    {
+        std::cout << "path is refering to a File33\n";
+        serveFile(fd, client, full_path);
+    }
+    else
+        server->sendErrorResponse(fd, 403, "Forbidden");
 }
 
 void RequestHandler::handlePost(int fd, ClientData& client) {
@@ -67,16 +139,96 @@ void RequestHandler::handlePost(int fd, ClientData& client) {
     }
 }
 
-void RequestHandler::serveFile(int fd, ClientData& client, const std::string& path) {
-    // Security: prevent path traversal
-    if (path.find("../") != std::string::npos) {
-        server->sendErrorResponse(fd, 403, "Forbidden");
+//Listing File
+void RequestHandler::listingDir(int fd, ClientData &client, const std::string &full_path)
+{
+    DIR *dir_ptr;
+    struct dirent *entry;
+    std::stringstream response;
+
+    std::cout << full_path << "====\n";
+    dir_ptr = opendir(full_path.c_str());
+    if (!dir_ptr)
+    {
+        server->sendErrorResponse(fd, 500 , "Internal Server Error");
         return;
     }
+
+    response << "<!DOCTYPE html>\n"
+            << "<html>\n"
+            << "<head>\n"
+            << "    <title>Directory listing for " << full_path << "</title>\n"
+            << "    <style>\n"
+            << "        body { font-family: Arial, sans-serif; margin: 20px; }\n"
+            << "        h1 { border-bottom: 1px solid #ccc; padding-bottom: 10px; }\n"
+            << "        ul { list-style-type: none; padding: 0; }\n"
+            << "        li { margin: 5px 0; }\n"
+            << "        li a { text-decoration: none; }\n"
+            << "        li a:hover { text-decoration: underline; }\n"
+            << "        .folder { font-weight: bold; }\n"
+            << "    </style>\n"
+            << "</head>\n"
+            << "<body>\n"
+            << "    <h1>Index of  " << full_path << "</h1>\n"
+            << "    <ul>\n";
+            // << "    <li> <a href="" > Name</a> </i>"
+    int counter = 0;
+    while ((entry = readdir(dir_ptr)) != NULL)
+    {
+        std::cout << "Counter << " << counter << std::endl;
+        counter++;
+        std::string name;
+        std::string full_name;
+
+        name = entry->d_name;
+        if (name == "." || name == "..")
+            continue;
+        full_name =  full_path + "/" + name;
+        response << "<li><a href=\"" << full_name.substr(5);
+        if (entry->d_type == DT_DIR)
+        {
+            response << "/\" class=\"folder\">" << name << "/";  // Add trailing slash in display too
+        }
+        else if (entry->d_type == DT_REG)
+        {
+            response << "\">" << name;  // Add ">" after the closing quote
+        }
+        response << "</a> " << "</li> \n";
+    }
+    response << "</ul>\n"
+    << "</body>\n"
+    << "</html>";
     
-    std::string full_path = "./www" + path;
+    closedir(dir_ptr);
+    
+    // Send the directory listing
+    std::string content = response.str();
+    
+    client.responseHeaders = "HTTP/1.1 200 OK\r\n";
+    client.responseHeaders += "Content-Type: text/html\r\n";
+    client.responseHeaders += "Content-Length: " + std::to_string(content.length()) + "\r\n";
+    
+    bool keepAlive = (client.requestHeaders.find("Connection: keep-alive") != std::string::npos);
+    if (keepAlive)
+    {
+        client.responseHeaders += "Connection: keep-alive\r\n";
+    } 
+    else
+    {
+        client.responseHeaders += "Connection: close\r\n";
+    }
+    client.responseHeaders += "\r\n";
+    client.sendBuffer = client.responseHeaders + content;
+    server->updatePollEvents(fd, POLLOUT);
+    std::cout << "end Of Listing \n";
+}
+
+//serving File
+void RequestHandler::serveFile(int fd, ClientData& client, const std::string& full_path)
+{
     std::ifstream file(full_path, std::ios::binary | std::ios::ate);
-    if (!file.is_open()) {
+    if (!file.is_open())
+    {
         server->sendErrorResponse(fd, 404, "Not Found");
         return;
     }
@@ -89,15 +241,18 @@ void RequestHandler::serveFile(int fd, ClientData& client, const std::string& pa
         return;
     }
     
-    std::string content_type = determineContentType(path);
+    std::string content_type = determineContentType(full_path);
     client.responseHeaders = "HTTP/1.1 200 OK\r\n";
     client.responseHeaders += "Content-Type: " + content_type + "\r\n";
     client.responseHeaders += "Content-Length: " + std::to_string(file_size) + "\r\n";
     
     bool keepAlive = (client.requestHeaders.find("Connection: keep-alive") != std::string::npos);
-    if (keepAlive) {
+    if (keepAlive)
+    {
         client.responseHeaders += "Connection: keep-alive\r\n";
-    } else {
+    }
+    else
+    {
         client.responseHeaders += "Connection: close\r\n";
     }
     client.responseHeaders += "\r\n";
@@ -106,7 +261,8 @@ void RequestHandler::serveFile(int fd, ClientData& client, const std::string& pa
     server->updatePollEvents(fd, POLLOUT);
 }
 
-std::string RequestHandler::determineContentType(const std::string& path) {
+std::string RequestHandler::determineContentType(const std::string& path)
+{
     size_t dot_pos = path.rfind('.');
     if (dot_pos != std::string::npos) {
         std::string ext = path.substr(dot_pos + 1);
