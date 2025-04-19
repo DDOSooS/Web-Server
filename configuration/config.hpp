@@ -5,10 +5,10 @@
 
 struct Directive {
     std::string name;                  // Directive name (e.g., "listen", "root")
-    std::vector<std::string> values;   // List of values (e.g., {"80"} or {"example.com", "www.example.com"})
+    std::vector<std::string> parameters;   // List of values (e.g., {"80"} or {"example.com", "www.example.com"})
 
-    Directive(const std::string& n, const std::vector<std::string>& v = {}) : name(n), values(v) {}
-};
+    Directive(const std::string& n, const std::vector<std::string>& v = {}) : name(n), parameters(v) {}
+} ;
 
 // Represents a generic block (e.g., "server {...}", "location / {...}")
 struct Block {
@@ -17,8 +17,8 @@ struct Block {
     std::vector<Directive> directives;         // List of directives inside the block
     std::vector<Block> nested_blocks;          // List of nested blocks
 
-    Block(const std::string& n, const std::vector<std::string>& params = {})
-        : name(n), parameters(params) {}
+    Block(const std::string& name, const std::vector<std::string>& params = {})
+        : name(name), parameters(params) {}
 };
 
  struct Listen {
