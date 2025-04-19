@@ -7,15 +7,14 @@ INC_DIR	= include/
 
 # Source files
 SRC		= main.cpp \
-		  WebServer.cpp \
-		  $(SRC_DIR)RequestHandler.cpp
+		  $(SRC_DIR)WebServer.cpp $(SRC_DIR)ClientData.cpp $(SRC_DIR)RequestHandler.cpp
 
 # Objects
 OBJ		= $(SRC:.cpp=.o)
 
 # Compiler settings
 CXX		= g++
-CFLAGS	= -Wall -Wextra -std=c++11 -I$(INC_DIR)
+CFLAGS	= -Wall -Wextra -std=c++11 -g3 -I$(INC_DIR) #You must write a HTTP server in C++ 98.
 LDFLAGS	= -pthread
 RM		= rm -rf
 

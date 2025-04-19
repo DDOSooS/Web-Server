@@ -1,8 +1,9 @@
-#include "WebServer.hpp"
-#include "include/RequestHandler.hpp"
+#include "../include/WebServer.hpp"
+#include "../include/RequestHandler.hpp"
 #include <vector>
 #include <algorithm>
 #include <fcntl.h>
+
 WebServer::WebServer()
     : m_ipAddress("0.0.0.0"),
       m_port(8080),
@@ -12,6 +13,7 @@ WebServer::WebServer()
 {
     pollfds = new struct pollfd[maxfds];
 }
+
 WebServer::WebServer(const char *ipAddress, int port)
     : m_ipAddress(ipAddress),
       m_port(port),
@@ -83,6 +85,7 @@ int WebServer::init()
     printf("Server initialized on %s:%d\n", m_ipAddress, m_port);
     return 0;
 }
+
 int WebServer::run()
 {
     bool running = true;
@@ -109,23 +112,18 @@ int WebServer::run()
             if (pollfds[i].revents & POLLIN)
             {
                 if (fd == m_socket)
-                {
                     acceptNewConnection();
-                }
                 else
-                {
                     handleClientRequest(fd);
-                }
             }
             // handle outgoing data
             if (pollfds[i].revents & POLLOUT)
-            {
                 handleClientWrite(fd);
-            }
         }
     }
     return (0);
 }
+
 // Modified acceptNewConnection
 void WebServer::acceptNewConnection()
 {
@@ -197,57 +195,46 @@ void WebServer::handleClientRequest(int fd)
         closeClientConnection(fd);
         return;
     }
-    client.requestHeaders.append(buf, bytes_recv);
+    client.parseRequest(buf);
+    // client.requestHeaders.append(buf, bytes_recv);
     // If we haven't parsed headers yet, look for end of headers
-    size_t header_end = client.requestHeaders.find("\r\n\r\n");
-    if (header_end == std::string::npos)
-    {
-        // Wait for more data
-        return;
-    }
+    if (!client.http_request->crlf_flag)
+        return ;
     // Parse headers if not already done
-    if (client.requestMethod.empty())
+    if (client.http_request->method.empty())
     {
-        // Extract request line
-        size_t line_end = client.requestHeaders.find("\r\n");
-        if (line_end == std::string::npos)
+        if (!client.http_request->request_line)
         {
             sendErrorResponse(fd, 400, "Bad Request");
             return;
         }
-        std::string request_line = client.requestHeaders.substr(0, line_end);
-        std::istringstream iss(request_line);
-        iss >> client.requestMethod >> client.requestPath;
-        // Parse Content-Length if present
-        size_t content_pos = client.requestHeaders.find("Content-Length: ");
-        if (content_pos != std::string::npos)
-        {
-            size_t end = client.requestHeaders.find("\r\n", content_pos);
-            std::string len_str = client.requestHeaders.substr(content_pos + 16, end - (content_pos + 16));
-            client.contentLength = std::stoul(len_str);
-        }
     }
     // For POST, accumulate body
-    if (client.requestMethod == "POST")
+    if (client.http_request->method == "POST")
     {
-        size_t body_start = client.requestHeaders.find("\r\n\r\n");
-        if (body_start != std::string::npos)
+        if (client.http_request->crlf_flag)
         {
+            std::string tmp;
+            size_t body_start;
+            tmp = buf;
+            body_start = tmp.find("\r\n\r\n");
             body_start += 4;
-            std::string body = client.requestHeaders.substr(body_start);
-            client.requestBody += body;
+            std::string body = tmp.substr(body_start);
+            client.http_request->request_body += body;
             // Remove body from headers string to avoid duplication
-            client.requestHeaders.erase(body_start);
+            // client.requestHeaders.erase(body_start);
         }
         // If Content-Length, wait for full body
-        if (client.contentLength > 0 && client.requestBody.size() < client.contentLength)
+        if (client.http_request->content_length > 0 && client.http_request->request_body.size() < client.http_request->content_length)
         {
             return; // Wait for more data
         }
         // If chunked, wait for end of chunks (handled in processHttpRequest)
     }
+    std::cout << "Process Request\n";
     processHttpRequest(fd);
 }
+
 void WebServer::handleClientWrite(int fd)
 {
     ClientData &client = clients[fd];
@@ -272,7 +259,7 @@ void WebServer::handleClientWrite(int fd)
     // Remove sent data from buffer
     client.sendBuffer.erase(0, bytes_sent);
     // If buffer is empty and connection should close
-    if (client.sendBuffer.empty() && !client.keepAlive)
+    if (client.sendBuffer.empty() && !client.http_request->keep_alive)
     {
         closeClientConnection(fd);
     }
@@ -286,24 +273,20 @@ void WebServer::processHttpRequest(int fd)
 {
     ClientData &client = clients[fd];
     // Check if we have complete headers
-    size_t header_end = client.requestHeaders.find("\r\n\r\n");
-    if (header_end == std::string::npos)
+    if (!client.http_request->crlf_flag)
     {
         return; // Incomplete headers, wait for more data
     }
     // Extract request line (first line of headers)
-    size_t line_end = client.requestHeaders.find("\r\n");
-    if (line_end == std::string::npos)
+    if (!client.http_request->request_line)
     {
         sendErrorResponse(fd, 400, "Bad Request");
         return;
     }
-    std::string request_line = client.requestHeaders.substr(0, line_end);
-    std::istringstream iss(request_line);
-    std::string method, path, protocol;
-    iss >> method >> path >> protocol;
     requestHandler->processRequest(fd);
 }
+
+
 void WebServer::sendErrorResponse(int fd, int code, const std::string &message)
 {
     std::string body = "<html><body><h1>" + std::to_string(code) + " " + message + "</h1></body></html>";

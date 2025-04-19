@@ -1,11 +1,11 @@
-#include "RequestHandler.hpp"
+#include "../include/RequestHandler.hpp"
 #include <fstream>
 #include <sstream>
 #include <vector>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include "dirent.h"
-
+#include <stdio.h>
 
 RequestHandler::RequestHandler(WebServer* server) : server(server) {}
 
@@ -14,45 +14,81 @@ void RequestHandler::processRequest(int fd)
     ClientData& client = server->getClient(fd);
     
     // Parse request line
-    size_t line_end = client.requestHeaders.find("\r\n");
-    if (line_end == std::string::npos) {
+    if (!client.http_request->request_line)
+    {
         server->sendErrorResponse(fd, 400, "Bad Request");
         return;
     }
-    
-    std::string request_line = client.requestHeaders.substr(0, line_end);
-    std::istringstream iss(request_line);
-    std::string method, path;
-    iss >> method >> path;
-
     // Handle standard methods
-    if (method == "GET") {
+    if (client.http_request->method == "GET") {
         handleGet(fd, client);
     }
-    else if (method == "POST") {
+    else if (client.http_request->method == "POST") {
         handlePost(fd, client);
     }
     else {
+        std::cout << "Methode : " << client.http_request->method << std::endl;
         server->sendErrorResponse(fd, 501, "Not Implemented");
     }
 }
 
 /* Functions that validate request Path */
 
+//decode path
+std::string urlDecode(const std::string &str)
+{
+    std::string result;
+    for (size_t i = 0; i < str.size(); ++i)
+    {
+        if (str[i] == '%' && i + 2 < str.size())
+        {
+            int hexValue;
+            if (sscanf(str.substr(i + 1, 2).c_str(), "%x", &hexValue) == 1)
+            {
+                result += static_cast<char>(hexValue);
+                i += 2;
+            }
+            else
+                result += str[i]; 
+        }
+        else if (str[i] == '+')
+            result += ' ';
+        else
+            result += str[i];
+    }
+    return result;
+}
+
 // validate path
+// To do check encoding characters within the URL !!!!!!!!
 bool isValidPath(std::string &path)
 {
+    std::string decoded_path;
     struct stat path_stat;
-
-    return stat(path.c_str(), &path_stat) == 0;
+    
+    decoded_path = urlDecode(path);
+    std::cout << "decoded " << decoded_path << std::endl;
+    /*
+    // const char* ptr =  getcwd(NULL, 256);
+    // std::string string(ptr);
+    // std::cout << "absolute path is : " <<  string << std::endl;
+    // // decoded_path =  decoded_path.substr(1);
+    // string.append(decoded_path);
+    // const char* buffer = decoded_path.c_str();
+    // std::cout << "PATH : $" << buffer  << "$" << std::endl;
+    // assert(stat(buffer, &path_stat) < 0);
+    */
+    return stat(decoded_path.c_str(), &path_stat) == 0;
 }
 
 //check if the path is refer to a directory
 bool isDir(std::string &path)
 {
     struct stat path_stat;
+    std::string decoded_path;
     
-    if(stat(path.c_str(), &path_stat) != 0)
+    decoded_path = urlDecode(path);
+    if(stat(decoded_path.c_str(), &path_stat) != 0)
         return (false);
     return S_ISDIR(path_stat.st_mode);
 }
@@ -60,27 +96,29 @@ bool isDir(std::string &path)
 //check if the path refer to a regular file
 bool isFile(std::string &path)
 {
+    std::string decoded_path;
     struct stat path_stat;
-
-    if (stat(path.c_str(), &path_stat) != 0)
+    
+    decoded_path = urlDecode(path);
+    if (stat(decoded_path.c_str(), &path_stat) != 0)
         return (false);
     return S_ISREG(path_stat.st_mode);
 }
-
-
 
 void RequestHandler::handleGet(int fd, ClientData& client)
 {
     std::string full_path;
     
     // Security: prevent path traversal
-    if (client.requestPath.find("../") != std::string::npos)
+    if (client.http_request->request_path.find("../") != std::string::npos)
     {
         server->sendErrorResponse(fd, 403, "Forbidden");
         return;
     }
     
-    full_path = "./www" + client.requestPath;
+    // std::cout << "clinet full PATH: " << client.http_request->request_path << std::endl;
+    full_path = "./www" + client.http_request->request_path;
+    // std::cout << full_path << "<<===\n";
     if (!isValidPath(full_path))
     {
         server->sendErrorResponse(fd, 404, "Not Found");
@@ -88,46 +126,46 @@ void RequestHandler::handleGet(int fd, ClientData& client)
     }
     if (isDir(full_path))
     {
-        std::cout << "path is refering to a DIR11111\n";
+        // std::cout << "path is refering to a DIR11111\n";
         std::string tmp;
         tmp =  full_path + "index.html";
-        std::cout << "FULL PATH: " << full_path << " TMP:" << tmp << std::endl; 
+        // std::cout << "FULL PATH: " << full_path << " TMP:" << tmp << std::endl; 
         if (isFile(tmp))
         {
-            std::cout << "listing a file 11  << \n";
+            // std::cout << "listing a file 11  << \n";
             serveFile(fd,client, tmp);
         }
         else
         {
-            std::cout << "listing a Dir 222<< \n";
+            // std::cout << "listing a Dir 222<< \n";
             listingDir(fd, client, full_path);
         }
     }
     else if (isFile(full_path))
     {
-        std::cout << "path is refering to a File33\n";
+        // std::cout << "path is refering to a File33\n";
         serveFile(fd, client, full_path);
     }
     else
         server->sendErrorResponse(fd, 403, "Forbidden");
 }
 
-void RequestHandler::handlePost(int fd, ClientData& client) {
-    std::string headers = client.requestHeaders;
-    
-    bool isMultipart = headers.find("Content-Type: multipart/form-data") != std::string::npos;
-    bool isChunked = headers.find("Transfer-Encoding: chunked") != std::string::npos;
+void RequestHandler::handlePost(int fd, ClientData& client)
+{    
+    bool isMultipart;
+    bool isChunked;
 
-    if (isMultipart) {
+    isMultipart = client.http_request->findHeaderValue("Content-Type", "ultipart/form-data");
+    isChunked = client.http_request->findHeaderValue("Transfer-Encoding", "chunked");
+    if (isMultipart)
         processMultipartData(fd, client);
-    }
-    else if (isChunked) {
+    else if (isChunked)
         processChunkedData(fd, client);
-    }
-    else {
+    else
+    {
         // Handle regular POST data
         std::string response_body = "POST request received\n";
-        response_body += "Content Length: " + std::to_string(client.requestBody.length()) + "\n";
+        response_body += "Content Length: " + std::to_string(client.http_request->request_body.length()) + "\n";
         
         client.responseHeaders = "HTTP/1.1 200 OK\r\n";
         client.responseHeaders += "Content-Type: text/plain\r\n";
@@ -146,14 +184,12 @@ void RequestHandler::listingDir(int fd, ClientData &client, const std::string &f
     struct dirent *entry;
     std::stringstream response;
 
-    std::cout << full_path << "====\n";
     dir_ptr = opendir(full_path.c_str());
     if (!dir_ptr)
     {
         server->sendErrorResponse(fd, 500 , "Internal Server Error");
         return;
     }
-
     response << "<!DOCTYPE html>\n"
             << "<html>\n"
             << "<head>\n"
@@ -171,12 +207,8 @@ void RequestHandler::listingDir(int fd, ClientData &client, const std::string &f
             << "<body>\n"
             << "    <h1>Index of  " << full_path << "</h1>\n"
             << "    <ul>\n";
-            // << "    <li> <a href="" > Name</a> </i>"
-    int counter = 0;
     while ((entry = readdir(dir_ptr)) != NULL)
     {
-        std::cout << "Counter << " << counter << std::endl;
-        counter++;
         std::string name;
         std::string full_name;
 
@@ -187,40 +219,30 @@ void RequestHandler::listingDir(int fd, ClientData &client, const std::string &f
         response << "<li><a href=\"" << full_name.substr(5);
         if (entry->d_type == DT_DIR)
         {
-            response << "/\" class=\"folder\">" << name << "/";  // Add trailing slash in display too
+            response << "/\" class=\"folder\">" << name << "/";
         }
         else if (entry->d_type == DT_REG)
         {
-            response << "\">" << name;  // Add ">" after the closing quote
+            response << "\">" << name;  
         }
         response << "</a> " << "</li> \n";
     }
     response << "</ul>\n"
     << "</body>\n"
     << "</html>";
-    
     closedir(dir_ptr);
-    
-    // Send the directory listing
+
     std::string content = response.str();
-    
     client.responseHeaders = "HTTP/1.1 200 OK\r\n";
     client.responseHeaders += "Content-Type: text/html\r\n";
     client.responseHeaders += "Content-Length: " + std::to_string(content.length()) + "\r\n";
-    
-    bool keepAlive = (client.requestHeaders.find("Connection: keep-alive") != std::string::npos);
-    if (keepAlive)
-    {
+    if (client.http_request->findHeaderValue("Connection", "keep-alive"))
         client.responseHeaders += "Connection: keep-alive\r\n";
-    } 
     else
-    {
         client.responseHeaders += "Connection: close\r\n";
-    }
     client.responseHeaders += "\r\n";
     client.sendBuffer = client.responseHeaders + content;
     server->updatePollEvents(fd, POLLOUT);
-    std::cout << "end Of Listing \n";
 }
 
 //serving File
@@ -246,7 +268,8 @@ void RequestHandler::serveFile(int fd, ClientData& client, const std::string& fu
     client.responseHeaders += "Content-Type: " + content_type + "\r\n";
     client.responseHeaders += "Content-Length: " + std::to_string(file_size) + "\r\n";
     
-    bool keepAlive = (client.requestHeaders.find("Connection: keep-alive") != std::string::npos);
+    // bool keepAlive = (client.requestHeaders.find("Connection: keep-alive") != std::string::npos);
+    bool keepAlive = (client.http_request->findHeaderValue("Connection", "keep-alive"));
     if (keepAlive)
     {
         client.responseHeaders += "Connection: keep-alive\r\n";
@@ -263,22 +286,28 @@ void RequestHandler::serveFile(int fd, ClientData& client, const std::string& fu
 
 std::string RequestHandler::determineContentType(const std::string& path)
 {
-    size_t dot_pos = path.rfind('.');
-    if (dot_pos != std::string::npos) {
+    int size;
+    size_t dot_pos;
+    
+    std::string contentType[] = { "html", "css", "js", "png", "jpeg", "gif", "json", "xml" , "pdf", "mp4", "mpeg", "x-www-form-urlencoded", "form-data", "woff2", "woff", "zip", "csv"};
+    std::string contenetFormat[] = { "text/html", "text/css", "application/javascript", "image/png", "image/jpeg", "image/gif", "application/json", "application/xml", "application/pdf", "video/mp4", "audio/mpeg", "application/x-www-form-urlencoded", "multipart/form-data", "font/woff2", "font/woff", "application/zip", "text/csv"};
+    size = sizeof(contentType) / sizeof(contentType[0]);
+    dot_pos = path.rfind('.');
+    if (dot_pos != std::string::npos)
+    {
         std::string ext = path.substr(dot_pos + 1);
-        if (ext == "html") return "text/html";
-        else if (ext == "css") return "text/css";
-        else if (ext == "js") return "application/javascript";
-        else if (ext == "png") return "image/png";
-        else if (ext == "jpg" || ext == "jpeg") return "image/jpeg";
-        else if (ext == "gif") return "image/gif";
+        for (int i = 0; i < size; i++)
+            if (contentType[i] == ext)
+                return contenetFormat[i];
     }
     return "text/plain";
 }
 
-void RequestHandler::processMultipartData(int fd, ClientData& client) {
-    std::string headers = client.requestHeaders;
-    std::string body = client.requestBody;
+void RequestHandler::processMultipartData(int fd, ClientData& client)
+{
+    std::string body = client.http_request->request_body;
+    std::string headers = client.http_request->getHeader("Content-Type");
+
     
     size_t boundary_pos = headers.find("boundary=");
     if (boundary_pos == std::string::npos) {
@@ -298,7 +327,7 @@ void RequestHandler::processMultipartData(int fd, ClientData& client) {
         }
         body.erase(0, pos + boundary.length());
     }
-    
+    //
     for (const auto& part : parts) {
         size_t filename_pos = part.find("filename=\"");
         if (filename_pos != std::string::npos) {
@@ -331,8 +360,9 @@ void RequestHandler::processMultipartData(int fd, ClientData& client) {
     server->sendErrorResponse(fd, 400, "Bad Request: No file found in multipart data");
 }
 
-void RequestHandler::processChunkedData(int fd, ClientData& client) {
-    std::string body = client.requestBody;
+void RequestHandler::processChunkedData(int fd, ClientData& client)
+{
+    std::string body = client.http_request->request_body;
     std::string decoded;
     size_t pos = 0;
     
