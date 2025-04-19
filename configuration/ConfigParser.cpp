@@ -197,7 +197,6 @@ Block ConfigParser::parse_block(std::vector<std::string>::iterator& it,
             block.directives.push_back(parse_directive(it, end));
         }
         else {
-            std::cout << "nested block!";
             block.nested_blocks.push_back(parse_block(it, end));
         }
     }
@@ -254,8 +253,8 @@ void print_block(const Block& block, int indent_level) {
     
     for (size_t i = 0; i < block.directives.size(); ++i) {
         std::cout << indent << "  " << block.directives[i].name;
-        for (size_t i = 0; i < block.directives[i].parameters.size(); ++i) {
-            std::cout << " " << block.directives[i].parameters[i];
+        for (size_t j = 0; j < block.directives[i].parameters.size(); ++j) {
+            std::cout << " " << block.directives[i].parameters[j];
         }
         std::cout << ";" << std::endl;
     }
