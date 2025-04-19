@@ -42,7 +42,7 @@ const Block& ConfigParser::get_root_block() const {
 }
 
 bool ConfigParser::read_file_content(std::string& content) {
-    std::ifstream file(file_name_);
+    std::ifstream file(file_name_.c_str());
     if (!file.is_open()) {
         std::cerr << "Error: Could not open file " << file_name_ << std::endl;
         return false;
@@ -62,7 +62,7 @@ std::vector<std::string> ConfigParser::tokenize(const std::string& content) {
     bool in_quotes = false;
     char c;
     
-   for(int i = 0; i < content.length(); ++i){
+   for(size_t i = 0; i < content.length(); ++i){
         c = content[i];
         
         // Handle comment
@@ -117,11 +117,11 @@ std::vector<std::string> ConfigParser::tokenize(const std::string& content) {
     if (!current_token.empty()) {
         tokens.push_back(current_token);
     }
-    std::cout << "<";
-    for(std::string tok:tokens){
-        std::cout << tok << "> <";
-    }
-    std::cout << ">" << std::endl;
+    // std::cout << "<";
+    // for(std::string tok:tokens){
+    //     std::cout << tok << "> <";
+    // }
+    // std::cout << ">" << std::endl;
     return tokens;
 }
 
@@ -129,9 +129,9 @@ std::vector<std::string> ConfigParser::tokenize(const std::string& content) {
 void ConfigParser::process_tokens(std::vector<std::string>& tokens) {
     // Validate balanced braces
     int brace_count = 0;
-    for (const std::string& token : tokens) {
-        if (token == "{") brace_count++;
-        else if (token == "}") brace_count--;
+    for (size_t i = 0; i < tokens.size(); ++i) {
+        if (tokens[i] == "{") brace_count++;
+        else if (tokens[i] == "}") brace_count--;
         
         if (brace_count < 0) {
             std::cerr << "Error: Unbalanced braces - closing brace without matching opening brace" << std::endl;
@@ -172,7 +172,8 @@ Block ConfigParser::parse_block(std::vector<std::string>::iterator& it,
     if (it != end) {
         name = *it++;
     } else {
-        return Block("", {});
+        Block b("", std::vector<std::string>());
+        return b;
     }
     
     // Parse parameters until opening brace
@@ -220,7 +221,8 @@ Directive ConfigParser::parse_directive(std::vector<std::string>::iterator& it,
     if (it != end) {
         name = *it++;
     } else {
-        return Directive("", {});
+        Directive d("", std::vector<std::string>());
+        return d;
     }
     
     // Parse parameters until semicolon
@@ -245,21 +247,21 @@ void print_block(const Block& block, int indent_level) {
     std::string indent(indent_level * 4, ' ');
     
     std::cout << indent << block.name;
-    for (const std::string& param : block.parameters) {
-        std::cout << " " << param;
+    for (size_t i = 0; i < block.parameters.size(); ++i) {
+        std::cout << " " << block.parameters[i];
     }
     std::cout << " {" << std::endl;
     
-    for (const Directive& directive : block.directives) {
-        std::cout << indent << "  " << directive.name;
-        for (const std::string& param : directive.parameters) {
-            std::cout << " " << param;
+    for (size_t i = 0; i < block.directives.size(); ++i) {
+        std::cout << indent << "  " << block.directives[i].name;
+        for (size_t i = 0; i < block.directives[i].parameters.size(); ++i) {
+            std::cout << " " << block.directives[i].parameters[i];
         }
         std::cout << ";" << std::endl;
     }
     
-    for (const Block& nested_block : block.nested_blocks) {
-        print_block(nested_block, indent_level + 1);
+    for (size_t i = 0; i < block.nested_blocks.size(); ++i) {
+        print_block(block.nested_blocks[i], indent_level + 1);
     }
     std::cout << indent << "}" << std::endl;
 }
