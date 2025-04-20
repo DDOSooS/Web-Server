@@ -2,21 +2,14 @@
 #include "ConfigParser.hpp"
 
 
-// Directive implementation
-Directive::Directive(const std::string& name, const std::vector<std::string>& parameters)
-    : name(name), parameters(parameters) {}
-
-// Block implementation
-Block::Block(const std::string& name, const std::vector<std::string>& parameters)
-    : name(name), parameters(parameters) {}
-// Block default constructor
-Block::Block() {}
 
 // ConfigParser implementation
 ConfigParser::ConfigParser(const std::string& file_name) : file_name_(file_name) {
     root_block_ = Block();
 }
-
+const std::vector<Block>& ConfigParser::get_servers() const{
+    return (root_block_.nested_blocks);
+}
 bool ConfigParser::parse() {
     std::string content;
     if (!read_file_content(content)) {
@@ -24,17 +17,21 @@ bool ConfigParser::parse() {
     }
     
     // Tokenize content
+    content = "servers { "+ content + "}";
     std::vector<std::string> tokens = tokenize(content);
     process_tokens(tokens);
     
     std::vector<std::string>::iterator it = tokens.begin();
     root_block_ = parse_block(it, tokens.end());
-    
+    servers_ = get_servers();
     return true;
 }
 
 void ConfigParser::print_config() const {
-    print_block(root_block_, 0);
+    for (size_t i = 0; i < servers_.size(); ++i){
+        std::cout << "--------------------SERVER [" << (i) << "]-----------------------------" << std::endl;
+        print_block(servers_[i], 0);
+    }
 }
 
 const Block& ConfigParser::get_root_block() const {

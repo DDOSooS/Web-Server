@@ -17,6 +17,9 @@ int main(int argc, char* argv[]) {
     
     std::cout << "Configuration parsed successfully:" << std::endl;
     parser.print_config();
-    
+    //const std::vector<Block>& servers = parser.get_servers();
+    // for (Block server : servers){
+    //     print_block(server, 0);
+    // }
     return 0;
 }

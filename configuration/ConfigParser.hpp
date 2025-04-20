@@ -6,31 +6,8 @@
 #include <string>
 #include <iostream>
 #include <vector>
-
-// Forward declarations
-class Block;
-class Directive;
-
-// Class representing a configuration directive (key-value pair)
-class Directive {
-public:
-    Directive(const std::string& name, const std::vector<std::string>& parameters);
-    
-    std::string name;
-    std::vector<std::string> parameters;
-};
-
-// Class representing a configuration block (like server, location, etc.)
-class Block {
-public:
-    Block(const std::string& name, const std::vector<std::string>& parameters);
-    Block();
-    std::string name;
-    std::vector<std::string> parameters;
-    std::vector<Directive> directives;
-    std::vector<Block> nested_blocks;
-};
-
+#include "Block.hpp"
+#include "Directive.hpp"
 
 
 class ConfigParser {
@@ -40,10 +17,12 @@ public:
     bool parse();
     void print_config() const;
     const Block& get_root_block() const;
+    const std::vector<Block>& get_servers() const;
     
 private:
     std::string file_name_;
     Block root_block_;
+    std::vector<Block> servers_;
     
     bool read_file_content(std::string& content);
     std::vector<std::string> tokenize(const std::string& content);
