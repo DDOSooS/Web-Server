@@ -395,7 +395,11 @@ std::vector<Server> ConfigParser::create_servers() {
                     server.set_server_name(directive.parameters[0]);
                 }
             }
-            // Process other directives...
+            else if (directive.name == "host"){
+                if (!directive.parameters.empty()) {
+                    server.set_host(directive.parameters[0]);
+                }
+            }
         }
         
         // Process location blocks
