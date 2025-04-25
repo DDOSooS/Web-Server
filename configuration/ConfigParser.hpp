@@ -8,6 +8,7 @@
 #include <vector>
 #include "Block.hpp"
 #include "Directive.hpp"
+#include "Server.hpp"
 
 
 class ConfigParser {
@@ -18,7 +19,8 @@ public:
     void print_config() const;
     const Block& get_root_block() const;
     const std::vector<Block>& get_servers() const;
-    
+    std::vector<Server> create_servers();
+
 private:
     std::string file_name_;
     Block root_block_;
@@ -33,5 +35,8 @@ private:
     Directive parse_directive(std::vector<std::string>::iterator& it, 
                             const std::vector<std::string>::iterator& end);
     void process_tokens(std::vector<std::string>& tokens);
+    bool validate_config();
+    bool validate_server_block(const Block& server);
+    bool validate_location_block(const Block& location);
 };
 void print_block(const Block& block, int indent_level);
