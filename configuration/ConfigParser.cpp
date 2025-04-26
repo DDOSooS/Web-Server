@@ -226,7 +226,6 @@ Directive ConfigParser::parse_directive(std::vector<std::string>::iterator& it,
     } else {
         std::cerr << "Error: Expected ';' at end of directive" << std::endl;
     }
-    
     return Directive(name, parameters);
 }
 
@@ -365,7 +364,10 @@ bool ConfigParser::validate_config() {
 bool ConfigParser::validate_server_block(const Block& server) {
     bool has_listen = false;
     
-    // Check all directives in server block
+    if(server.name != "server"){
+        std::cerr << "Error: " << std::endl;
+        return false;
+    }
     for (size_t i = 0; i < server.directives.size(); ++i) {
         const Directive& directive = server.directives[i];
         
