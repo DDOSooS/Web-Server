@@ -66,7 +66,7 @@ Server::~Server() {
     if (_listen_fd > 0) {
         close(_listen_fd);
     }
-    std::cout << "Server destructor called : \'" << this->_server_name << "\'"<< std::endl;
+    std::cout << "Server destructor called : " << _server_name << std::endl;
 }
 
 

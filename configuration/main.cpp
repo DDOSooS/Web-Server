@@ -49,8 +49,7 @@ int main(int argc, char* argv[]) {
     std::vector<Server> servers = parser.create_servers();
     std::cout << "Created " << servers.size() << " server objects." << std::endl;
     
-    // Server operation code would go here
-    // ...
+    parser.print_config();
     
     return 0;
 }

@@ -9,7 +9,16 @@ ValidationError::ValidationError(ErrorLevel level, const std::string& message, i
 void ValidationError::print() const {
     std::string level_str = errorLevelToString(_level);
     std::string context_info = _context.empty() ? "" : " in " + _context + " context";
-    std::string line_info = (_line > 0) ? " in " + std::to_string(_line) : "";
+    
+    // Convert line number to string using std::ostringstream (C++98 compatible)
+    std::string line_info;
+    if (_line > 0) {
+        std::ostringstream oss;
+        oss << _line;
+        line_info = " on line[" + oss.str() + "]";
+    } else {
+        line_info = "";
+    }
     
     std::cerr << level_str << ":" << line_info << context_info << " " << _message << std::endl;
 }
@@ -183,7 +192,7 @@ void ConfigParser::process_tokens(std::vector<std::string>& tokens) {
     }
     
     if (brace_count != 0) {
-        addError(ValidationError::ERROR, "Unbalanced braces - missing " + std::to_string(brace_count) + " closing braces", -1, "");
+        addError(ValidationError::ERROR, "Unbalanced braces - missing closing braces", -1, "");
         tokens.clear();
         return;
     }
@@ -372,10 +381,8 @@ bool ConfigParser::validate_config() {
 }
 
 bool ConfigParser::validate_server_block(const Block& server) {
-    // Initialize ALLOWED_DIRECTIVES with C++98 style
     std::vector<std::string> ALLOWED_DIRECTIVES;
     ALLOWED_DIRECTIVES.push_back("listen");
-    ALLOWED_DIRECTIVES.push_back("host");
     ALLOWED_DIRECTIVES.push_back("server_name");
     ALLOWED_DIRECTIVES.push_back("root");
     ALLOWED_DIRECTIVES.push_back("client_max_body_size");
@@ -404,14 +411,20 @@ bool ConfigParser::validate_server_block(const Block& server) {
             // Validate listen directive parameters
             if (directive.parameters.empty()) {
                 addError(ValidationError::ERROR, "listen directive requires parameters", 
+                    getTokenLine(directive.name), "server");
+                    valid = false;
+                    continue;
+                }
+            if (directive.parameters.size() > 1) {
+                    addError(ValidationError::ERROR, " \'" + directive.parameters[1] + "\'", 
                         getTokenLine(directive.name), "server");
-                valid = false;
-                continue;
+                    valid = false;
+                    continue;
             }
-            
-            // Check if parameter contains a valid port number
-            std::string param = directive.parameters[0];
-            size_t colon_pos = param.find(':');
+                
+                // Check if parameter contains a valid port number
+                std::string param = directive.parameters[0];
+                size_t colon_pos = param.find(':');
             std::string port_str;
             
             if (colon_pos != std::string::npos) {
@@ -432,25 +445,7 @@ bool ConfigParser::validate_server_block(const Block& server) {
                 valid = false;
             }
         } 
-        else if (directive.name == "host") {
-            // Validate host directive
-            if (directive.parameters.empty()) {
-                addError(ValidationError::ERROR, "host directive requires a parameter", 
-                        getTokenLine(directive.name), "server");
-                valid = false;
-                continue;
-            }
-            
-            // Validate IP address format
-            struct in_addr addr;
-            if (inet_aton(directive.parameters[0].c_str(), &addr) == 0) {
-                addError(ValidationError::ERROR, "Invalid IP address format: " + directive.parameters[0], 
-                        getTokenLine(directive.name), "server");
-                valid = false;
-            }
-        }
         else if (directive.name == "root") {
-            // Validate root directive
             if (directive.parameters.size() != 1) {
                 addError(ValidationError::ERROR, "root directive requires exactly one parameter", 
                         getTokenLine(directive.name), "server");
@@ -487,7 +482,7 @@ bool ConfigParser::validate_server_block(const Block& server) {
             
             const char* cstr = size_str.c_str();
             char* endptr;
-            unsigned long result = strtoul(cstr, &endptr, 10);
+            strtoul(cstr, &endptr, 10);
             if (*endptr != '\0') {
                 addError(ValidationError::ERROR, "client_max_body_size invalid number format: " + directive.parameters[0], 
                         getTokenLine(directive.name), "server");
@@ -665,7 +660,7 @@ bool ConfigParser::validate_location_block(const Block& location) {
             
             const char* cstr = size_str.c_str();
             char* endptr;
-            unsigned long result = strtoul(cstr, &endptr, 10);
+            strtoul(cstr, &endptr, 10);
             if (*endptr != '\0') {
                 addError(ValidationError::ERROR, "client_max_body_size invalid number format: " + directive.parameters[0], 
                         getTokenLine(directive.name), "location");
