@@ -1,5 +1,5 @@
-#ifndef SERVER_HPP
-#define SERVER_HPP
+#ifndef SERVER_CONFIG_HPP
+#define SERVER_CONFIG_HPP
 
 #include <string>
 #include <vector>
@@ -12,7 +12,7 @@
 // Forward declaration
 class Location;
 
-class Server {
+class ServerConfig {
 private:
     uint16_t                    _port;
     in_addr_t                   _host;
@@ -27,10 +27,10 @@ private:
     int                         _listen_fd;
 
 public:
-    Server();
-    Server(const Server &other);
-    Server &operator=(const Server &rhs);
-    ~Server();
+    ServerConfig();
+    ServerConfig(const ServerConfig &other);
+    ServerConfig &operator=(const ServerConfig &rhs);
+    ~ServerConfig();
 
     uint16_t                    get_port();
     in_addr_t                   get_host();
@@ -59,4 +59,4 @@ public:
     friend class ConfigParser;
 };
 
-#endif // SERVER_HPP
+#endif // ServerConfig_HPP

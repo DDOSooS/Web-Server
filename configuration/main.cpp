@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
     }
     
     // Create server objects
-    std::vector<Server> servers = parser.create_servers();
+    std::vector<ServerConfig> servers = parser.create_servers();
     std::cout << "Created " << servers.size() << " server objects." << std::endl;
     
     parser.print_config();
