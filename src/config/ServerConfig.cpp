@@ -1,15 +1,14 @@
-#include "ServerConfig.hpp"
-#include "Location.hpp"
+#include "config/ServerConfig.hpp"
+#include "config/Location.hpp"
 
 ServerConfig::ServerConfig(){
     this->_port = 0;
-    this->_host = INADDR_NONE;
+    this->_host = "0.0.0.0";
     this->_server_name = "";
     this->_root = "";
     this->_client_max_body_size = 0;
     this->_index = "";
     this->_autoindex = false;
-    this->_listen_fd = 0;
     // init error pages
     _error_pages[301] = "";
 	_error_pages[302] = "";
@@ -39,8 +38,6 @@ ServerConfig::ServerConfig(const ServerConfig &other){
         this->_autoindex = other._autoindex;
         this->_error_pages = other._error_pages;
         this->_locations = other._locations;
-        this->_server_address = other._server_address;
-        this->_listen_fd = other._listen_fd;
     }
 }
 
@@ -55,18 +52,12 @@ ServerConfig& ServerConfig::operator=(const ServerConfig &other){
         this->_autoindex = other._autoindex;
         this->_error_pages = other._error_pages;
         this->_locations = other._locations;
-        this->_server_address = other._server_address;
-        this->_listen_fd = other._listen_fd;
     }
     return (*this);
 }
 
 
 ServerConfig::~ServerConfig() {
-    if (_listen_fd > 0) {
-        close(_listen_fd);
-    }
-    std::cout << "ServerConfig destructor called : " << _server_name << std::endl;
 }
 
 
@@ -74,7 +65,7 @@ uint16_t						ServerConfig::get_port(){
     return this->_port;
 }
 
-in_addr_t						ServerConfig::get_host(){
+std::string					ServerConfig::get_host(){
     return this->_host;
 }
 
@@ -106,13 +97,7 @@ std::vector<Location> 			ServerConfig::get_locations(){
     return this->_locations;
 }
 
-struct sockaddr_in 				ServerConfig::get_server_address(){
-    return this->_server_address;
-}
 
-int     						ServerConfig::get_listen_fd(){
-    return this->_listen_fd;
-}
 
 
 
@@ -129,9 +114,10 @@ void ServerConfig::set_port(std::string param){
 }
 
 void ServerConfig::set_host(std::string param){
-    _host = inet_addr(param.c_str());
-    if (_host == INADDR_NONE)
+    in_addr_t host = inet_addr(param.c_str());
+    if (host == INADDR_NONE)
         std::cerr << "Error: Invalid IP address format" << std::endl;
+    _host = param;
 }
 
 void ServerConfig::set_server_name(std::string param){
@@ -212,18 +198,3 @@ void ServerConfig::set_error_pages(std::string error_code, std::string error_pag
 void ServerConfig::add_location(const Location& location) {
     this->_locations.push_back(location);
 }
-
-void ServerConfig::set_server_address() {
-    struct sockaddr_in server_addr;
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = this->_host;
-    server_addr.sin_port = htons(this->_port);
-    
-    this->_server_address = server_addr;
-}
-
-void ServerConfig::set_listen_fd(int sock_fd){
-    this->_listen_fd = sock_fd;
-}
-// TODO:: setup the server

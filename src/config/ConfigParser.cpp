@@ -1,6 +1,6 @@
-#include "ConfigParser.hpp"
-#include "ServerConfig.hpp"
-#include "Location.hpp"
+#include "config/ConfigParser.hpp"
+#include "config/ServerConfig.hpp"
+#include "config/Location.hpp"
 
 // ValidationError implementation
 ValidationError::ValidationError(ErrorLevel level, const std::string& message, int line, const std::string& context)
@@ -795,10 +795,6 @@ std::vector<ServerConfig> ConfigParser::create_servers() {
                 server.add_location(location);
             }
         }
-        
-        // Setup server address
-        server.set_server_address();
-        
         servers.push_back(server);
     }
     

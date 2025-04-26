@@ -1,4 +1,4 @@
-#include "Directive.hpp"
+#include "config/Directive.hpp"
 
 Directive::Directive(const std::string& name, const std::vector<std::string>& parameters)
     : name(name), parameters(parameters) {}
