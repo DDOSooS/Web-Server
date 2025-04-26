@@ -103,7 +103,7 @@ Location &Location::operator=(const Location &other) {
         this->_cgi_ext = other._cgi_ext;
         this->_cgi_path = other._cgi_path;
     }
-    return *this;  // Return reference to this object
+    return *this;
 }
 
 Location::~Location() {}
@@ -134,7 +134,7 @@ void Location::set_allowMethods(std::vector<std::string> allow_methods){
     this->_allow_methods.push_back(false);
     this->_allow_methods.push_back(false);
     this->_allow_methods.push_back(false);
-    this->_allow_methods.push_back(false);// TODO: is it C++ 98 compatible ?
+    this->_allow_methods.push_back(false);
 	for(size_t i = 0; i < allow_methods.size(); ++i) {
 		if (allow_methods[i] == "GET")
 			this->_allow_methods[0] = true;
@@ -202,7 +202,6 @@ void Location::set_clientMaxBodySize(std::string body_size){
             result *= 1024 * 1024 * 1024;
             break;
         case 'B':
-            // No multiplier needed
             break;
         default:
             std::cerr << "client_max_body_size: invalid unit: " << unit << std::endl;

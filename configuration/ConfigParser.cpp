@@ -62,9 +62,8 @@ std::vector<std::string> ConfigParser::tokenize(const std::string& content) {
     
    for(size_t i = 0; i < content.length(); ++i){
         c = content[i];
-        
-        // Handle comment
-        if (c == '#' && !in_quotes) {
+        // Handle comments
+        if (c == '#' && !in_quotes) { // start of comment #
             in_comment = true;
             if (!current_token.empty()) {
                 tokens.push_back(current_token);
@@ -72,13 +71,11 @@ std::vector<std::string> ConfigParser::tokenize(const std::string& content) {
             }
             continue;
         }
-         // End of comment
-        if (in_comment && c == '\n') {
+        if (in_comment && c == '\n') { // end of comment \n
             in_comment = false;
             continue;
         }
-        
-        if (in_comment) {
+        if (in_comment) { // while still in comment move to next char
             continue;
         }
         
@@ -88,6 +85,7 @@ std::vector<std::string> ConfigParser::tokenize(const std::string& content) {
             current_token += c;
             continue;
         }
+
          // Handle special characters
         if (!in_quotes && (c == '{' || c == '}' || c == ';')) {
             if (!current_token.empty()) {
@@ -115,11 +113,6 @@ std::vector<std::string> ConfigParser::tokenize(const std::string& content) {
     if (!current_token.empty()) {
         tokens.push_back(current_token);
     }
-    // std::cout << "<";
-    // for(std::string tok:tokens){
-    //     std::cout << tok << "> <";
-    // }
-    // std::cout << ">" << std::endl;
     return tokens;
 }
 
