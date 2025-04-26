@@ -1,4 +1,3 @@
-
 #include "ConfigParser.hpp"
 #include <iostream>
 
@@ -17,9 +16,16 @@ int main(int argc, char* argv[]) {
     
     std::cout << "Configuration parsed successfully:" << std::endl;
     parser.print_config();
-    //const std::vector<Block>& servers = parser.get_servers();
-    // for (Block server : servers){
-    //     print_block(server, 0);
-    // }
+    
+    // Validate configuration
+    if (!parser.validate_config()) {
+        std::cerr << "Configuration validation failed." << std::endl;
+        return 1;
+    }
+    
+    // Create server objects
+    std::vector<Server> servers = parser.create_servers();
+    std::cout << "Created " << servers.size() << " server objects." << std::endl;
+    
     return 0;
 }

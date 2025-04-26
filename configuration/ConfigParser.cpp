@@ -1,5 +1,6 @@
-// ConfigParser.cpp
 #include "ConfigParser.hpp"
+#include "Server.hpp"
+#include "Location.hpp"
 
 
 
@@ -263,6 +264,91 @@ void print_block(const Block& block, int indent_level) {
 }
 
 
+
+
+std::vector<Server> ConfigParser::create_servers() {
+    std::vector<Server> servers;
+    
+    // Process each server block
+    for (size_t i = 0; i < servers_.size(); ++i) {
+        Server server;
+        
+        // Process server directives
+        for (size_t j = 0; j < servers_[i].directives.size(); ++j) {
+            const Directive& directive = servers_[i].directives[j];
+            
+            if (directive.name == "listen") {
+                if (!directive.parameters.empty()) {
+                    // Check if parameter contains a colon (host:port format)
+                    std::string param = directive.parameters[0];
+                    size_t colon_pos = param.find(':');
+                    
+                    if (colon_pos != std::string::npos) {
+                        // Split into host and port
+                        std::string host = param.substr(0, colon_pos);
+                        std::string port = param.substr(colon_pos + 1);
+                        server.set_host(host);
+                        server.set_port(port);
+                    } else {
+                        // Just port, use default host
+                        server.set_port(param);
+                    }
+                }
+            }
+            else if (directive.name == "host") {
+                if (!directive.parameters.empty()) {
+                    server.set_host(directive.parameters[0]);
+                }
+            }
+            else if (directive.name == "server_name") {
+                if (!directive.parameters.empty()) {
+                    server.set_server_name(directive.parameters[0]);
+                }
+            }
+            else if (directive.name == "root") {
+                if (!directive.parameters.empty()) {
+                    server.set_root(directive.parameters[0]);
+                }
+            }
+            else if (directive.name == "index") {
+                if (!directive.parameters.empty()) {
+                    server.set_index(directive.parameters[0]);
+                }
+            }
+            else if (directive.name == "autoindex") {
+                if (!directive.parameters.empty()) {
+                    server.set_autoindex(directive.parameters[0]);
+                }
+            }
+            else if (directive.name == "client_max_body_size") {
+                if (!directive.parameters.empty()) {
+                    server.set_client_max_body_size(directive.parameters[0]);
+                }
+            }
+            else if (directive.name == "error_page") {
+                if (directive.parameters.size() >= 2) {
+                    server.set_error_pages(directive.parameters[0], directive.parameters[1]);
+                }
+            }
+        }
+        
+        // Process location blocks
+        for (size_t j = 0; j < servers_[i].nested_blocks.size(); ++j) {
+            if (servers_[i].nested_blocks[j].name == "location") {
+                Location location(servers_[i].nested_blocks[j]);
+                server.add_location(location);
+            }
+        }
+        
+        // Setup server address
+        server.set_server_address();
+        
+        servers.push_back(server);
+    }
+    
+    return servers;
+}
+
 bool ConfigParser::validate_config() {
     // For each server block
     for (size_t i = 0; i < servers_.size(); ++i) {
@@ -297,11 +383,54 @@ bool ConfigParser::validate_server_block(const Block& server) {
                 std::cerr << "Error: listen directive requires parameters" << std::endl;
                 return false;
             }
+            
+            // Check if parameter contains a valid port number
+            std::string param = directive.parameters[0];
+            size_t colon_pos = param.find(':');
+            std::string port_str;
+            
+            if (colon_pos != std::string::npos) {
+                // Split into host and port
+                port_str = param.substr(colon_pos + 1);
+            } else {
+                // Just port
+                port_str = param;
+            }
+            
+            // Validate port number
+            const char* cstr = port_str.c_str();
+            char* endptr;
+            unsigned long port = strtoul(cstr, &endptr, 10);
+            if (*endptr != '\0' || port < 1 || port > 65535) {
+                std::cerr << "Error: Invalid port number: " << port_str << std::endl;
+                return false;
+            }
         } 
+        else if (directive.name == "host") {
+            // Validate host directive
+            if (directive.parameters.empty()) {
+                std::cerr << "Error: host directive requires a parameter" << std::endl;
+                return false;
+            }
+            
+            // Validate IP address format
+            struct in_addr addr;
+            if (inet_aton(directive.parameters[0].c_str(), &addr) == 0) {
+                std::cerr << "Error: Invalid IP address format: " << directive.parameters[0] << std::endl;
+                return false;
+            }
+        }
         else if (directive.name == "root") {
             // Validate root directive
             if (directive.parameters.size() != 1) {
                 std::cerr << "Error: root directive requires exactly one parameter" << std::endl;
+                return false;
+            }
+        }
+        else if (directive.name == "server_name") {
+            // Validate server_name directive
+            if (directive.parameters.empty()) {
+                std::cerr << "Error: server_name directive requires at least one parameter" << std::endl;
                 return false;
             }
         }
@@ -311,16 +440,67 @@ bool ConfigParser::validate_server_block(const Block& server) {
                 std::cerr << "Error: client_max_body_size requires exactly one parameter" << std::endl;
                 return false;
             }
+            
             // Check if parameter is a valid number
-            const char* cstr = directive.parameters[0].c_str();
+            std::string size_str = directive.parameters[0];
+            size_t len = size_str.length();
+            char unit = 'B';
+            
+            // Check for K, M, G units
+            if (len > 0 && std::isalpha(size_str[len - 1])) {
+                unit = std::toupper(size_str[len - 1]);
+                size_str = size_str.substr(0, len - 1);
+            }
+            
+            const char* cstr = size_str.c_str();
             char* endptr;
             unsigned long result = strtoul(cstr, &endptr, 10);
             if (*endptr != '\0') {
-                std::cerr << "Error: client_max_body_size requires a number" << std::endl;
+                std::cerr << "Error: client_max_body_size invalid number format: " << directive.parameters[0] << std::endl;
+                return false;
+            }
+            
+            // Check unit
+            if (unit != 'B' && unit != 'K' && unit != 'M' && unit != 'G') {
+                std::cerr << "Error: client_max_body_size invalid unit: " << unit << std::endl;
                 return false;
             }
         }
-        // Add validation for other server directives
+        else if (directive.name == "error_page") {
+            // Validate error_page directive
+            if (directive.parameters.size() < 2) {
+                std::cerr << "Error: error_page directive requires at least two parameters" << std::endl;
+                return false;
+            }
+            
+            // Validate error code
+            const char* cstr = directive.parameters[0].c_str();
+            char* endptr;
+            int code = strtol(cstr, &endptr, 10);
+            if (*endptr != '\0' || code < 100 || code > 599) {
+                std::cerr << "Error: Invalid error code: " << directive.parameters[0] << std::endl;
+                return false;
+            }
+        }
+        else if (directive.name == "autoindex") {
+            // Validate autoindex directive
+            if (directive.parameters.size() != 1 || 
+                (directive.parameters[0] != "on" && directive.parameters[0] != "off")) {
+                std::cerr << "Error: autoindex directive requires 'on' or 'off'" << std::endl;
+                return false;
+            }
+        }
+        else if (directive.name == "index") {
+            // Validate index directive
+            if (directive.parameters.empty()) {
+                std::cerr << "Error: index directive requires at least one parameter" << std::endl;
+                return false;
+            }
+        }
+        else {
+            // Unknown directive
+            std::cerr << "Warning: Unknown directive in server context: " << directive.name << std::endl;
+        }
     }
     
     // Check if server has required directives
@@ -343,11 +523,25 @@ bool ConfigParser::validate_location_block(const Block& location) {
     for (size_t i = 0; i < location.directives.size(); ++i) {
         const Directive& directive = location.directives[i];
         
-        if (directive.name == "autoindex") {
+        if (directive.name == "root") {
+            // Validate root directive
+            if (directive.parameters.size() != 1) {
+                std::cerr << "Error: root directive requires exactly one parameter" << std::endl;
+                return false;
+            }
+        }
+        else if (directive.name == "autoindex") {
             // Validate autoindex directive
             if (directive.parameters.size() != 1 || 
                 (directive.parameters[0] != "on" && directive.parameters[0] != "off")) {
                 std::cerr << "Error: autoindex directive requires 'on' or 'off'" << std::endl;
+                return false;
+            }
+        }
+        else if (directive.name == "index") {
+            // Validate index directive
+            if (directive.parameters.empty()) {
+                std::cerr << "Error: index directive requires at least one parameter" << std::endl;
                 return false;
             }
         }
@@ -368,72 +562,96 @@ bool ConfigParser::validate_location_block(const Block& location) {
                 }
             }
         }
-        // Add validation for other location directives
+        else if (directive.name == "return") {
+            // Validate return directive
+            if (directive.parameters.size() < 2) {
+                std::cerr << "Error: return directive requires at least two parameters" << std::endl;
+                return false;
+            }
+            
+            // Validate redirect code
+            const char* cstr = directive.parameters[0].c_str();
+            char* endptr;
+            int code = strtol(cstr, &endptr, 10);
+            if (*endptr != '\0' || (code != 301 && code != 302 && code != 303 && code != 307 && code != 308)) {
+                std::cerr << "Error: Invalid redirection code: " << directive.parameters[0] << std::endl;
+                return false;
+            }
+        }
+        else if (directive.name == "client_max_body_size") {
+            // Validate client_max_body_size directive
+            if (directive.parameters.size() != 1) {
+                std::cerr << "Error: client_max_body_size requires exactly one parameter" << std::endl;
+                return false;
+            }
+            
+            // Check if parameter is a valid number
+            std::string size_str = directive.parameters[0];
+            size_t len = size_str.length();
+            char unit = 'B';
+            
+            // Check for K, M, G units
+            if (len > 0 && std::isalpha(size_str[len - 1])) {
+                unit = std::toupper(size_str[len - 1]);
+                size_str = size_str.substr(0, len - 1);
+            }
+            
+            const char* cstr = size_str.c_str();
+            char* endptr;
+            unsigned long result = strtoul(cstr, &endptr, 10);
+            if (*endptr != '\0') {
+                std::cerr << "Error: client_max_body_size invalid number format: " << directive.parameters[0] << std::endl;
+                return false;
+            }
+            
+            // Check unit
+            if (unit != 'B' && unit != 'K' && unit != 'M' && unit != 'G') {
+                std::cerr << "Error: client_max_body_size invalid unit: " << unit << std::endl;
+                return false;
+            }
+        }
+        else if (directive.name == "cgi_extension") {
+            // Validate cgi_extension directive
+            if (directive.parameters.empty()) {
+                std::cerr << "Error: cgi_extension requires at least one parameter" << std::endl;
+                return false;
+            }
+            
+            // Validate each extension
+            for (size_t j = 0; j < directive.parameters.size(); ++j) {
+                const std::string& ext = directive.parameters[j];
+                if (ext.empty() || ext[0] != '.') {
+                    std::cerr << "Error: invalid CGI extension: " << ext << std::endl;
+                    return false;
+                }
+            }
+        }
+        else if (directive.name == "cgi_path") {
+            // Validate cgi_path directive
+            if (directive.parameters.empty()) {
+                std::cerr << "Error: cgi_path requires at least one parameter" << std::endl;
+                return false;
+            }
+        }
+        else if (directive.name == "upload_store") {
+            // Validate upload_store directive
+            if (directive.parameters.size() != 1) {
+                std::cerr << "Error: upload_store requires exactly one parameter" << std::endl;
+                return false;
+            }
+        }
+        else if (directive.name == "alias") {
+            // Validate alias directive
+            if (directive.parameters.size() != 1) {
+                std::cerr << "Error: alias directive requires exactly one parameter" << std::endl;
+                return false;
+            }
+        }
+        else {
+            // Unknown directive
+            std::cerr << "Warning: Unknown directive in location context: " << directive.name << std::endl;
+        }
     }
     
     return true;
-}
-
-std::vector<Server> ConfigParser::create_servers() {
-    std::vector<Server> servers;
-    
-    // Process each server block
-    for (size_t i = 0; i < servers_.size(); ++i) {
-        Server server;
-        
-        // Process server directives
-        for (size_t j = 0; j < servers_[i].directives.size(); ++j) {
-            const Directive& directive = servers_[i].directives[j];
-            
-            if (directive.name == "listen") {
-                if (!directive.parameters.empty()) {
-                    server.set_port(directive.parameters[0]);
-                }
-            }
-            else if (directive.name == "server_name") {
-                if (!directive.parameters.empty()) {
-                    server.set_server_name(directive.parameters[0]);
-                }
-            }
-            else if (directive.name == "host"){
-                if (!directive.parameters.empty()) {
-                    server.set_host(directive.parameters[0]);
-                }
-            }
-        }
-        
-        // Process location blocks
-        for (size_t j = 0; j < servers_[i].nested_blocks.size(); ++j) {
-            if (servers_[i].nested_blocks[j].name == "location") {
-                Location location;
-                
-                // Set location path
-                if (!servers_[i].nested_blocks[j].parameters.empty()) {
-                    location.set_path(servers_[i].nested_blocks[j].parameters[0]);
-                }
-                
-                // Process location directives
-                for (size_t k = 0; k < servers_[i].nested_blocks[j].directives.size(); ++k) {
-                    const Directive& directive = servers_[i].nested_blocks[j].directives[k];
-                    
-                    if (directive.name == "autoindex") {
-                        if (!directive.parameters.empty()) {
-                            location.set_autoindex(directive.parameters[0]);
-                        }
-                    }
-                    else if (directive.name == "allow_methods") {
-                        location.set_allowMethods(directive.parameters);
-                    }
-                    // Process other location directives...
-                }
-                
-                // Add the location to the server
-                server._locations.push_back(location);
-            }
-        }
-        
-        servers.push_back(server);
-    }
-    
-    return servers;
 }

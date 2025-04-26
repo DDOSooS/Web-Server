@@ -1,4 +1,5 @@
 #include "Server.hpp"
+#include "Location.hpp"
 
 Server::Server(){
     this->_port = 0;
@@ -60,8 +61,12 @@ Server& Server::operator=(const Server &other){
     return (*this);
 }
 
-Server::~Server(){
-    std::cout << "Server destructor called : " <<  _server_name << std::endl;
+
+Server::~Server() {
+    if (_listen_fd > 0) {
+        close(_listen_fd);
+    }
+    std::cout << "Server destructor called : " << _server_name << std::endl;
 }
 
 
@@ -130,22 +135,53 @@ void Server::set_host(std::string param){
 }
 
 void Server::set_server_name(std::string param){
-
+    this->_server_name = param;
 }
 
 void Server::set_root(std::string param){
-
+    this->_root = param;
 }
 
 void Server::set_client_max_body_size(std::string body_size){
-    const char* cstr = body_size.c_str();
+    // Check if parameter is a valid number
+    std::string size_str = body_size;
+    size_t len = size_str.length();
+    char unit = 'B';
+    
+    // Check for K, M, G units
+    if (len > 0 && std::isalpha(size_str[len - 1])) {
+        unit = std::toupper(size_str[len - 1]);
+        size_str = size_str.substr(0, len - 1);
+    }
+    
+    const char* cstr = size_str.c_str();
     char* endptr;
     unsigned long result = strtoul(cstr, &endptr, 10);
     if (*endptr != '\0') {
         std::cerr << "client_max_body_size: '" << body_size << "' is not a valid number" << std::endl;
-		return;
+        return;
     }
-	this->_client_max_body_size = result;
+    
+    // Apply multiplier based on unit
+    switch (unit) {
+        case 'K':
+            result *= 1024;
+            break;
+        case 'M':
+            result *= 1024 * 1024;
+            break;
+        case 'G':
+            result *= 1024 * 1024 * 1024;
+            break;
+        case 'B':
+            // No multiplier needed
+            break;
+        default:
+            std::cerr << "client_max_body_size: invalid unit: " << unit << std::endl;
+            return;
+    }
+    
+    this->_client_max_body_size = result;
 }
 
 void Server::set_index(std::string param){
@@ -161,18 +197,34 @@ void Server::set_autoindex(std::string index){
 	}
 }
 
-void Server::set_error_pages(std::string param){ // error_page <error_code> <error_page>;
-// TODO:
+// Update the error_pages and locations methods
+void Server::set_error_pages(std::string error_code, std::string error_page) {
+    // Convert error code string to short
+    const char* cstr = error_code.c_str();
+    char* endptr;
+    int code = strtol(cstr, &endptr, 10);
+    
+    if (*endptr != '\0' || code < 100 || code > 599) {
+        std::cerr << "Error: Invalid error code: " << error_code << std::endl;
+        return;
+    }
+    
+    // Set error page
+    this->_error_pages[static_cast<short>(code)] = error_page;
 }
 
-void Server::set_locations(std::string param){
-//TODO:
-// check if a valid location or CGI
-// and then check if it ok
+void Server::add_location(const Location& location) {
+    this->_locations.push_back(location);
 }
 
-void Server::set_server_address(std::string param){
-
+void Server::set_server_address() {
+    struct sockaddr_in server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = this->_host;
+    server_addr.sin_port = htons(this->_port);
+    
+    this->_server_address = server_addr;
 }
 
 void Server::set_listen_fd(int sock_fd){

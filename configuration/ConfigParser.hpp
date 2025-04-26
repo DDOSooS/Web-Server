@@ -1,3 +1,6 @@
+#ifndef CONFIG_PARSER_HPP
+#define CONFIG_PARSER_HPP
+
 #include <algorithm>
 #include <cctype>
 #include <fstream>
@@ -10,7 +13,6 @@
 #include "Directive.hpp"
 #include "Server.hpp"
 
-
 class ConfigParser {
 public:
     ConfigParser(const std::string& file_name);
@@ -20,6 +22,9 @@ public:
     const Block& get_root_block() const;
     const std::vector<Block>& get_servers() const;
     std::vector<Server> create_servers();
+    bool validate_config();
+    bool validate_server_block(const Block& server);
+    bool validate_location_block(const Block& location);
 
 private:
     std::string file_name_;
@@ -35,8 +40,8 @@ private:
     Directive parse_directive(std::vector<std::string>::iterator& it, 
                             const std::vector<std::string>::iterator& end);
     void process_tokens(std::vector<std::string>& tokens);
-    bool validate_config();
-    bool validate_server_block(const Block& server);
-    bool validate_location_block(const Block& location);
 };
+
 void print_block(const Block& block, int indent_level);
+
+#endif // CONFIG_PARSER_HPP

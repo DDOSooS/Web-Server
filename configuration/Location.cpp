@@ -1,55 +1,112 @@
 #include "Location.hpp"
+#include "Block.hpp"
 #include <cstdlib>
 
-
-Location::Location(){
-	this->_path = "";
-	this->_root = "";
-	this->_autoindex = false;
-	this->_index = "";
-	this->_allow_methods.reserve(5);
-	this->_allow_methods.push_back(false);
-	this->_allow_methods.push_back(false);
-	this->_allow_methods.push_back(false);
-	this->_allow_methods.push_back(false);
-	this->_allow_methods.push_back(false);
-	this->_return = "";
-	this->_alias = "";
-	this->_client_max_body_size = 0;
+Location::Location() {
+    this->_path = "";
+    this->_root = "";
+    this->_autoindex = false;
+    this->_index = "";
+    this->_allow_methods.reserve(5);
+    this->_allow_methods.push_back(false);
+    this->_allow_methods.push_back(false);
+    this->_allow_methods.push_back(false);
+    this->_allow_methods.push_back(false);
+    this->_allow_methods.push_back(false);
+    this->_return = "";
+    this->_alias = "";
+    this->_client_max_body_size = 0;
+    this->_cgi_ext.clear();
+    this->_cgi_path.clear();
 }
 
-Location::Location(const Location &other){
-	this->_path = other._path;
-	this->_root = other._root;
-	this->_autoindex = other._autoindex;
-	this->_index = other._index;
-	this->_allow_methods = other._allow_methods; // GET
-	this->_return = other._return;
-	this->_alias = other._alias;
-	this->_client_max_body_size = other._client_max_body_size;
-	this->_cgi_ext = other._cgi_ext;
-	this->_cgi_path = other._cgi_path;
+Location::Location(const Location &other) {
+    this->_path = other._path;
+    this->_root = other._root;
+    this->_autoindex = other._autoindex;
+    this->_index = other._index;
+    this->_allow_methods = other._allow_methods;
+    this->_return = other._return;
+    this->_alias = other._alias;
+    this->_client_max_body_size = other._client_max_body_size;
+    this->_cgi_ext = other._cgi_ext;
+    this->_cgi_path = other._cgi_path;
+}
+
+Location::Location(const Block &location) {
+    // Initialize with defaults
+    this->_path = "";
+    this->_root = "";
+    this->_autoindex = false;
+    this->_index = "";
+    this->_allow_methods.reserve(5);
+    this->_allow_methods.push_back(false);
+    this->_allow_methods.push_back(false);
+    this->_allow_methods.push_back(false);
+    this->_allow_methods.push_back(false);
+    this->_allow_methods.push_back(false);
+    this->_return = "";
+    this->_alias = "";
+    this->_client_max_body_size = 0;
+    this->_cgi_ext.clear();
+    this->_cgi_path.clear();
+    
+    // Set path from block parameters
+    if (!location.parameters.empty()) {
+        this->_path = location.parameters[0];
+    }
+    
+    // Process directives
+    for (size_t i = 0; i < location.directives.size(); ++i) {
+        const Directive& directive = location.directives[i];
+        
+        if (directive.name == "root" && !directive.parameters.empty()) {
+            this->_root = directive.parameters[0];
+        }
+        else if (directive.name == "autoindex" && !directive.parameters.empty()) {
+            this->set_autoindex(directive.parameters[0]);
+        }
+        else if (directive.name == "index" && !directive.parameters.empty()) {
+            this->_index = directive.parameters[0];
+        }
+        else if (directive.name == "allow_methods") {
+            this->set_allowMethods(directive.parameters);
+        }
+        else if (directive.name == "return" && !directive.parameters.empty()) {
+            this->_return = directive.parameters[0];
+        }
+        else if (directive.name == "alias" && !directive.parameters.empty()) {
+            this->_alias = directive.parameters[0];
+        }
+        else if (directive.name == "client_max_body_size" && !directive.parameters.empty()) {
+            this->set_clientMaxBodySize(directive.parameters[0]);
+        }
+        else if (directive.name == "cgi_extension") {
+            this->_cgi_ext = directive.parameters;
+        }
+        else if (directive.name == "cgi_path") {
+            this->_cgi_path = directive.parameters;
+        }
+    }
 }
 
 Location &Location::operator=(const Location &other) {
-
-	if (this != &other){
-		this->_path = other._path;
-		this->_root = other._root;
-		this->_autoindex = other._autoindex;
-		this->_index = other._index;
-		this->_allow_methods = other._allow_methods; // GET
-		this->_return = other._return;
-		this->_alias = other._alias;
-		this->_client_max_body_size = other._client_max_body_size;
-		this->_cgi_ext = other._cgi_ext;
-		this->_cgi_path = other._cgi_path;
-	}
+    if (this != &other) {
+        this->_path = other._path;
+        this->_root = other._root;
+        this->_autoindex = other._autoindex;
+        this->_index = other._index;
+        this->_allow_methods = other._allow_methods;
+        this->_return = other._return;
+        this->_alias = other._alias;
+        this->_client_max_body_size = other._client_max_body_size;
+        this->_cgi_ext = other._cgi_ext;
+        this->_cgi_path = other._cgi_path;
+    }
+    return *this;  // Return reference to this object
 }
 
-Location::~Location(){}
-
-
+Location::~Location() {}
 
 void Location::set_path(std::string new_path){
 	this->_path = new_path;
@@ -73,7 +130,11 @@ void Location::set_index(std::string new_index){
 }
 
 void Location::set_allowMethods(std::vector<std::string> allow_methods){
-	this->_allow_methods.assign({false, false, false, false, false});// TODO: is it C++ 98 compatible ?
+	this->_allow_methods.push_back(false);
+    this->_allow_methods.push_back(false);
+    this->_allow_methods.push_back(false);
+    this->_allow_methods.push_back(false);
+    this->_allow_methods.push_back(false);// TODO: is it C++ 98 compatible ?
 	for(size_t i = 0; i < allow_methods.size(); ++i) {
 		if (allow_methods[i] == "GET")
 			this->_allow_methods[0] = true;
@@ -110,15 +171,45 @@ void Location::set_cgiExt(std::vector<std::string> cgi_exts){
 }
 
 void Location::set_clientMaxBodySize(std::string body_size){
-
-	const char* cstr = body_size.c_str();
+    // Check if parameter is a valid number
+    std::string size_str = body_size;
+    size_t len = size_str.length();
+    char unit = 'B';
+    
+    // Check for K, M, G units
+    if (len > 0 && std::isalpha(size_str[len - 1])) {
+        unit = std::toupper(size_str[len - 1]);
+        size_str = size_str.substr(0, len - 1);
+    }
+    
+    const char* cstr = size_str.c_str();
     char* endptr;
     unsigned long result = strtoul(cstr, &endptr, 10);
     if (*endptr != '\0') {
         std::cerr << "client_max_body_size: '" << body_size << "' is not a valid number" << std::endl;
-		return;
+        return;
     }
-	this->_client_max_body_size = result;
+    
+    // Apply multiplier based on unit
+    switch (unit) {
+        case 'K':
+            result *= 1024;
+            break;
+        case 'M':
+            result *= 1024 * 1024;
+            break;
+        case 'G':
+            result *= 1024 * 1024 * 1024;
+            break;
+        case 'B':
+            // No multiplier needed
+            break;
+        default:
+            std::cerr << "client_max_body_size: invalid unit: " << unit << std::endl;
+            return;
+    }
+    
+    this->_client_max_body_size = result;
 }
 
 std::string Location::get_path(){
