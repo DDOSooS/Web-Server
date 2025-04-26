@@ -7,7 +7,11 @@
 class Directive {
 public:
     Directive(const std::string& name, const std::vector<std::string>& parameters);
-    
+    Directive();
+    Directive(const Directive &other);
+    Directive &operator=(const Directive &rhs);
+    ~Directive();
+
     std::string name;
     std::vector<std::string> parameters;
 };

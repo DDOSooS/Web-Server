@@ -161,8 +161,7 @@ void Server::set_client_max_body_size(std::string body_size){
         std::cerr << "client_max_body_size: '" << body_size << "' is not a valid number" << std::endl;
         return;
     }
-    
-    // Apply multiplier based on unit
+
     switch (unit) {
         case 'K':
             result *= 1024;
@@ -174,7 +173,6 @@ void Server::set_client_max_body_size(std::string body_size){
             result *= 1024 * 1024 * 1024;
             break;
         case 'B':
-            // No multiplier needed
             break;
         default:
             std::cerr << "client_max_body_size: invalid unit: " << unit << std::endl;
@@ -197,9 +195,8 @@ void Server::set_autoindex(std::string index){
 	}
 }
 
-// Update the error_pages and locations methods
+
 void Server::set_error_pages(std::string error_code, std::string error_page) {
-    // Convert error code string to short
     const char* cstr = error_code.c_str();
     char* endptr;
     int code = strtol(cstr, &endptr, 10);
@@ -208,8 +205,7 @@ void Server::set_error_pages(std::string error_code, std::string error_page) {
         std::cerr << "Error: Invalid error code: " << error_code << std::endl;
         return;
     }
-    
-    // Set error page
+
     this->_error_pages[static_cast<short>(code)] = error_page;
 }
 
