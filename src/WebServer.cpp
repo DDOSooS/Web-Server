@@ -87,7 +87,7 @@ int WebServer::init(ServerConfig& config)
     pollfds[0].fd = m_socket;
     pollfds[0].events = POLLIN;
     numfds = 1;
-    std::cout << "Server initialized ip:'" << m_config.get_host() << "', port: '" << m_config.get_port() << "', socket: "   <<  m_socket << std::endl;
+    std::cout << "Server " << m_config.get_server_name() << ": 'http://" << m_config.get_host() << ":" << m_config.get_port() << "'" << std::endl;
     return 0;
 }
 
