@@ -243,38 +243,64 @@ void WebServer::handleClientRequest(int fd)
 
 void WebServer::handleClientWrite(int fd)
 {
+    // First, check if the client exists in our map
+    if (clients.find(fd) == clients.end())
+        return;
     ClientData &client = clients[fd];
+    if (!client.sendBuffer.empty())
+    {
+        ssize_t bytes_sent = send(fd, client.sendBuffer.data(),
+                                client.sendBuffer.size(), MSG_NOSIGNAL);
+        if (bytes_sent <= 0) {
+            if (errno != EAGAIN && errno != EWOULDBLOCK)
+                closeClientConnection(fd);
+            return;
+        }
+        client.sendBuffer.erase(0, bytes_sent);
+    }
+    
+    // Handle next steps based on current state
     if (client.sendBuffer.empty())
     {
-        // No more data to send, switch back to reading
-        updatePollEvents(fd, POLLIN);
-        return;
-    }
-    ssize_t bytes_sent = send(fd,
-                              client.sendBuffer.data(),
-                              client.sendBuffer.size(),
-                              MSG_NOSIGNAL);
-    if (bytes_sent <= 0)
-    {
-        if (errno != EAGAIN && errno != EWOULDBLOCK)
+        // Debug: Check and log if http_request is null
+        if (client.http_request == nullptr)
         {
-            closeClientConnection(fd);
+            std::cerr << "Warning: client.http_request is null for fd " << fd << std::endl;
+            updatePollEvents(fd, POLLIN);
+            return;
         }
-        return;
-    }
-    // Remove sent data from buffer
-    client.sendBuffer.erase(0, bytes_sent);
-    // If buffer is empty and connection should close
-    if (client.sendBuffer.empty() && !client.http_request->keep_alive)
-    {
-        closeClientConnection(fd);
-    }
-    // If buffer is empty but keep-alive
-    else if (client.sendBuffer.empty())
-    {
-        updatePollEvents(fd, POLLIN); // Back to reading
+        
+        // If we're serving a file and have more data
+        if (client.http_request->request_status && static_cast<size_t>(client.http_request->remaine_bytes) > 0)
+            requestHandler->serveFile(fd, client, client.http_request->full_path);
+        // If completely done with file transfer
+        else if (client.http_request->request_status && 
+                 client.http_request->remaine_bytes == 0)
+        {
+            if (!client.http_request->keep_alive)
+            {
+                closeClientConnection(fd);
+            }
+            else
+            {
+                std::cout << "reset previous request !!!!!!!!!\n";
+                updatePollEvents(fd, POLLIN);
+                bool keepAlive = client.http_request->keep_alive;
+                
+                // Reset request state for next request, but be careful not to delete the object
+                client.http_request->reset();
+                if (client.http_request == nullptr)
+                {
+                    client.http_request = new RequestData();
+                    client.http_request->keep_alive = keepAlive;
+                }
+            }
+        }
+        else
+            updatePollEvents(fd, POLLIN);
     }
 }
+
 void WebServer::processHttpRequest(int fd)
 {
     ClientData &client = clients[fd];

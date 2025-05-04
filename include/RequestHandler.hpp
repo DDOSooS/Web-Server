@@ -12,6 +12,7 @@ class RequestHandler
     public:
         RequestHandler(WebServer* server);
         void processRequest(int fd);
+        void serveFile(int fd, ClientData& client, const std::string& path);
     private:
         WebServer*  server;
 
@@ -20,7 +21,6 @@ class RequestHandler
         void handlePost(int fd, ClientData& client);
         
         // Utility methods
-        void serveFile(int fd, ClientData& client, const std::string& path);
         std::string determineContentType(const std::string& path);
         void processMultipartData(int fd, ClientData& client);
         void processChunkedData(int fd, ClientData& client);
