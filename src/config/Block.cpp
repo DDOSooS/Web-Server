@@ -1,5 +1,4 @@
-#include "Directive.hpp"
-#include "Block.hpp"
+#include "config/Block.hpp"
 
 Block::Block(const std::string& name, const std::vector<std::string>& parameters)
     : name(name), parameters(parameters) {}

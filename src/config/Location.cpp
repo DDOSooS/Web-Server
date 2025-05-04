@@ -1,5 +1,5 @@
-#include "Location.hpp"
-#include "Block.hpp"
+#include "config/Location.hpp"
+#include "config/Block.hpp"
 #include <cstdlib>
 
 Location::Location() {

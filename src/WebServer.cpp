@@ -4,9 +4,7 @@
 #include <algorithm>
 #include <fcntl.h>
 
-WebServer::WebServer()
-    : m_ipAddress("0.0.0.0"),
-      m_port(8080),
+WebServer::WebServer():
       m_socket(0),
       maxfds(DEFAULT_MAX_CONNECTIONS),
       requestHandler(new RequestHandler(this))
@@ -14,15 +12,6 @@ WebServer::WebServer()
     pollfds = new struct pollfd[maxfds];
 }
 
-WebServer::WebServer(const char *ipAddress, int port)
-    : m_ipAddress(ipAddress),
-      m_port(port),
-      m_socket(0),
-      maxfds(DEFAULT_MAX_CONNECTIONS),
-      requestHandler(new RequestHandler(this))
-{
-    pollfds = new struct pollfd[maxfds];
-}
 WebServer::~WebServer()
 {
     delete requestHandler;
@@ -31,8 +20,24 @@ WebServer::~WebServer()
         delete[] pollfds;
     }
 }
-int WebServer::init()
+
+void WebServer::setServerConfig(ServerConfig& config){
+    this->m_config = config;
+}
+const ServerConfig& WebServer::getServerConfig(){
+    return (this->m_config);
+}
+// Location* WebServer::getLocationForPath(const std::string& path){
+//     // Get all locations from server config
+//     std::vector<Location> locations = m_config.get_locations();
+//     //TODO:@aghergho find the best match
+//     (void)path;
+//     return &(locations[0]);
+// }
+int WebServer::init(ServerConfig& config)
 {
+    // set configuration
+    this->setServerConfig(config);
     // Create socket
     m_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (m_socket <= 0)
@@ -57,10 +62,10 @@ int WebServer::init()
     // Bind the socket
     sockaddr_in hint;
     hint.sin_family = AF_INET;
-    hint.sin_port = htons(m_port);
-    if (inet_pton(AF_INET, m_ipAddress, &hint.sin_addr) <= 0)
+    hint.sin_port = htons(m_config.get_port());
+    if (inet_pton(AF_INET, m_config.get_host().c_str(), &hint.sin_addr) <= 0)
     {
-        perror("inet_pton failed");
+        perror("Error: Invalid IP address format");
         close(m_socket);
         return -1;
     }
@@ -82,7 +87,7 @@ int WebServer::init()
     pollfds[0].fd = m_socket;
     pollfds[0].events = POLLIN;
     numfds = 1;
-    printf("Server initialized on %s:%d\n", m_ipAddress, m_port);
+    std::cout << "Server initialized ip:'" << m_config.get_host() << "', port: '" << m_config.get_port() << "', socket: "   <<  m_socket << std::endl;
     return 0;
 }
 
@@ -121,6 +126,7 @@ int WebServer::run()
                 handleClientWrite(fd);
         }
     }
+    std::cout << "Server '" << m_config.get_server_name() << "' is runing on port: " << m_config.get_port() << " ... " << std::endl;
     return (0);
 }
 
