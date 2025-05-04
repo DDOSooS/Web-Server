@@ -1,6 +1,6 @@
-#include "ConfigParser.hpp"
-#include "Server.hpp"
-#include "Location.hpp"
+#include "config/ConfigParser.hpp"
+#include "config/ServerConfig.hpp"
+#include "config/Location.hpp"
 
 // ValidationError implementation
 ValidationError::ValidationError(ErrorLevel level, const std::string& message, int line, const std::string& context)
@@ -722,12 +722,12 @@ bool ConfigParser::validate_location_block(const Block& location) {
     return valid;
 }
 
-std::vector<Server> ConfigParser::create_servers() {
-    std::vector<Server> servers;
+std::vector<ServerConfig> ConfigParser::create_servers() {
+    std::vector<ServerConfig> servers;
     
     // Process each server block
     for (size_t i = 0; i < servers_.size(); ++i) {
-        Server server;
+        ServerConfig server;
         
         // Process server directives
         for (size_t j = 0; j < servers_[i].directives.size(); ++j) {
@@ -795,10 +795,6 @@ std::vector<Server> ConfigParser::create_servers() {
                 server.add_location(location);
             }
         }
-        
-        // Setup server address
-        server.set_server_address();
-        
         servers.push_back(server);
     }
     

@@ -12,7 +12,7 @@
 #include <map>
 #include "Block.hpp"
 #include "Directive.hpp"
-#include "Server.hpp"
+#include "ServerConfig.hpp"
 
 class ValidationError {
 public:
@@ -47,7 +47,7 @@ public:
     bool test_config();
     const Block& get_root_block() const;
     const std::vector<Block>& get_servers() const;
-    std::vector<Server> create_servers();
+    std::vector<ServerConfig> create_servers();
     bool validate_config();
 
 private:

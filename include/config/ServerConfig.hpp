@@ -1,5 +1,5 @@
-#ifndef SERVER_HPP
-#define SERVER_HPP
+#ifndef SERVER_CONFIG_HPP
+#define SERVER_CONFIG_HPP
 
 #include <string>
 #include <vector>
@@ -12,10 +12,10 @@
 // Forward declaration
 class Location;
 
-class Server {
+class ServerConfig {
 private:
     uint16_t                    _port;
-    in_addr_t                   _host;
+    std::string                   _host;
     std::string                 _server_name;
     std::string                 _root;
     unsigned long               _client_max_body_size;
@@ -23,17 +23,15 @@ private:
     bool                        _autoindex;
     std::map<short, std::string> _error_pages;
     std::vector<Location>       _locations;
-    struct sockaddr_in          _server_address;
-    int                         _listen_fd;
 
 public:
-    Server();
-    Server(const Server &other);
-    Server &operator=(const Server &rhs);
-    ~Server();
+    ServerConfig();
+    ServerConfig(const ServerConfig &other);
+    ServerConfig &operator=(const ServerConfig &rhs);
+    ~ServerConfig();
 
     uint16_t                    get_port();
-    in_addr_t                   get_host();
+    std::string                   get_host();
     std::string                 get_server_name();
     std::string                 get_root();
     unsigned long               get_client_max_body_size();
@@ -41,8 +39,6 @@ public:
     bool                        get_autoindex();
     std::map<short, std::string> get_error_pages();
     std::vector<Location>       get_locations();
-    struct sockaddr_in          get_server_address();
-    int                         get_listen_fd();
 
     void set_port(std::string param);
     void set_host(std::string param);
@@ -53,10 +49,8 @@ public:
     void set_autoindex(std::string param);
     void set_error_pages(std::string error_code, std::string error_page);
     void add_location(const Location& location);
-    void set_server_address();
-    void set_listen_fd(int sock_fd);
 
     friend class ConfigParser;
 };
 
-#endif // SERVER_HPP
+#endif // ServerConfig_HPP

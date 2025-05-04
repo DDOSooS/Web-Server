@@ -7,7 +7,9 @@ INC_DIR	= include/
 
 # Source files
 SRC		= main.cpp \
-		  $(SRC_DIR)WebServer.cpp $(SRC_DIR)ClientData.cpp $(SRC_DIR)RequestHandler.cpp
+		  $(SRC_DIR)WebServer.cpp $(SRC_DIR)ClientData.cpp $(SRC_DIR)RequestHandler.cpp \
+		  $(SRC_DIR)config/Block.cpp        $(SRC_DIR)config/Directive.cpp    $(SRC_DIR)config/ServerConfig.cpp $(SRC_DIR)config/ConfigParser.cpp $(SRC_DIR)config/Location.cpp
+
 
 # Objects
 OBJ		= $(SRC:.cpp=.o)
