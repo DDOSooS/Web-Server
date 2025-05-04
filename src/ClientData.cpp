@@ -3,7 +3,7 @@
 // Constructor
 // Default constructor
 ClientData::ClientData() : fd(-1), port(0), connectTime(0), lastActivity(0)
-            , bytesSent(0), http_request(NULL){}
+            , bytesSent(0),  http_request(NULL){}
 
 ClientData::ClientData(int socketFd, const sockaddr_in& clientAddr) : 
     fd(socketFd),
@@ -67,7 +67,7 @@ void ClientData::parseRequest(char *buff)
     stream.str("");
 }
 
-RequestData::RequestData(): method(""), request_path(""), http_version(""), request_body(""),content_length(0), keep_alive(false), crlf_flag(false), request_line(false) {}
+RequestData::RequestData(): method(""), request_path(""), http_version(""), request_body(""),content_length(0), keep_alive(false), crlf_flag(false), request_line(false), request_status(0), remaine_bytes(0) {}
 
 bool RequestData::findHeader(std::string header)
 {
