@@ -14,7 +14,7 @@ OBJ		= $(SRC:.cpp=.o)
 
 # Compiler settings
 CXX		= g++
-CFLAGS	= -Wall -Wextra -std=c++11 -g3 -I$(INC_DIR) #You must write a HTTP server in C++ 98.
+CFLAGS	= -Wall -Wextra -std=c++11 -g3 -fsanitize=address -I$(INC_DIR) #You must write a HTTP server in C++ 98.
 LDFLAGS	= -pthread
 RM		= rm -rf
 

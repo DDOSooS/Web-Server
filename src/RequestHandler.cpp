@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include "dirent.h"
 #include <stdio.h>
+#include <algorithm>
 
 RequestHandler::RequestHandler(WebServer* server) : server(server) {}
 
@@ -108,17 +109,15 @@ bool isFile(std::string &path)
 void RequestHandler::handleGet(int fd, ClientData& client)
 {
     std::string full_path;
-    
+
+    std::cout << "Handling Get \n";
     // Security: prevent path traversal
     if (client.http_request->request_path.find("../") != std::string::npos)
     {
         server->sendErrorResponse(fd, 403, "Forbidden");
         return;
     }
-    
-    // std::cout << "clinet full PATH: " << client.http_request->request_path << std::endl;
     full_path = "./www" + client.http_request->request_path;
-    // std::cout << full_path << "<<===\n";
     if (!isValidPath(full_path))
     {
         server->sendErrorResponse(fd, 404, "Not Found");
@@ -126,26 +125,15 @@ void RequestHandler::handleGet(int fd, ClientData& client)
     }
     if (isDir(full_path))
     {
-        // std::cout << "path is refering to a DIR11111\n";
         std::string tmp;
         tmp =  full_path + "index.html";
-        // std::cout << "FULL PATH: " << full_path << " TMP:" << tmp << std::endl; 
         if (isFile(tmp))
-        {
-            // std::cout << "listing a file 11  << \n";
             serveFile(fd,client, tmp);
-        }
         else
-        {
-            // std::cout << "listing a Dir 222<< \n";
             listingDir(fd, client, full_path);
-        }
     }
     else if (isFile(full_path))
-    {
-        // std::cout << "path is refering to a File33\n";
         serveFile(fd, client, full_path);
-    }
     else
         server->sendErrorResponse(fd, 403, "Forbidden");
 }
@@ -180,6 +168,8 @@ void RequestHandler::handlePost(int fd, ClientData& client)
 //Listing File
 void RequestHandler::listingDir(int fd, ClientData &client, const std::string &full_path)
 {
+
+    std::cout << "Serving a Listing Directory\n";
     DIR *dir_ptr;
     struct dirent *entry;
     std::stringstream response;
@@ -246,41 +236,69 @@ void RequestHandler::listingDir(int fd, ClientData &client, const std::string &f
 }
 
 //serving File
-void RequestHandler::serveFile(int fd, ClientData& client, const std::string& full_path)
+void RequestHandler::serveFile(int fd, ClientData& client, const std::string& full_path) 
 {
-    std::ifstream file(full_path, std::ios::binary | std::ios::ate);
-    if (!file.is_open())
+     size_t CHUNK_SIZE = 8192; // 8KB chunks
+    
+    // First call - initialize transfer
+    if (!client.http_request->request_status) {
+        // Open file and set up metadata
+        client.http_request->ressources.open(full_path, std::ios::binary | std::ios::ate);
+        if (!client.http_request->ressources.is_open()) {
+            server->sendErrorResponse(fd, 404, "Not Found");
+            return;
+        }
+
+        client.http_request->remaine_bytes = client.http_request->ressources.tellg();
+        client.http_request->ressources.seekg(0, std::ios::beg);
+        client.http_request->full_path = full_path;
+
+        // Build headers
+        std::string content_type = determineContentType(full_path);
+        bool keepAlive = client.http_request->findHeaderValue("Connection", "keep-alive");
+        
+        std::stringstream headers;
+        headers << "HTTP/1.1 200 OK\r\n"
+                << "Content-Type: " << content_type << "\r\n"
+                << "Transfer-Encoding: chunked\r\n"
+                << "Connection: " << (keepAlive ? "keep-alive" : "close") << "\r\n"
+                << "\r\n";
+
+        client.sendBuffer = headers.str();
+        client.http_request->request_status = true;
+    }
+
+    // Generate data chunks
+    if (client.http_request->remaine_bytes > 0)
     {
-        server->sendErrorResponse(fd, 404, "Not Found");
-        return;
+        std::vector<char> buffer(CHUNK_SIZE);
+        size_t bytes_to_read = std::min(CHUNK_SIZE, static_cast<size_t>(client.http_request->remaine_bytes));
+        
+        client.http_request->ressources.read(buffer.data(), bytes_to_read);
+        size_t bytes_read = client.http_request->ressources.gcount();
+
+        if (bytes_read > 0) {
+            std::stringstream chunk;
+            chunk << std::hex << bytes_read << "\r\n";
+            chunk.write(buffer.data(), bytes_read);
+            chunk << "\r\n";
+            
+            client.sendBuffer += chunk.str();
+            client.http_request->remaine_bytes -= bytes_read;
+        } else {
+            server->sendErrorResponse(fd, 500, "Internal Server Error");
+            return;
+        }
     }
     
-    std::streamsize file_size = file.tellg();
-    file.seekg(0, std::ios::beg);
-    std::vector<char> file_data(file_size);
-    if (!file.read(file_data.data(), file_size)) {
-        server->sendErrorResponse(fd, 500, "Internal Server Error");
-        return;
-    }
-    
-    std::string content_type = determineContentType(full_path);
-    client.responseHeaders = "HTTP/1.1 200 OK\r\n";
-    client.responseHeaders += "Content-Type: " + content_type + "\r\n";
-    client.responseHeaders += "Content-Length: " + std::to_string(file_size) + "\r\n";
-    
-    // bool keepAlive = (client.requestHeaders.find("Connection: keep-alive") != std::string::npos);
-    bool keepAlive = (client.http_request->findHeaderValue("Connection", "keep-alive"));
-    if (keepAlive)
+    // Final chunk when done
+    if (client.http_request->remaine_bytes == 0 && 
+        client.sendBuffer.find("0\r\n\r\n") == std::string::npos)
     {
-        client.responseHeaders += "Connection: keep-alive\r\n";
+        client.sendBuffer += "0\r\n\r\n";
+        client.http_request->ressources.close();
     }
-    else
-    {
-        client.responseHeaders += "Connection: close\r\n";
-    }
-    client.responseHeaders += "\r\n";
-    
-    client.sendBuffer = client.responseHeaders + std::string(file_data.data(), file_size);
+
     server->updatePollEvents(fd, POLLOUT);
 }
 
@@ -390,4 +408,19 @@ void RequestHandler::processChunkedData(int fd, ClientData& client)
     client.responseHeaders += "Connection: close\r\n\r\n";
     client.sendBuffer = client.responseHeaders + response;
     server->updatePollEvents(fd, POLLOUT);
+}
+
+void RequestData::reset()
+{
+    this->content_length = 0;
+    this->crlf_flag =  false;
+    this->request_status =  false;
+    this->remaine_bytes = 0;
+    this->keep_alive = false;
+    this->request_line =  false;
+    this->headers.clear() ;
+    this->method.clear();
+    this->request_body.clear();
+    this->content_length = 0;
+    this->ressources.clear();
 }

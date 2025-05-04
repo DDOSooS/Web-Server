@@ -6,24 +6,29 @@
 #include <arpa/inet.h>
 #include <unordered_map>
 #include <sstream>
-
+#include <fstream>
 struct RequestData
 {
     std::string                                     method;
     std::string                                     request_path;
     std::string                                     http_version;
     std::unordered_map <std::string , std::string>  headers;
+    std::ifstream                                   ressources;
+    std::string                                     full_path;
     size_t                                          content_length;
+    std::streamsize                                 response_size;
+    std::streamsize                                 remaine_bytes;
     bool                                            keep_alive;
     bool                                            crlf_flag;
     bool                                            request_line;
+    bool                                            request_status;
 	std::string										request_body;
-    
     RequestData() ;
     bool											findHeader(std::string );
 	bool											findHeaderValue(std::string , std::string);
 	std::string										getHeader(std::string ) const ;
 	std::unordered_map <std::string , std::string > getAllHeaders() const; 
+    void                                            reset();
 };
 
 struct ClientData
