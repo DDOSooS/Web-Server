@@ -143,7 +143,7 @@ void WebServer::acceptNewConnection()
     }
     // Set non-blocking
     fcntl(clientFd, F_SETFL, O_NONBLOCK);
-    // Create and store ClientData
+    // Create and store ClientConnection
     clients.emplace(std::piecewise_construct,
                     std::forward_as_tuple(clientFd),
                     std::forward_as_tuple(clientFd, clientAddr));
@@ -193,7 +193,7 @@ void WebServer::updatePollEvents(int fd, short events)
 }
 void WebServer::handleClientRequest(int fd)
 {
-    ClientData &client = clients[fd];
+    ClientConnection &client = clients[fd];
     char buf[4096];
     ssize_t bytes_recv = recv(fd, buf, sizeof(buf), 0);
     if (bytes_recv <= 0)
@@ -246,7 +246,7 @@ void WebServer::handleClientWrite(int fd)
     // First, check if the client exists in our map
     if (clients.find(fd) == clients.end())
         return;
-    ClientData &client = clients[fd];
+    ClientConnection &client = clients[fd];
     if (!client.sendBuffer.empty())
     {
         ssize_t bytes_sent = send(fd, client.sendBuffer.data(),
@@ -269,7 +269,6 @@ void WebServer::handleClientWrite(int fd)
             updatePollEvents(fd, POLLIN);
             return;
         }
-        
         // If we're serving a file and have more data
         if (client.http_request->request_status && static_cast<size_t>(client.http_request->remaine_bytes) > 0)
             requestHandler->serveFile(fd, client, client.http_request->full_path);
@@ -278,9 +277,7 @@ void WebServer::handleClientWrite(int fd)
                  client.http_request->remaine_bytes == 0)
         {
             if (!client.http_request->keep_alive)
-            {
                 closeClientConnection(fd);
-            }
             else
             {
                 std::cout << "reset previous request !!!!!!!!!\n";
@@ -303,12 +300,10 @@ void WebServer::handleClientWrite(int fd)
 
 void WebServer::processHttpRequest(int fd)
 {
-    ClientData &client = clients[fd];
+    ClientConnection &client = clients[fd];
     // Check if we have complete headers
     if (!client.http_request->crlf_flag)
-    {
         return; // Incomplete headers, wait for more data
-    }
     // Extract request line (first line of headers)
     if (!client.http_request->request_line)
     {
