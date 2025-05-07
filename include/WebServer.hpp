@@ -15,7 +15,7 @@
 #include <poll.h>
 #include <unordered_map>
 #define BUFFER_SIZE 4096
-#include "./ClientData.hpp"
+#include "./ClientConnection.hpp"
 #include "./RequestHandler.hpp"
 #include "./config/ServerConfig.hpp"
 
@@ -29,7 +29,7 @@ class  WebServer
         int init(ServerConfig& config);
         void acceptNewConnection();
         int run();
-        ClientData& getClient(int fd) { return clients[fd]; }
+        ClientConnection& getClient(int fd) { return clients[fd]; }
         void sendErrorResponse(int fd, int code, const std::string& message);
         void updatePollEvents(int fd, short events);
         void setServerConfig(ServerConfig& config); // !!! After creation of a server we have to set it's config
@@ -43,17 +43,16 @@ class  WebServer
         void handleClientWrite(int fd);
 
     private:
-        ServerConfig    m_config; // this is a variable that will hold the server configuration
-        int             m_socket;      // Internal socket FD for the listening socket
-        // fd_set          m_master;      // Master files descriptor set
-        struct pollfd   *pollfds; // files descriptor using poll
-        // nfds_t         nfds = 0;
-        int maxfds, numfds;
-        
         static const int                    DEFAULT_MAX_CONNECTIONS = 1024;
-        std::unordered_map<int, ClientData> clients;  // Map of fd to ClientData
+        ServerConfig                        m_config; // this is a variable that will hold the server configuration
+        RequestHandler*                     requestHandler;
+        int                                 m_socket;      // Internal socket FD for the listening socket
+        struct pollfd                       *pollfds; // files descriptor using poll
+        int                                 maxfds, numfds;
+        std::unordered_map<int, ClientConnection> clients;  // Map of fd to ClientConnection
 
-        RequestHandler* requestHandler;
+        // fd_set          m_master;      // Master files descriptor set
+        // nfds_t         nfds = 0;
 };
 
 

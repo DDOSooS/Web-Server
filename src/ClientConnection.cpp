@@ -1,11 +1,11 @@
-#include "../include/ClientData.hpp"
+#include "../include/ClientConnection.hpp"
 #include <iostream>
 // Constructor
 // Default constructor
-ClientData::ClientData() : fd(-1), port(0), connectTime(0), lastActivity(0)
+ClientConnection::ClientConnection() : fd(-1), port(0), connectTime(0), lastActivity(0)
             , bytesSent(0),  http_request(NULL){}
 
-ClientData::ClientData(int socketFd, const sockaddr_in& clientAddr) : 
+ClientConnection::ClientConnection(int socketFd, const sockaddr_in& clientAddr) : 
     fd(socketFd),
     port(ntohs(clientAddr.sin_port)),
     connectTime(time(nullptr)),
@@ -19,18 +19,18 @@ ClientData::ClientData(int socketFd, const sockaddr_in& clientAddr) :
 }
 
 // Update activity timestamp
-void ClientData::updateActivity()
+void ClientConnection::updateActivity()
 {
     lastActivity = time(nullptr);
 }
 
 // Check if connection is stale (timeout)
-bool ClientData::isStale(time_t timeoutSec) const
+bool ClientConnection::isStale(time_t timeoutSec) const
 {
     return (time(nullptr) - lastActivity) > timeoutSec;
 }
 
-void ClientData::parseRequest(char *buff)
+void ClientConnection::parseRequest(char *buff)
 {
     std::stringstream   stream;
     // std::istringstream  iss;

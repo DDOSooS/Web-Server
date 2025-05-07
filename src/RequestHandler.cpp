@@ -12,7 +12,7 @@ RequestHandler::RequestHandler(WebServer* server) : server(server) {}
 
 void RequestHandler::processRequest(int fd)
 {
-    ClientData& client = server->getClient(fd);
+    ClientConnection& client = server->getClient(fd);
     
     // Parse request line
     if (!client.http_request->request_line)
@@ -106,7 +106,7 @@ bool isFile(std::string &path)
     return S_ISREG(path_stat.st_mode);
 }
 
-void RequestHandler::handleGet(int fd, ClientData& client)
+void RequestHandler::handleGet(int fd, ClientConnection& client)
 {
     std::string full_path;
 
@@ -138,7 +138,7 @@ void RequestHandler::handleGet(int fd, ClientData& client)
         server->sendErrorResponse(fd, 403, "Forbidden");
 }
 
-void RequestHandler::handlePost(int fd, ClientData& client)
+void RequestHandler::handlePost(int fd, ClientConnection& client)
 {    
     bool isMultipart;
     bool isChunked;
@@ -166,7 +166,7 @@ void RequestHandler::handlePost(int fd, ClientData& client)
 }
 
 //Listing File
-void RequestHandler::listingDir(int fd, ClientData &client, const std::string &full_path)
+void RequestHandler::listingDir(int fd, ClientConnection &client, const std::string &full_path)
 {
 
     std::cout << "Serving a Listing Directory\n";
@@ -236,7 +236,7 @@ void RequestHandler::listingDir(int fd, ClientData &client, const std::string &f
 }
 
 //serving File
-void RequestHandler::serveFile(int fd, ClientData& client, const std::string& full_path) 
+void RequestHandler::serveFile(int fd, ClientConnection& client, const std::string& full_path) 
 {
      size_t CHUNK_SIZE = 8192; // 8KB chunks
     
@@ -321,7 +321,7 @@ std::string RequestHandler::determineContentType(const std::string& path)
     return "text/plain";
 }
 
-void RequestHandler::processMultipartData(int fd, ClientData& client)
+void RequestHandler::processMultipartData(int fd, ClientConnection& client)
 {
     std::string body = client.http_request->request_body;
     std::string headers = client.http_request->getHeader("Content-Type");
@@ -378,7 +378,7 @@ void RequestHandler::processMultipartData(int fd, ClientData& client)
     server->sendErrorResponse(fd, 400, "Bad Request: No file found in multipart data");
 }
 
-void RequestHandler::processChunkedData(int fd, ClientData& client)
+void RequestHandler::processChunkedData(int fd, ClientConnection& client)
 {
     std::string body = client.http_request->request_body;
     std::string decoded;
