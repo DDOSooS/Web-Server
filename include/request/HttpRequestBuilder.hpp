@@ -13,10 +13,13 @@ class HttpRequestBuilder
         void SetRequestLine(std::string );
         void SetHttpVersion(std::string );
         void SetLocation(std::string );
+        void SetBody(std::string );
         void addHeader(std::string &, std::string &);
         void ParseRequestLine(std::string & /* request Line*/);
         void ParseRequsetHeaders(std::istringstream & /* Headers*/);
         void ParseRequestBody(std::string & /* Body*/);
-        void ParseRequest(std::string & rawRequest);
-
+        void ParseRequest(std::string & /* request Line*/);
+        void ParseQueryString(std::string & /* query string*/);
+        std::string UrlDecode(const std::string &);
+        HttpRequest& GetHttpRequest();
 };

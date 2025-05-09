@@ -80,6 +80,11 @@ void HttpRequest::SetBody(std::string body)
     _body = body;
 }
 
+void HttpRequest::SetQueryString(std::vector<std::pair<std::string, std::string>> query)
+{
+    _query_string =  query;
+}
+
 void HttpRequest::SetBuffer(std::string buffer)
 {
     _buffer = buffer;
@@ -105,6 +110,10 @@ bool HttpRequest::GetIsRl() const
     return _is_rl;
 }
 
+std::vector<std::pair<std::string, std::string>> HttpRequest::GetQueryString() const
+{
+    return _query_string;
+}
 
 void HttpRequest::SetAreHeaderParsed(bool are_header_parsed)
 {
