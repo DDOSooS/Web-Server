@@ -30,17 +30,18 @@ class  WebServer
         void acceptNewConnection();
         int run();
         ClientConnection& getClient(int fd) { return clients[fd]; }
-        void sendErrorResponse(int fd, int code, const std::string& message);
         void updatePollEvents(int fd, short events);
         void setServerConfig(ServerConfig& config); // !!! After creation of a server we have to set it's config
         const ServerConfig& getServerConfig();
+        // void sendErrorResponse(int fd, int code, const std::string& message);
         //Location getLocationForPath(const std::string& path);
 
     protected:
         void closeClientConnection(int clientSocket);
         void handleClientRequest(int fd);
-        void processHttpRequest(int fd);
+       
         void handleClientWrite(int fd);
+        // void processHttpRequest(int fd); 
 
     private:
         static const int                    DEFAULT_MAX_CONNECTIONS = 1024;

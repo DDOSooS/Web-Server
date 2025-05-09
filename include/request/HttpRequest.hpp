@@ -3,6 +3,8 @@
 #include <unordered_map>
 #include <sstream>
 #include <fstream>
+#include <iostream>
+#include <vector>
 
 enum RequestStatus
 {
@@ -38,17 +40,18 @@ enum HttpMethod
 class HttpRequest
 {
     private:
-        std::string                                     _request_line;
-        std::string                                     _http_version;
-        std::string                                     _method;
-        std::string                                     _locatoin;
-        std::string                                     _buffer;
-        std::string                                     _body;
-        std::unordered_map<std::string, std::string>    _headers;
-        enum RequestStatus                              _status;
-        bool                                            _is_crlf;
-        RequestLineStatus                                _is_rl; //request line
-        bool                                            _are_header_parsed;
+        std::string                                         _request_line;
+        std::string                                         _http_version;
+        std::string                                         _method;
+        std::string                                         _locatoin;
+        std::string                                         _buffer;
+        std::string                                         _body;
+        std::unordered_map<std::string, std::string>        _headers;
+        std::vector<std::pair<std::string, std::string>>    _query_string;
+        enum RequestStatus                                  _status;
+        bool                                                _is_crlf;
+        RequestLineStatus                                   _is_rl; //request line
+        bool                                                _are_header_parsed;
 
     public:
         HttpRequest();
@@ -58,6 +61,7 @@ class HttpRequest
         std::string                                     GetRequestLine() const;
         std::string                                     GetHttpVersion() const;
         std::string                                     GetBody() const;
+        std::vector<std::pair<std::string, std::string>> GetQueryString() const;
         bool                                            GetIsCrlf() const;
         bool                                            GetIsRl() const;
 
@@ -71,9 +75,10 @@ class HttpRequest
         void                                            SetIsCrlf(bool);
         void                                            SetIsRl(RequestLineStatus);
         void                                            SetAreHeaderParsed(bool);
-        void                                            SetStatus(enum RequestStatus);
+        void                                            SetStatus(enum RequestStatus );
+        void                                            SetQueryString(std::vector<std::pair<std::string, std::string>> );
 
         void                                            ResetRequest();
         bool                                            IsValidRequest() const;
-        // ~HttpRequest();
+        ~HttpRequest();
 };
