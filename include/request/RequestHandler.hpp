@@ -2,7 +2,7 @@
 
 #include <string>
 #include "./WebServer.hpp"
-#include "./ClientConnection.hpp"
+#include "../ClientConnection.hpp"
 
 class WebServer;
 struct ClientConnection;

@@ -8,18 +8,24 @@
 #include <sstream>
 #include <fstream>
 #include "../include/request/HttpRequestBuilder.hpp"
+#include <iostream>
+#include "./request/HttpException.hpp"
+#include "./response/HttpResponse.hpp"
+#include "./request/RequestHandler.hpp"
 
 class HttpRequestBuilder;
 class HttpRequest;
 class HttpResponse;
 class HttpHandler;
+class WebServer;
 
 
 #define REQUSET_LINE_BUFFER 8000
 
 class ClientConnection
 {
-    private:
+    public:
+        WebServer*              _server;                // Pointer to the WebServer instance
         int                     fd;                     // Socket file descriptor
         std::string             ipAddress;              // Client IP address as string
         uint16_t                port;                   // Client port number
@@ -30,7 +36,7 @@ class ClientConnection
     public:
         ClientConnection(); 
         ClientConnection(int socketFd, const sockaddr_in& clientAddr);
-
+        ~ClientConnection();
         HttpResponse     *http_response;
         HttpRequest      *http_request;
         HttpHandler      *handler_chain;

@@ -7,7 +7,7 @@ INC_DIR	= include/
 
 # Source files
 SRC		= main.cpp \
-		  $(SRC_DIR)WebServer.cpp $(SRC_DIR)ClientConnection.cpp $(SRC_DIR)RequestHandler.cpp \
+		  $(SRC_DIR)WebServer.cpp $(SRC_DIR)ClientConnection.cpp $(SRC_DIR)response/Response.cpp $(SRC_DIR)request/Error.cpp $(SRC_DIR)request/BadRequest.cpp $(SRC_DIR)request/NotFound.cpp $(SRC_DIR)request/NotImplemented.cpp $(SRC_DIR)request/MethodNotAllowed.cpp $(SRC_DIR)request/InternalServerError.cpp $(SRC_DIR)request/ErrorHandler.cpp $(SRC_DIR)request/HttpException.cpp $(SRC_DIR)request/HttpRequest.cpp $(SRC_DIR)request/HttpRequestBuilder.cpp \
 		  $(SRC_DIR)config/Block.cpp        $(SRC_DIR)config/Directive.cpp    $(SRC_DIR)config/ServerConfig.cpp $(SRC_DIR)config/ConfigParser.cpp $(SRC_DIR)config/Location.cpp
 
 
@@ -15,7 +15,7 @@ SRC		= main.cpp \
 OBJ		= $(SRC:.cpp=.o)
 
 # Compiler settings
-CXX		= g++
+CXX		= c++
 CFLAGS	= -Wall -Wextra -std=c++11 -g3 -fsanitize=address -I$(INC_DIR) #You must write a HTTP server in C++ 98.
 LDFLAGS	= -pthread
 RM		= rm -rf
