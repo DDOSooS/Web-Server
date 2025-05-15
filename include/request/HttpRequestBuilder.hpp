@@ -1,6 +1,7 @@
 #pragma once
 
 #include "./HttpRequest.hpp"
+#include "./HttpException.hpp"
 
 class HttpRequestBuilder
 {

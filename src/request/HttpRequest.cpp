@@ -5,6 +5,22 @@ HttpRequest::HttpRequest()
     ResetRequest();
 }
 
+HttpRequest::HttpRequest(HttpRequest const &src)
+{
+    _request_line = src._request_line;
+    _http_version = src._http_version;
+    _method = src._method;
+    _locatoin = src._locatoin;
+    _buffer = src._buffer;
+    _body = src._body;
+    _headers = src._headers;
+    _query_string = src._query_string;
+    _status = src._status;
+    _is_crlf = src._is_crlf;
+    _is_rl = src._is_rl;
+    _are_header_parsed = src._are_header_parsed;
+}
+
 bool HttpRequest::FindHeader(std::string key, std::string value)
 {
     std::unordered_map<std::string, std::string>::iterator it = _headers.find(key);
@@ -105,7 +121,7 @@ bool HttpRequest::GetIsCrlf() const
     return _is_crlf;
 }
 
-bool HttpRequest::GetIsRl() const
+RequestLineStatus HttpRequest::GetIsRl() const
 {
     return _is_rl;
 }
@@ -130,7 +146,7 @@ void HttpRequest::ResetRequest()
     _body = "";
     _status = PARSER;
     _is_crlf = false;
-    _is_rl = PROCESSING;
+    _is_rl = REQ_PROCESSING;
     _are_header_parsed = false;
 }
 

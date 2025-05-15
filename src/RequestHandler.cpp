@@ -1,4 +1,5 @@
-#include "../include/RequestHandler.hpp"
+#include "../../include/request/RequestHandler.hpp"
+
 #include <fstream>
 #include <sstream>
 #include <vector>
@@ -284,7 +285,7 @@ void RequestHandler::serveFile(int fd, ClientConnection& client, const std::stri
             chunk << "\r\n";
             
             client.sendBuffer += chunk.str();
-            client.http_request->remaine_bytes -= bytes_read;
+            client.http_request->remaine_bytes -= bytes_read;   
         } else {
             server->sendErrorResponse(fd, 500, "Internal Server Error");
             return;

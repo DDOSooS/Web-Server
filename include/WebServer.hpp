@@ -16,11 +16,11 @@
 #include <unordered_map>
 #define BUFFER_SIZE 4096
 #include "./ClientConnection.hpp"
-#include "./RequestHandler.hpp"
+#include "./request/RequestHandler.hpp"
 #include "./config/ServerConfig.hpp"
 
 class   RequestHandler;
-
+class   ClientConnection;
 class  WebServer
 {
     public:
@@ -39,8 +39,7 @@ class  WebServer
     protected:
         void closeClientConnection(int clientSocket);
         void handleClientRequest(int fd);
-       
-        void handleClientWrite(int fd);
+        void handleClientResponse(int fd);
         // void processHttpRequest(int fd); 
 
     private:

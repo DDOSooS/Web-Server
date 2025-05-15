@@ -1,10 +1,13 @@
 #include "../include/ClientConnection.hpp"
-#include <iostream>
+#include "./WebServer.hpp"
 // Constructor
 // Default constructor
 
 ClientConnection::ClientConnection(): fd(-1), port(0), ipAddress(0), connectTime(0), lastActivity(0)
-            , http_request(nullptr), http_response(nullptr), handler_chain(nullptr) {}
+            , http_request(NULL), http_response(NULL), handler_chain(NULL) 
+{
+    this->_server = NULL;
+}
 
 // Constructor with socket and client address
 ClientConnection::ClientConnection(int socketFd, const sockaddr_in& clientAddr) : 
@@ -24,18 +27,33 @@ void ClientConnection::GenerateRequest(int fd)
     char buffer[REQUSET_LINE_BUFFER];
     ssize_t bytesRead = recv(fd, buffer, sizeof(buffer) - 1, 0);
     if (bytesRead > 0)
-        buffer[bytesRead] = '\0'; // Null-terminate the buffer
+        buffer[bytesRead] = '\0';// Null-terminate the buffer
     else if (bytesRead == 0)
-    {
-        //throw internal server error
-    }
+        throw HttpException(500 , "Internal Server Error", ERROR_TYPE::INTERNAL_SERVER_ERROR);
+
     std::string rawRequest;
 
     rawRequest = std::string(buffer);
-    HttpRequestBuilder build = HttpRequestBuilder();
+    HttpRequestBuilder build = HttpRequestBuilder(); 
     build.ParseRequest(rawRequest);
-
+    this->http_request = new HttpRequest(build.GetHttpRequest());
 }
+
+
+void    ClientConnection::ProcessRequest(int fd)
+{
+    if (http_request == NULL)
+    {
+        std::cerr << "Error: No request to process" << std::endl;
+        return;
+    }
+    std::unordered_map <std::string , std::string> headers;
+    headers["Content-Type"] = "text/html";
+    this->http_response = new HttpResponse(200, headers, "text/html", false, false);
+    this->http_response->setFilePath("index.html");
+    this->_server->updatePollEvents(fd, POLLOUT);
+}
+
 
 ClientConnection::~ClientConnection()
 {
@@ -45,15 +63,12 @@ ClientConnection::~ClientConnection()
         delete http_response;
     if (builder)
         delete builder;
-    if (handler_chain)
-        delete handler_chain;
+    /*
+        delete the handler chain
+    */
 }
 
-
-
 /*
-
-
 ClientConnection::ClientConnection() : fd(-1), port(0), connectTime(0), lastActivity(0)
             , bytesSent(0),  http_request(NULL){}
 

@@ -5,6 +5,8 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <algorithm>
+
 
 enum RequestStatus
 {
@@ -17,25 +19,14 @@ enum RequestStatus
 
 enum RequestLineStatus
 {
-    PROCESSING,
-    HTTP_VERSION_ERROR,
-    METHOD_ERROR,
-    LOCATION_ERROR,
-    DONE
+    REQ_PROCESSING,
+    REQ_HTTP_VERSION_ERROR,
+    REQ_METHOD_ERROR,
+    REQ_NOT_IMPLEMENTED,
+    REQ_LOCATION_ERROR,
+    REQ_DONE
 };
 
-enum HttpMethod
-{
-    GET,
-    POST,
-    PUT,
-    DELETE,
-    PATCH,
-    OPTIONS,
-    HEAD,
-    TRACE,
-    CONNECT
-};
 
 class HttpRequest
 {
@@ -55,6 +46,7 @@ class HttpRequest
 
     public:
         HttpRequest();
+        HttpRequest(HttpRequest const &);
         bool                                            FindHeader(std::string, std::string);
         std::string                                     GetHeader(std::string )const;
         std::unordered_map<std::string, std::string>    GetHeaders()const;
@@ -63,7 +55,7 @@ class HttpRequest
         std::string                                     GetBody() const;
         std::vector<std::pair<std::string, std::string>> GetQueryString() const;
         bool                                            GetIsCrlf() const;
-        bool                                            GetIsRl() const;
+        RequestLineStatus                               GetIsRl() const;
 
         void                                            SetMethod(std::string);
         void                                            SetRequestLine(std::string);
