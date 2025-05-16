@@ -155,8 +155,20 @@ std::string HttpResponse::GetStatusMessage(int code) const
     }
 }
 
+long getFileSize(std::string &file_name)
+{
+    struct stat file_info;
+    if (stat(file_name.c_str(), &file_info) != 0)
+    {
+        std::cerr << "error while trying to get file size";
+        return -1;
+    }
+    return file_info.st_size;
+}
+
 std::string HttpResponse::toString() const
 {
+    std::cout << "HTTP RESPONSE TO STRING METHODE !!!!\n";
     std::string response = "HTTP/1.1 " + std::to_string(this->getStatusCode()) + " " + this->_status_message + "\r\n";
     for (const auto& header : this->_headers)
     {
@@ -179,23 +191,30 @@ std::string HttpResponse::toString() const
         response += this->_buffer;
     }
     // handle if the paquet that we need to send is a file
+    std::cout << "File Path !! " << _file_path << std::endl;
+
     if (!this->_file_path.empty())
     {
         std::string file_content;
-        std::string file_name = "../www/" + this->_file_path;
+        std::string file_name = "/home/aghergho/Desktop/Web-Server/www/" + this->_file_path; // Update this path to the correct absolute path
         std::ifstream file(file_name, std::ios::binary);
+        std::cout << "File Name: " << file_name << std::endl;
         if (!file)
         {
-            std::cerr << "Error opening file: " << this->_file_path << std::endl;
+            std::cerr << "Error opening file: " << file_name << std::endl;
+            exit(EXIT_FAILURE);
             throw HttpException(400, "Not Found", ERROR_TYPE::NOT_FOUND);
         }
         if (file)
         {
-            response += std::string("Content-Length: ") + std::to_string(file.tellg()) + "\r\n";
+            response += std::string("Content-Length: ") + std::to_string(getFileSize(file_name)) + "\r\n\r\n";
+            // std::cout << ">>>>>>>>>>>>>>>" <<  std::to_string(getFileSize(file_name)) ;
+            // exit(EXIT_FAILURE);
             while (std::getline(file, file_content))
                 response += file_content;
             file.close();
-            response += "\r\n";
+            // response += "\r\n";
+            std::cout <<"=====================================\n" << response << "=========================================\n";
         }
     }
     return response;
@@ -204,7 +223,12 @@ std::string HttpResponse::toString() const
 
 void HttpResponse::sendResponse(int socket_fd)
 {
+
+    std::cout << "Start of Sending A response !!\n";
     std::string response = this->toString();
+
+
+    // std::cout <<"=============response !!!!!!!!!!!!!!!!!!!!========================\n" << response << "=====================================" <<  response.size() <<"====\n";
     ssize_t bytes_sent = send(socket_fd, response.c_str(), response.size(), 0);
     if (bytes_sent < 0)
     {

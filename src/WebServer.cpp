@@ -131,7 +131,10 @@ int WebServer::run()
             }
             // handle outgoing data
             if (pollfds[i].revents & POLLOUT)
+            {
+                std::cout << "START OF SENDING HTTP RESPONSE TO THE CLIENT\n";
                 handleClientResponse(fd);
+            }
                 //client.RespondToClient(fd);    
         }
     }
@@ -240,6 +243,7 @@ void WebServer::handleClientResponse(int fd)
     {
         std::cerr << "Warning: client.http_response is null for fd " << fd << std::endl;
         updatePollEvents(fd, POLLIN);
+        exit(0);
         return;
     }
 
@@ -262,6 +266,7 @@ void WebServer::handleClientResponse(int fd)
                 {
                     client.http_response->clear();
                     client.http_request->ResetRequest();
+                    std::cout << "after Resesting the request !!!\n";
                     return ;
                 }
                 else
