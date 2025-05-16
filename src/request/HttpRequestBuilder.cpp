@@ -76,7 +76,7 @@ std::string HttpRequestBuilder::UrlDecode(const std::string &req_line)
 
 void HttpRequestBuilder::ParseRequestLine(std::string &request_line)
 {
-
+    std::cout << "PARSING REQ LINE !!!!!!!!!!!!!!\n";
     // decode the request line
     std::string         decoded_request_line = UrlDecode(request_line);
     std::istringstream  iss(decoded_request_line);
@@ -95,19 +95,22 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line)
     }
     _http_request.SetRequestLine(request_line);
     //check crlf of the request line
-    if (_http_request.GetRequestLine().find("/r/n") == std::string::npos)
-    {
-        _http_request.SetIsRl(REQ_METHOD_ERROR);
-        return ;
-    }
+    std::cout << "<< RL :: " << _http_request.GetRequestLine() << ";;   >>>\n"; 
+    std::cout << "Methode :" << method << "\n";
+    std::cout << "Location :" << path << "\n";
+    std::cout << "Http Version:" << http_version << "\n";
+   
     // check if the request line is valid
     if (http_version != "HTTP/1.1" && http_version != "HTTP/1.0")
     {
+        std::cerr << "HTTP VERSION ERROR\n";
+        exit(2);
         _http_request.SetIsRl(REQ_HTTP_VERSION_ERROR);
         return;
     }
     _http_request.SetHttpVersion(http_version);
     // check if the method is valid
+    std::cout << "Http TEST passed!!\n";
     // need to intergate the conf file congiguration!!!
     std::vector<std::string> valid_methods = {"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD", "TRACE", "CONNECT"};
     if (std::find(valid_methods.begin(), valid_methods.end(), method) == valid_methods.end())
@@ -115,12 +118,14 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line)
         _http_request.SetIsRl(REQ_METHOD_ERROR);
         return;
     }
+    std::cout << "METOHD SELECTED IS A VALID METHOD !!\n";
     // check if the method is valid
     if (method != "GET" && method != "POST" && method != "PUT" && method != "DELETE")
     {
         _http_request.SetIsRl(REQ_NOT_IMPLEMENTED);
         return;
     }
+    std::cout << "Http METHOD TEST passed!!\n";
 
     _http_request.SetMethod(method);
     // check if the path is valid
@@ -129,6 +134,7 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line)
         _http_request.SetIsRl(REQ_LOCATION_ERROR);
         return;
     }
+    std::cout << "HTTP LOCATION TEST passed!!\n";
     _http_request.SetLocation(path);
     _http_request.SetIsRl(REQ_DONE);
 }
@@ -195,23 +201,28 @@ void HttpRequestBuilder::ParseRequestBody(std::string &body)
 
 void HttpRequestBuilder::ParseRequest(std::string &rawRequest)
 {
+    std::cout << "Parsing the Request !!!!!!!!!\n";
+    std::cout << "Req Line::" << rawRequest << "==========|" << (rawRequest.find("\r\n\r\n")== std::string::npos) << "====" << (rawRequest.find("\r\n") == std::string::npos) << ":"; 
     // Split the raw request into lines
-    if (rawRequest.find("\r\n") == std::string::npos || rawRequest.find("/r/n/r/n") == std::string::npos)
+    if (rawRequest.find("\r\n") == std::string::npos && rawRequest.find("/r/n/r/n") == std::string::npos)
     {
         // Invalid request format exception or error handling
-        std::cerr << "Invalid request format" << std::endl;
+        std::cerr << "Invalid request format==================================????" << std::endl;
+        exit(1);
         throw HttpException(404, "Bad Request", ERROR_TYPE::BAD_REQUEST);
     }
+    std::cout << "Crlf Test is BEING PASSED WELL!!!\n";
     std::istringstream iss(rawRequest);
     std::string line;
     
     // Parse request line
     std::getline(iss, line);
     ParseRequestLine(line);
-    if (_http_request.GetIsRl() != REQ_PROCESSING)
+    if (_http_request.GetIsRl() != REQ_DONE)
     {
         //throw an exception or handle error
-        std::cerr << "Invalid request line" << std::endl;
+        std::cerr << "Invalid request line===========================================\n" << std::endl;
+        exit(1);
         if (_http_request.GetIsRl() == REQ_HTTP_VERSION_ERROR)
             throw HttpException(505, "HTTP Version Not Supported", ERROR_TYPE::BAD_REQUEST);
         else if (_http_request.GetIsRl() == REQ_METHOD_ERROR || _http_request.GetIsRl() == REQ_LOCATION_ERROR)

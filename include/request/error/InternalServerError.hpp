@@ -5,8 +5,7 @@
 class InternalServerError : public ErrorHandler
 {
     private:
-    /* data */
-
+    
     public:
         InternalServerError();
         bool    CanHandle(ERROR_TYPE ) const;

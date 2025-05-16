@@ -29,7 +29,11 @@ void ClientConnection::GenerateRequest(int fd)
     if (bytesRead > 0)
         buffer[bytesRead] = '\0';// Null-terminate the buffer
     else if (bytesRead == 0)
+    {
+        std::cerr << "Internal Server EROOOOOOOOOOOOOR Generate Request\n";
+        exit(1);
         throw HttpException(500 , "Internal Server Error", ERROR_TYPE::INTERNAL_SERVER_ERROR);
+    }
 
     std::string rawRequest;
 
@@ -48,9 +52,10 @@ void    ClientConnection::ProcessRequest(int fd)
         return;
     }
     std::unordered_map <std::string , std::string> headers;
-    headers["Content-Type"] = "text/html";
+    // headers["Content-Type"] = "text/html";
     this->http_response = new HttpResponse(200, headers, "text/html", false, false);
     this->http_response->setFilePath("index.html");
+    std::cout << "END OF PROCESSING THE REQUEST \n";
     this->_server->updatePollEvents(fd, POLLOUT);
 }
 

@@ -4,6 +4,7 @@
 #include <utility>
 #include <unordered_map>
 #include <istream>
+#include <sys/stat.h>
 #include "../request/HttpException.hpp"
 
 class HttpResponse
