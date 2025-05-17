@@ -7,11 +7,17 @@ NotImplemented::NotImplemented()
 
 bool    NotImplemented::CanHandle(ERROR_TYPE type) const
 {
+    if (type == ERROR_TYPE::NOT_IMPLEMENTED)
+    {
+        std::cout << "Not Implemented Error Handler is being used!!!!!!!!!!!!!\n";
+    }
     return ERROR_TYPE::NOT_IMPLEMENTED == type;
 }
 
 void    NotImplemented::ProcessError(Error &error)
 {
+    std::cout << "================= (Start of Processing Not Implemented Error) ====================\n";
+    std::cout << "Not Implemented Error: " << error.GetErroeMessage() << std::endl;
     std::stringstream iss;
 
     iss << "HTTP/1.1 501 Not Implemented\r\n";
@@ -21,9 +27,13 @@ void    NotImplemented::ProcessError(Error &error)
     iss << "<p>The server does not support the functionality required to fulfill the request.</p>";
     iss << "</body></html>";
     std::string response = iss.str();
-
-    // error->GetClientData().http_response.send(response, response);
-    std::cerr << "Not Implemented Error: " << error.GetErroeMessage() << std::endl;
+    
+    // Set the response buffer
+    if (error.GetClientData().http_response == NULL)
+        error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), {}, "text/plain", false, false);
+    // Set the response buffer
+    error.GetClientData().http_response->setBuffer(response);
+    error.GetClientData().http_response->setStatusCode(error.GetCodeError());
 }
 
 const char *    NotImplemented::what() const throw()

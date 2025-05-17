@@ -36,12 +36,15 @@ void	ErrorHandler::DefaultErrorHandler(Error &error)
 void ErrorHandler::HanldeError(Error &error)
 {
    
-    std::cout << "Error Type ::::: " << static_cast<int>( error.GetErrorType()) << "=================\n\n" ;
-    exit(1);
+    std::cout << "Error Type ::::: " << error.GetCodeError() << "=================\n\n" ;
+    // exit(1);
     if (CanHandle(error.GetErrorType()))
         ProcessError(error);
     else if (this->nextHandler != NULL)
+    {
+
         this->nextHandler->HanldeError(error);
+    }
     else
         DefaultErrorHandler(error);
     /*

@@ -62,10 +62,10 @@ void HttpResponse::clear()
     this->_file_path.clear();
     this->_buffer.clear();
     this->_is_chunked = false;
-    this->_keep_alive = false;
+    if (!this->_keep_alive )
+        this->_keep_alive = false;
     this->_byte_sent = 0;
     this->_content_type.clear();
-
 }
 
 int HttpResponse::getStatusCode() const
@@ -128,6 +128,11 @@ bool HttpResponse::checkAvailablePacket() const
     return true;
 }
 
+bool HttpResponse::isFile() const
+{
+    return !this->_file_path.empty();
+}
+
 std::string HttpResponse::GetStatusMessage(int code) const 
 {
     switch (code)
@@ -168,58 +173,49 @@ long getFileSize(std::string &file_name)
 
 std::string HttpResponse::toString() const
 {
-    std::cout << "HTTP RESPONSE TO STRING METHODE !!!!\n";
+    std::cout << "HTTP RESPONSE TO STRING METHOD !!!!\n";
     std::string response = "HTTP/1.1 " + std::to_string(this->getStatusCode()) + " " + this->_status_message + "\r\n";
+
     for (const auto& header : this->_headers)
-    {
         response += header.first + ": " + header.second + "\r\n";
-    }
+
     if (this->_is_chunked)
         response += "Transfer-Encoding: chunked\r\n";
     if (this->_keep_alive)
         response += "Connection: keep-alive\r\n";
-    if (!this->_content_type.empty())
-        response += "Content-Type: " + this->_content_type + "\r\n";
-    else
-        response += "Content-Type: text/plain\r\n";
-    
-    // handle if the buffer is the paquet that we need to send
+
+    response += "Content-Type: " + (this->_content_type.empty() ? "text/plain" : this->_content_type) + "\r\n";
+
+    std::string body;
+
     if (!this->_buffer.empty())
     {
-        response += std::string("Content-Length: ") + std::to_string(this->_buffer.size()) + "\r\n";  
-        response += "\r\n";
-        response += this->_buffer;
+        body = this->_buffer;
+        response += "Content-Length: " + std::to_string(body.size()) + "\r\n";
     }
-    // handle if the paquet that we need to send is a file
-    std::cout << "File Path !! " << _file_path << std::endl;
-
-    if (!this->_file_path.empty())
+    else if (!this->_file_path.empty())
     {
-        std::string file_content;
-        std::string file_name = "/home/aghergho/Desktop/Web-Server/www/" + this->_file_path; // Update this path to the correct absolute path
+        std::string file_name = "/home/aghergho/Desktop/Web-Server/www/" + this->_file_path;
         std::ifstream file(file_name, std::ios::binary);
-        std::cout << "File Name: " << file_name << std::endl;
         if (!file)
         {
             std::cerr << "Error opening file: " << file_name << std::endl;
-            exit(EXIT_FAILURE);
             throw HttpException(400, "Not Found", ERROR_TYPE::NOT_FOUND);
         }
-        if (file)
-        {
-            response += std::string("Content-Length: ") + std::to_string(getFileSize(file_name)) + "\r\n\r\n";
-            // std::cout << ">>>>>>>>>>>>>>>" <<  std::to_string(getFileSize(file_name)) ;
-            // exit(EXIT_FAILURE);
-            while (std::getline(file, file_content))
-                response += file_content;
-            file.close();
-            // response += "\r\n";
-            std::cout <<"=====================================\n" << response << "=========================================\n";
-        }
+
+        std::ostringstream file_stream;
+        file_stream << file.rdbuf();
+        body = file_stream.str();
+        file.close();
+        response += "Content-Length: " + std::to_string(body.size()) + "\r\n";
     }
+
+    // Final CRLF to end headers
+    response += "\r\n";
+    response += body;
+
     return response;
 }
-
 
 void HttpResponse::sendResponse(int socket_fd)
 {
@@ -235,6 +231,7 @@ void HttpResponse::sendResponse(int socket_fd)
         std::cerr << "Error sending response: " << std::endl;
         throw HttpException(500, "Internal Server Error", ERROR_TYPE::INTERNAL_SERVER_ERROR);
     }
+    std::cout << "Bytes sent: " << bytes_sent << "================" << std::endl;
 }
 
 void HttpResponse::sendChunkedResponse(int socket_fd)

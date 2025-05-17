@@ -204,9 +204,10 @@ void WebServer::updatePollEvents(int fd, short events)
         }
     }
 }
+
 void WebServer::handleClientRequest(int fd)
 {
-
+    std::cout << "============== (START OF HANDLING CLIENT REQUEST) ==============\n";
     ClientConnection &client = clients[fd];
     // Set error chain handler
     ErrorHandler *errorHandler = new NotFound();
@@ -214,8 +215,7 @@ void WebServer::handleClientRequest(int fd)
     errorHandler->SetNext(new BadRequest())
                 ->SetNext(new InternalServerError())
                 ->SetNext(new NotImplemented())
-                ->SetNext(new MethodNotAllowed())
-                ->SetNext(new NotFound());
+                ->SetNext(new MethodNotAllowed());
     try
     {
         client.GenerateRequest(fd);
@@ -224,9 +224,10 @@ void WebServer::handleClientRequest(int fd)
     catch(HttpException &e)
     {
         std::cerr << "HttpException: " << e.what() << std::endl;
-
         // Handle the exception using the error handler
         // Create an error object
+        std::cout << "Error Type: " << static_cast<int> (e.GetErrorType()) << std::endl;
+        std::cout << " Error code :" << e.GetCode() << std::endl;
         Error error(client, e.GetCode(), e.GetMessage(), e.GetErrorType());
         errorHandler->HanldeError(error);
         this->updatePollEvents(fd, POLLOUT);
@@ -236,14 +237,24 @@ void WebServer::handleClientRequest(int fd)
 void WebServer::handleClientResponse(int fd)
 {
     //check if the client exists in our map
+    std::cout << "============== (START OF HANDLING CLIENT RESPONSE) ==============\n";
     if (clients.find(fd) == clients.end())
         return;
     ClientConnection &client = clients[fd];
+    if (client.http_response)
+        std::cout << "Client ip: " << client.ipAddress << " is sending response============\n";
+    else
+        std::cout << "Client ip: " << client.ipAddress << "  response (NULLL)============\n";
+
+    if(client.http_request)
+        std::cout << "Client ip: " << client.ipAddress << " is sending request============\n";
+    else
+        std::cout << "Client ip: " << client.ipAddress << "  request (NULLL)============\n";
     if (client.http_response == NULL)
     {
         std::cerr << "Warning: client.http_response is null for fd " << fd << std::endl;
         updatePollEvents(fd, POLLIN);
-        exit(0);
+        // exit(0);
         return;
     }
 
@@ -259,14 +270,22 @@ void WebServer::handleClientResponse(int fd)
             }
             else
             {
-                client.http_response->sendResponse(fd);
+                if (client.http_response->isFile())
+                {
+                    client.http_response->sendResponse(fd);
+                }
+                else
+                {
+                    client.http_response->sendChunkedResponse(fd);
+                }
+
                 this->updatePollEvents(fd, POLLIN);
                 // Reset request state for next request
                 if (client.http_response->isKeepAlive())
                 {
+                    std::cout << "after Resesting the request !!!\n";
                     client.http_response->clear();
                     client.http_request->ResetRequest();
-                    std::cout << "after Resesting the request !!!\n";
                     return ;
                 }
                 else

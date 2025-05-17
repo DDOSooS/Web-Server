@@ -15,7 +15,10 @@ ClientConnection::ClientConnection(int socketFd, const sockaddr_in& clientAddr) 
     port(ntohs(clientAddr.sin_port)),
     connectTime(time(nullptr)),
     lastActivity(time(nullptr)),
-    http_request(nullptr)
+    http_request(nullptr),
+    http_response(nullptr),
+    handler_chain(NULL),
+    _server(NULL)
 {
     char ipStr[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &(clientAddr.sin_addr), ipStr, INET_ADDRSTRLEN);
@@ -31,9 +34,11 @@ void ClientConnection::GenerateRequest(int fd)
     else if (bytesRead == 0)
     {
         std::cerr << "Internal Server EROOOOOOOOOOOOOR Generate Request\n";
-        exit(1);
         throw HttpException(500 , "Internal Server Error", ERROR_TYPE::INTERNAL_SERVER_ERROR);
     }
+
+    std::cout << "==================== (Buffer:) =====================\n " << buffer <<
+        "\n==================================================================" << std::endl;
 
     std::string rawRequest;
 
@@ -62,12 +67,12 @@ void    ClientConnection::ProcessRequest(int fd)
 
 ClientConnection::~ClientConnection()
 {
-    if (http_request)
-        delete http_request;
-    if (http_response)
-        delete http_response;
-    if (builder)
-        delete builder;
+    // if (http_request)
+    //     delete http_request;
+    // if (http_response)
+    //     delete http_response;
+    // if (builder)
+    //     delete builder;
     /*
         delete the handler chain
     */
