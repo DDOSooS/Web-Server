@@ -46,36 +46,24 @@ int main(int argc, char *argv[]) {
     
     std::vector<ServerConfig> configs = parser.create_servers();
     std::cout << "Created " << configs.size() << " server objects." << std::endl;
-    
-    std::vector<WebServer*> servers;
-    std::vector<std::thread> server_threads;
-    
-    // Create and initialize all servers
-    for(size_t i = 0; i < configs.size(); ++i) {
-        WebServer* server = new WebServer();
-        if (server->init(configs[i]) == -1) {
-            std::cerr << "Server initialization failed: " << configs[i].get_server_name() << std::endl;
-            // Clean up any servers already created
-            for(size_t j = 0; j < servers.size(); ++j) {
-                delete servers[j];
-            }
-            return -1;
-        }
-        servers.push_back(server);
+
+    // Just use the first config
+    if (configs.empty()) {
+        std::cerr << "No server configurations found." << std::endl;
+        return -1;
     }
-    
-    for(size_t i = 0; i < servers.size(); ++i) {
-        server_threads.push_back(std::thread(&WebServer::run, servers[i]));
-        std::cout << "Started server " << i+1 << ": " << configs[i].get_server_name() << std::endl;
+
+    // Create and initialize a single server
+    WebServer server;
+    if (server.init(configs[0]) == -1) {
+        std::cerr << "Server initialization failed: " << configs[0].get_server_name() << std::endl;
+        return -1;
     }
-    
-    for(size_t i = 0; i < server_threads.size(); ++i) {
-        server_threads[i].join();
-    }
-    
-    // Clean up
-    for(size_t i = 0; i < servers.size(); ++i) {
-        delete servers[i];
-    }
+
+    std::cout << "Started server: " << configs[0].get_server_name() << std::endl;
+
+    // Run the server in the main thread - this will block until the server stops
+    server.run();
+
     return 0;
-}
+    }

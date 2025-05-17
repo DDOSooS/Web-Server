@@ -55,6 +55,7 @@ class HttpResponse
         std::string  toString() const;
         std::string  GetStatusMessage(int code) const;
         void         clear();
+        bool         isFile() const;
         ~HttpResponse();
 };
 

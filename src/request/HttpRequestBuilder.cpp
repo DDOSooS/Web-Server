@@ -101,10 +101,10 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line)
     std::cout << "Http Version:" << http_version << "\n";
    
     // check if the request line is valid
-    if (http_version != "HTTP/1.1" && http_version != "HTTP/1.0")
+    if (http_version == "HTTP/1.1" || http_version == "HTTP/1.0")
     {
         std::cerr << "HTTP VERSION ERROR\n";
-        exit(2);
+        // exit(2);
         _http_request.SetIsRl(REQ_HTTP_VERSION_ERROR);
         return;
     }
@@ -208,7 +208,7 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest)
     {
         // Invalid request format exception or error handling
         std::cerr << "Invalid request format==================================????" << std::endl;
-        exit(1);
+        // exit(1);
         throw HttpException(404, "Bad Request", ERROR_TYPE::BAD_REQUEST);
     }
     std::cout << "Crlf Test is BEING PASSED WELL!!!\n";
@@ -222,9 +222,12 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest)
     {
         //throw an exception or handle error
         std::cerr << "Invalid request line===========================================\n" << std::endl;
-        exit(1);
+        // exit(1);
         if (_http_request.GetIsRl() == REQ_HTTP_VERSION_ERROR)
-            throw HttpException(505, "HTTP Version Not Supported", ERROR_TYPE::BAD_REQUEST);
+        {
+            std::cout << "HTTP VERSION ERROR>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n";   
+            throw HttpException(404, "HTTP Version Not Supported", ERROR_TYPE::NOT_FOUND);
+        }
         else if (_http_request.GetIsRl() == REQ_METHOD_ERROR || _http_request.GetIsRl() == REQ_LOCATION_ERROR)
             throw HttpException(500, "Bad Request", ERROR_TYPE::BAD_REQUEST);
         else if (_http_request.GetIsRl() == REQ_LOCATION_ERROR)
