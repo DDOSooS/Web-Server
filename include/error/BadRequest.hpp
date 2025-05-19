@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../ErrorHandler.hpp"
+#include "./ErrorHandler.hpp"
 
 
 class BadRequest : public ErrorHandler

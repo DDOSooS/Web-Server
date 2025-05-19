@@ -1,4 +1,4 @@
-#include "../include/request/error/MethodNotAllowed.hpp"
+#include "../../include/error/MethodNotAllowed.hpp"
 
 
 MethodNotAllowed::MethodNotAllowed()

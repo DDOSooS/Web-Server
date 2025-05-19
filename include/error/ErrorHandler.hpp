@@ -4,7 +4,6 @@
 #include "./Error.hpp"
 #include "../ClientConnection.hpp"
 
-
 class ErrorHandler 
 {
     private:

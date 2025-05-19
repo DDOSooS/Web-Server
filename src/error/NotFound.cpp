@@ -1,4 +1,4 @@
-#include "../../include/request/error/NotFound.hpp"
+#include "../../include/error/NotFound.hpp"
 
 NotFound::NotFound()
 {

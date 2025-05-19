@@ -1,30 +1,24 @@
 #pragma once 
 
 #include <string>
-#include "./WebServer.hpp"
+#include "../WebServer.hpp"
 #include "../ClientConnection.hpp"
+#include "./HttpRequest.hpp"
 
 class WebServer;
-struct ClientConnection;
+class HttpRequest;
 
 class RequestHandler
 {
-    public:
-        RequestHandler(WebServer* server);
-        void processRequest(int fd);
-        void serveFile(int fd, ClientConnection& client, const std::string& path);
     private:
-        WebServer*  server;
-
-        // Core request handlers
-        void handleGet(int fd, ClientConnection& client);
-        void handlePost(int fd, ClientConnection& client);
-        void handleDelete(int fd, ClientConnection& client);
-        
-        // Utility methods
-        std::string determineContentType(const std::string& path);
-        void processMultipartData(int fd, ClientConnection& client);
-        void processChunkedData(int fd, ClientConnection& client);
-        void listingDir(int fd, ClientConnection& client, const std::string& path);
+        RequestHandler	*_nextHandler;
+	
+	public:
+		RequestHandler();
+		~RequestHandler();
+		virtual void 		HandleRequest(HttpRequest *request);
+		virtual	bool 		CanHandle(std::string method)=0;
+		virtual void 		ProccessRequest(HttpRequest *request)=0;
+		RequestHandler *	SetNext(RequestHandler *);
 };
 

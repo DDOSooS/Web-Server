@@ -237,8 +237,9 @@ void HttpResponse::sendResponse(int socket_fd)
 void HttpResponse::sendChunkedResponse(int socket_fd)
 {
     size_t  byte_sent = 0;
+    std::string response = this->toString();
 
-    byte_sent =  send(socket_fd, _buffer.c_str(), _buffer.size(), 0);
+    byte_sent =  send(socket_fd, response.c_str(), response.size(), 0);
     if (byte_sent == 0)
     {
         std::cerr << "Error sending chunked response" << std::endl;

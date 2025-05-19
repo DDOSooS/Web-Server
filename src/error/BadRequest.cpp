@@ -1,4 +1,4 @@
-#include "../include/request/error/BadRequest.hpp"
+#include "../../include/error/BadRequest.hpp"
 
 BadRequest::BadRequest()
 {}

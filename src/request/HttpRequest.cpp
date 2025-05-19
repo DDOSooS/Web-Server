@@ -1,4 +1,4 @@
-#include "../include/request/HttpRequest.hpp"
+#include "../../include/request/HttpRequest.hpp"
 
 HttpRequest::HttpRequest()
 {
@@ -10,7 +10,7 @@ HttpRequest::HttpRequest(HttpRequest const &src)
     _request_line = src._request_line;
     _http_version = src._http_version;
     _method = src._method;
-    _locatoin = src._locatoin;
+    _location = src._location;
     _buffer = src._buffer;
     _body = src._body;
     _headers = src._headers;
@@ -57,9 +57,19 @@ std::string HttpRequest::GetHttpVersion() const
     return _http_version;
 }
 
+std::string    HttpRequest::GetMethod() const
+{
+    return this->_method;
+}
+
 std::string HttpRequest::GetBody() const
 {
     return _body;
+}
+
+std::string HttpRequest::GetLocation() const
+{
+    return _location;
 }
 
 void HttpRequest::SetMethod(std::string method)
@@ -81,9 +91,25 @@ void HttpRequest::SetHttpVersion(std::string http_version)
 {
     _http_version = http_version;
 }
+
 void HttpRequest::SetLocation(std::string location)
 {
-    _locatoin = location;
+    _location = location;
+}
+
+ClientConnection *  HttpRequest::GetClientDatat() const
+{
+    return _client;
+}
+
+enum RequestStatus HttpRequest::GetStatus() const
+{
+    return _status;
+}
+
+void    HttpRequest::SetClientData(ClientConnection *client)
+{
+    this->_client =  client;
 }
 
 void HttpRequest::SetHeader(std::string key, std::string value)
@@ -141,7 +167,7 @@ void HttpRequest::ResetRequest()
     _request_line = "";
     _http_version = "";
     _method = "";
-    _locatoin = "";
+    _location = "";
     _buffer = "";
     _body = "";
     _status = PARSER;

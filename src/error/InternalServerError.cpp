@@ -1,4 +1,4 @@
-#include "../include/request/error/InternalServerError.hpp"
+#include "../../include/error/InternalServerError.hpp"
 
 InternalServerError::InternalServerError()
 {

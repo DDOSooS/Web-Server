@@ -7,7 +7,7 @@
 #include <vector>
 #include <algorithm>
 
-
+class ClientConnection;
 enum RequestStatus
 {
     PARSER,
@@ -31,10 +31,11 @@ enum RequestLineStatus
 class HttpRequest
 {
     private:
+        ClientConnection *                                  _client;
         std::string                                         _request_line;
         std::string                                         _http_version;
         std::string                                         _method;
-        std::string                                         _locatoin;
+        std::string                                         _location;
         std::string                                         _buffer;
         std::string                                         _body;
         std::unordered_map<std::string, std::string>        _headers;
@@ -56,7 +57,12 @@ class HttpRequest
         std::vector<std::pair<std::string, std::string>> GetQueryString() const;
         bool                                            GetIsCrlf() const;
         RequestLineStatus                               GetIsRl() const;
-
+        std::string                                     GetMethod() const;
+        std::string                                     GetLocation() const;
+        ClientConnection *                              GetClientDatat() const;
+        enum RequestStatus                               GetStatus() const;
+        
+        void                                            SetClientData(ClientConnection *);
         void                                            SetMethod(std::string);
         void                                            SetRequestLine(std::string);
         void                                            SetHttpVersion(std::string);
@@ -69,7 +75,6 @@ class HttpRequest
         void                                            SetAreHeaderParsed(bool);
         void                                            SetStatus(enum RequestStatus );
         void                                            SetQueryString(std::vector<std::pair<std::string, std::string>> );
-
         void                                            ResetRequest();
         bool                                            IsValidRequest() const;
         ~HttpRequest();

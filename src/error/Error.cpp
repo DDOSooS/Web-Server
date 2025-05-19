@@ -1,4 +1,4 @@
-#include "../../include/request/Error.hpp"
+#include "../../include/error/Error.hpp"
 
 Error::Error(ClientConnection& client, int code, const std::string& message, ERROR_TYPE type)
 : _client(client), _code_error(code), _message(message), _error_type(type) {}

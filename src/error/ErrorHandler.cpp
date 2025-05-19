@@ -1,4 +1,4 @@
-#include "../include/request/ErrorHandler.hpp"
+#include "../../include/error/ErrorHandler.hpp"
 
 ErrorHandler::ErrorHandler():nextHandler(NULL)
 {

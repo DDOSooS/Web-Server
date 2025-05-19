@@ -45,7 +45,7 @@ class  WebServer
     private:
         static const int                    DEFAULT_MAX_CONNECTIONS = 1024;
         ServerConfig                        m_config; // this is a variable that will hold the server configuration
-        RequestHandler*                     requestHandler;
+        // RequestHandler*                     requestHandler;
         int                                 m_socket;      // Internal socket FD for the listening socket
         struct pollfd                       *pollfds; // files descriptor using poll
         int                                 maxfds, numfds;

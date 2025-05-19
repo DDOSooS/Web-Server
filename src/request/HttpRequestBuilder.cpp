@@ -1,4 +1,4 @@
-#include "../include/request/HttpRequestBuilder.hpp"
+#include "../../include/request/HttpRequestBuilder.hpp"
 
 HttpRequestBuilder::HttpRequestBuilder()
 {
@@ -30,6 +30,7 @@ void HttpRequestBuilder::addHeader(std::string &key, std::string &value)
 {
     _http_request.SetHeader(key, value);
 }
+
 
 void HttpRequestBuilder::ParseQueryString(std::string &query_string)
 {
@@ -101,7 +102,7 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line)
     std::cout << "Http Version:" << http_version << "\n";
    
     // check if the request line is valid
-    if (http_version == "HTTP/1.1" || http_version == "HTTP/1.0")
+    if (http_version != "HTTP/1.1" && http_version != "HTTP/1.0")
     {
         std::cerr << "HTTP VERSION ERROR\n";
         // exit(2);
@@ -137,6 +138,7 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line)
     std::cout << "HTTP LOCATION TEST passed!!\n";
     _http_request.SetLocation(path);
     _http_request.SetIsRl(REQ_DONE);
+    _http_request.SetStatus(PARSER);
 }
 
 /*
@@ -173,13 +175,19 @@ void HttpRequestBuilder::ParseRequsetHeaders(std::istringstream &iss)
         if (line.empty() || line == "\r") break;
         size_t pos = line.find(":");
         if (pos == std::string::npos)
+        {
+            std::cerr << "Malformed Header: Missing ':'" << std::endl;
+            exit(1);
             throw HttpException(400, "Malformed Header: Missing ':'", ERROR_TYPE::BAD_REQUEST);
+        }
         key = line.substr(0, pos);
         value = line.substr(pos + 1);
         value.erase(0, value.find_first_not_of(" \t"));
-        if (key.empty() || value.empty())
-            throw HttpException(400, "Empty Header Key/Value", ERROR_TYPE::BAD_REQUEST);
+        // if (key.empty() || value.empty())
+        // {
 
+        //     throw HttpException(400, "Empty Header Key/Value", ERROR_TYPE::BAD_REQUEST);
+        // }
         // Check for invalid characters in key
         // if (key.find_first_of("()<>@,;:\\/[]?={} \t") != std::string::npos) {
         //     throw HttpException(400, "Invalid Header Key: " + key, ERROR_TYPE::BAD_REQUEST);
@@ -208,8 +216,7 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest)
     {
         // Invalid request format exception or error handling
         std::cerr << "Invalid request format==================================????" << std::endl;
-        // exit(1);
-        throw HttpException(404, "Bad Request", ERROR_TYPE::BAD_REQUEST);
+        throw HttpException(400, "Bad Request", ERROR_TYPE::BAD_REQUEST);
     }
     std::cout << "Crlf Test is BEING PASSED WELL!!!\n";
     std::istringstream iss(rawRequest);
@@ -238,7 +245,7 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest)
     }
     // Parse headers
     ParseRequsetHeaders(iss);
-    if (_http_request.GetIsRl() != REQ_PROCESSING)
+    if (_http_request.GetStatus() != PARSER)
     {
         std::cerr << "Invalid headers" << std::endl;
         if (_http_request.GetIsRl() == REQ_HTTP_VERSION_ERROR)

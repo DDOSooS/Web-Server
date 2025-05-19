@@ -1,4 +1,4 @@
-#include "../include/request/HttpException.hpp"
+#include "../../include/request/HttpException.hpp"
 
 HttpException::HttpException(int code, std::string message, ERROR_TYPE error_type):std::runtime_error(message), _code(code), _message(message), _error_type(error_type)
 {
