@@ -1,4 +1,4 @@
-#include "../../include/request/error/NotImplemented.hpp"
+#include "../../include/error/NotImplemented.hpp"
 
 
 NotImplemented::NotImplemented()

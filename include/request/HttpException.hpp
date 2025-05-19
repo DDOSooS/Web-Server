@@ -2,7 +2,8 @@
 
 #include <stdexcept>
 
-#include "./Error.hpp"
+#include "./HttpRequest.hpp"
+#include "../error/Error.hpp"
 enum class ERROR_TYPE;
 
 class HttpException : public std::runtime_error

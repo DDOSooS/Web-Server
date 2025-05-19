@@ -1,21 +1,19 @@
 #include "../include/WebServer.hpp"
 #include "../include/request/RequestHandler.hpp"
-#include "../include/request/ErrorHandler.hpp"
+#include "../include/error/ErrorHandler.hpp"
 #include "../include/request/HttpException.hpp"
-#include "../include/request/error/NotFound.hpp"
-#include "../include/request/error/BadRequest.hpp"
-#include "../include/request/error/InternalServerError.hpp"
-#include "../include/request/error/MethodNotAllowed.hpp"
-#include "../include/request/error/NotImplemented.hpp"
+#include "../include/error/NotFound.hpp"
+#include "../include/error/BadRequest.hpp"
+#include "../include/error/InternalServerError.hpp"
+#include "../include/error/MethodNotAllowed.hpp"
+#include "../include/error/NotImplemented.hpp"
 #include <vector>
 #include <algorithm>
 #include <fcntl.h>
 
 WebServer::WebServer():
-      m_socket(0),
-      maxfds(DEFAULT_MAX_CONNECTIONS),
-      requestHandler(NULL)
-    //   requestHandler(new RequestHandler(this))
+    m_socket(0),
+    maxfds(DEFAULT_MAX_CONNECTIONS)
 {
     pollfds = new struct pollfd[maxfds];
 }
