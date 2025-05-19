@@ -17,5 +17,6 @@ public:
     bool            IsDir(const std::string &path);
     bool            IsFile(const std::string &path);
     std::string     ListingDir(const std::string &path);
+    std::string     determineContentType(const std::string& path);
     ~Get();
 };

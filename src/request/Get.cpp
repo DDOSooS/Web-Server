@@ -91,6 +91,25 @@ std::string Get::ListingDir(const std::string &path)
     return response.str();
 }
 
+std::string Get::determineContentType(const std::string& path)
+{
+    int size;
+    size_t dot_pos;
+    
+    std::string contentType[] = { "html", "css", "js", "png", "jpeg", "gif", "json", "xml" , "pdf", "mp4", "mpeg", "x-www-form-urlencoded", "form-data", "woff2", "woff", "zip", "csv"};
+    std::string contenetFormat[] = { "text/html", "text/css", "application/javascript", "image/png", "image/jpeg", "image/gif", "application/json", "application/xml", "application/pdf", "video/mp4", "audio/mpeg", "application/x-www-form-urlencoded", "multipart/form-data", "font/woff2", "font/woff", "application/zip", "text/csv"};
+    size = sizeof(contentType) / sizeof(contentType[0]);
+    dot_pos = path.rfind('.');
+    if (dot_pos != std::string::npos)
+    {
+        std::string ext = path.substr(dot_pos + 1);
+        for (int i = 0; i < size; i++)
+            if (contentType[i] == ext)
+        return contenetFormat[i];
+    }
+    return "text/plain";
+}
+
 void    Get::ProccessRequest(HttpRequest *request)
 {
     std::string rel_path;

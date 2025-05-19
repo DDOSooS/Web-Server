@@ -106,6 +106,7 @@ std::string HttpResponse::getBuffer() const
     return this->_buffer;
 }
 
+
 std::unordered_map<std::string, std::string> HttpResponse::getHeaders() const
 {
     return this->_headers;
@@ -160,6 +161,25 @@ std::string HttpResponse::GetStatusMessage(int code) const
     }
 }
 
+std::string HttpResponse::determineContentType( std::string path) 
+{
+    int size;
+    size_t dot_pos;
+    
+    std::string contentType[] = { "html", "css", "js", "png", "jpeg", "gif", "json", "xml" , "pdf", "mp4", "mpeg", "x-www-form-urlencoded", "form-data", "woff2", "woff", "zip", "csv"};
+    std::string contenetFormat[] = { "text/html", "text/css", "application/javascript", "image/png", "image/jpeg", "image/gif", "application/json", "application/xml", "application/pdf", "video/mp4", "audio/mpeg", "application/x-www-form-urlencoded", "multipart/form-data", "font/woff2", "font/woff", "application/zip", "text/csv"};
+    size = sizeof(contentType) / sizeof(contentType[0]);
+    dot_pos = path.rfind('.');
+    if (dot_pos != std::string::npos)
+    {
+        std::string ext = path.substr(dot_pos + 1);
+        for (int i = 0; i < size; i++)
+            if (contentType[i] == ext)
+        return contenetFormat[i];
+    }
+    return "text/plain";
+}
+
 long getFileSize(std::string &file_name)
 {
     struct stat file_info;
@@ -171,7 +191,7 @@ long getFileSize(std::string &file_name)
     return file_info.st_size;
 }
 
-std::string HttpResponse::toString() const
+std::string HttpResponse::toString() 
 {
     std::cout << "HTTP RESPONSE TO STRING METHOD !!!!\n";
     std::string response = "HTTP/1.1 " + std::to_string(this->getStatusCode()) + " " + this->_status_message + "\r\n";
@@ -184,6 +204,9 @@ std::string HttpResponse::toString() const
     if (this->_keep_alive)
         response += "Connection: keep-alive\r\n";
 
+    if (!this->_file_path.empty())
+        this->_content_type = determineContentType(this->_file_path);
+    // std::cout << "Content Type :||||||||||||||||||||||||||| " << this->_content_type << std::endl;
     response += "Content-Type: " + (this->_content_type.empty() ? "text/plain" : this->_content_type) + "\r\n";
 
     std::string body;
