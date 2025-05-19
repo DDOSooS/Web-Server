@@ -52,10 +52,11 @@ class HttpResponse
 
         void                                                sendChunkedResponse(int socekt_fd);
         void                                                sendResponse(int socket_fd);
-        std::string  toString() const;
+        std::string  toString() ;
         std::string  GetStatusMessage(int code) const;
         void         clear();
         bool         isFile() const;
+        std::string determineContentType( std::string path) ;
         ~HttpResponse();
 };
 
