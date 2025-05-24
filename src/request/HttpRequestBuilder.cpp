@@ -271,12 +271,21 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest)
 
 
     // Parse body if present
-    // if (iss.peek() != EOF)
-    // {
-    //     std::string body;
-    //     std::getline(iss, body);
-    //     ParseRequestBody(body);
-    // }
+    std::string body;
+    std::string bodyLine;
+    
+    // Skip to the blank line that separates headers from body
+    while (std::getline(iss, bodyLine) && !bodyLine.empty() && bodyLine != "\r") {}
+    
+    // Read the rest as body
+    while (std::getline(iss, bodyLine)) {
+        body += bodyLine;
+        body += "\n";
+    }
+    
+    if (!body.empty()) {
+        ParseRequestBody(body);
+    }
 }
 
 
