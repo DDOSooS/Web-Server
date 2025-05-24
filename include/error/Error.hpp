@@ -2,44 +2,10 @@
 
 #include <string>
 #include "../ClientConnection.hpp"
+#include "ErrorType.hpp"
 
 
 class ClientConnection;
-enum class ERROR_TYPE
-{  
-    //4xx Client Errors
-    BAD_REQUEST,
-    NOT_FOUND,
-    METHOD_NOT_ALLOWED,
-    CONTENT_TOO_LARGE,
-    REQUEST_TIME_OUT,
-    // UNAUTHORIZED,
-    // FORBIDDEN,
-    // LENGTH_REQUIREDM,
-
-    //5xx  SERVER ERRORS
-    INTERNAL_SERVER_ERROR,
-    NOT_IMPLEMENTED
-    // SERVICE_UNAVAILABLE,
-    // GATEWAY_TIMEOUT,
-    // BAD_GATEWAY
-
-//   // 4xx Client Errors
-//         BadRequest = 400,
-//         Unauthorized = 401,
-//         Forbidden = 403,
-//         NotFound = 404,
-//         MethodNotAllowed = 405,
-//         RequestTimeout = 408,
-//         Conflict = 409,
-
-//         // 5xx Server Errors
-//         InternalServerError = 500,
-//         NotImplemented = 501,
-//         BadGateway = 502,
-//         ServiceUnavailable = 503,
-//         GatewayTimeout = 504
-} ;
 
 class Error
 {

@@ -10,6 +10,8 @@
 #include <vector>
 #include <algorithm>
 #include <fcntl.h>
+#include <map>
+#include <sstream>
 
 WebServer::WebServer():
     m_socket(0),
@@ -100,44 +102,87 @@ int WebServer::init(ServerConfig& config)
 int WebServer::run()
 {
     bool running = true;
+    std::cout << "Server '" << m_config.get_server_name() << "' is running on port: " << m_config.get_port() << std::endl;
+
     while (running)
     {
+        // Wait for events with poll
         int ready = poll(pollfds, numfds, -1);
         if (ready == -1)
         {
+            if (errno == EINTR) {
+                // Interrupted by signal, just continue
+                continue;
+            }
             perror("poll");
-            continue;
+            break;  // Exit on serious poll errors
         }
+
+        // Process all ready file descriptors
         for (int i = 0; i < numfds; i++)
         {
+            // Skip if no events
             if (pollfds[i].revents == 0)
                 continue;
+
             int fd = pollfds[i].fd;
-            // always check for errors first
+
+            // Always check for errors first
             if (pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL))
             {
-                closeClientConnection(fd);
+                if (fd == m_socket) {
+                    // Error on listening socket is fatal
+                    std::cerr << "Error on listening socket!" << std::endl;
+                    running = false;
+                    break;
+                } else {
+                    // Close client connection on error
+                    closeClientConnection(fd);
+                }
                 continue;
             }
-            // handle incoming data
+
+            // Handle incoming data
             if (pollfds[i].revents & POLLIN)
             {
-                if (fd == m_socket)
+                if (fd == m_socket) {
+                    // Accept new connection
                     acceptNewConnection();
-                else
-                    handleClientRequest(fd);
+                } else {
+                    // Handle client request
+                    try {
+                        handleClientRequest(fd);
+                    } catch (const std::exception& e) {
+                        std::cerr << "Unhandled exception in handleClientRequest: " << e.what() << std::endl;
+                        closeClientConnection(fd);
+                    }
+                }
             }
-            // handle outgoing data
+
+            // Handle outgoing data
             if (pollfds[i].revents & POLLOUT)
             {
                 std::cout << "START OF SENDING HTTP RESPONSE TO THE CLIENT\n";
-                handleClientResponse(fd);
+                try {
+                    handleClientResponse(fd);
+                } catch (const std::exception& e) {
+                    std::cerr << "Unhandled exception in handleClientResponse: " << e.what() << std::endl;
+                    closeClientConnection(fd);
+                }
             }
-                //client.RespondToClient(fd);    
         }
+
+        // Check for and remove stale connections (optional timeout handling)
+        // This would iterate through clients and close those inactive for too long
     }
-    std::cout << "Server '" << m_config.get_server_name() << "' is runing on port: " << m_config.get_port() << " ... " << std::endl;
-    return (0);
+
+    // Clean up before exiting
+    for (int i = 1; i < numfds; i++) {  // Start from 1 to skip the listening socket
+        close(pollfds[i].fd);
+    }
+
+    std::cout << "Server '" << m_config.get_server_name() << "' has shut down." << std::endl;
+    return 0;
 }
 
 // Modified acceptNewConnection
@@ -151,34 +196,63 @@ void WebServer::acceptNewConnection()
         perror("accept");
         return;
     }
+
     // Set non-blocking
     fcntl(clientFd, F_SETFL, O_NONBLOCK);
-    // Create and store ClientConnection
-    clients.emplace(std::piecewise_construct,
-                    std::forward_as_tuple(clientFd),
-                    std::forward_as_tuple(clientFd, clientAddr));
-    // Add to poll set
+
+    // Check if we've reached maximum connections
     if (numfds >= maxfds)
     {
+        std::cerr << "Maximum connections reached, rejecting client" << std::endl;
         close(clientFd);
-        clients.erase(clientFd);
         return;
     }
-    pollfds[numfds].fd = clientFd;
-    pollfds[numfds].events = POLLIN;
-    clients[clientFd]._server = this;
-    numfds++;
-    printf("Client ip: %s connected\n", clients[clientFd].ipAddress.c_str());
+
+    try {
+        // Create a client connection object first
+        ClientConnection conn(clientFd, clientAddr);
+        conn._server = this;
+
+        // Add to poll set
+        pollfds[numfds].fd = clientFd;
+        pollfds[numfds].events = POLLIN;
+        pollfds[numfds].revents = 0;
+        numfds++;
+
+        // Now store in map after poll is updated
+        clients[clientFd] = conn;
+
+        std::cout << "Client ip: " << clients[clientFd].ipAddress << " connected" << std::endl;
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Error creating client connection: " << e.what() << std::endl;
+        close(clientFd);
+        // Don't increment numfds as we failed to create the connection
+    }
 }
 // Close client connection
 void WebServer::closeClientConnection(int clientSocket)
 {
-    auto it = clients.find(clientSocket);
-    printf("Client ip: %s disconnected\n", clients[clientSocket].ipAddress.c_str());
+    std::map<int, ClientConnection>::iterator it = clients.find(clientSocket);
     if (it != clients.end())
     {
+        printf("Client ip: %s disconnected\n", it->second.ipAddress.c_str());
+
+        // Clean up allocated resources
+        if (it->second.http_request != NULL) {
+            delete it->second.http_request;
+            it->second.http_request = NULL;
+        }
+
+        if (it->second.http_response != NULL) {
+            delete it->second.http_response;
+            it->second.http_response = NULL;
+        }
+
+        // Close socket and remove from clients map
         close(clientSocket);
         clients.erase(it);
+
         // Remove from poll set
         for (int i = 0; i < numfds; i++)
         {
@@ -189,6 +263,10 @@ void WebServer::closeClientConnection(int clientSocket)
                 break;
             }
         }
+    }
+    else
+    {
+        std::cerr << "Warning: Attempted to close non-existent client connection: " << clientSocket << std::endl;
     }
 }
 void WebServer::updatePollEvents(int fd, short events)
@@ -206,7 +284,15 @@ void WebServer::updatePollEvents(int fd, short events)
 void WebServer::handleClientRequest(int fd)
 {
     std::cout << "============== (START OF HANDLING CLIENT REQUEST) ==============\n";
+
+    // Check if client exists
+    if (clients.find(fd) == clients.end()) {
+        std::cerr << "Client not found for fd " << fd << std::endl;
+        return;
+    }
+
     ClientConnection &client = clients[fd];
+
     // Set error chain handler
     ErrorHandler *errorHandler = new NotFound();
 
@@ -216,28 +302,52 @@ void WebServer::handleClientRequest(int fd)
                 ->SetNext(new MethodNotAllowed());
     try
     {
+        // Generate and process the request
         client.GenerateRequest(fd);
         client.ProcessRequest(fd);
     }
     catch(HttpException &e)
     {
         std::cerr << "HttpException: " << e.what() << std::endl;
+
         // Handle the exception using the error handler
-        // Create an error object
-        std::cout << "Error Type: " << static_cast<int> (e.GetErrorType()) << std::endl;
+        std::cout << "Error Type: " << (int)(e.GetErrorType()) << std::endl;
         std::cout << " Error code :" << e.GetCode() << std::endl;
-        Error error(client, e.GetCode(), e.GetMessage(), e.GetErrorType());
-        errorHandler->HanldeError(error);
-        this->updatePollEvents(fd, POLLOUT);
+
+        try {
+            Error error(client, e.GetCode(), e.GetMessage(), e.GetErrorType());
+            errorHandler->HanldeError(error);
+            this->updatePollEvents(fd, POLLOUT);
+        }
+        catch (std::exception &ex) {
+            std::cerr << "Error while handling exception: " << ex.what() << std::endl;
+            closeClientConnection(fd);
+        }
     }
+    catch (std::exception &e)
+    {
+        std::cerr << "Standard exception in handleClientRequest: " << e.what() << std::endl;
+        closeClientConnection(fd);
+    }
+    catch (...)
+    {
+        std::cerr << "Unknown exception in handleClientRequest" << std::endl;
+        closeClientConnection(fd);
+    }
+
+    // Clean up the error handler chain
+    delete errorHandler;
 }
 
 void WebServer::handleClientResponse(int fd)
 {
     //check if the client exists in our map
     std::cout << "============== (START OF HANDLING CLIENT RESPONSE) ==============\n";
-    if (clients.find(fd) == clients.end())
+    if (clients.find(fd) == clients.end()) {
+        std::cerr << "Client with fd " << fd << " not found in clients map" << std::endl;
         return;
+    }
+
     ClientConnection &client = clients[fd];
     if (client.http_response)
         std::cout << "Client ip: " << client.ipAddress << " is sending response============\n";
@@ -248,11 +358,43 @@ void WebServer::handleClientResponse(int fd)
         std::cout << "Client ip: " << client.ipAddress << " is sending request============\n";
     else
         std::cout << "Client ip: " << client.ipAddress << "  request (NULLL)============\n";
+
+    // Handle null http_response
     if (client.http_response == NULL)
     {
         std::cerr << "Warning: client.http_response is null for fd " << fd << std::endl;
-        updatePollEvents(fd, POLLIN);
-        // exit(0);
+
+        try {
+            // Create a default response for error handling
+            std::map<std::string, std::string> headers;
+            headers["Content-Type"] = "text/html";
+            headers["Connection"] = "close"; // Force connection close on error
+
+            client.http_response = new HttpResponse(500, headers, "text/html", false, false);
+            if (client.http_response == NULL) {
+                std::cerr << "Failed to allocate HttpResponse" << std::endl;
+                closeClientConnection(fd);
+                return;
+            }
+
+            client.http_response->setBuffer("<html><body><h1>500 Internal Server Error</h1><p>Invalid response state</p></body></html>");
+
+            // Send this error response
+            try {
+                client.http_response->sendResponse(fd);
+            } catch (const std::exception& e) {
+                std::cerr << "Error sending error response: " << e.what() << std::endl;
+            } catch (...) {
+                std::cerr << "Unknown error sending error response" << std::endl;
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Exception creating error response: " << e.what() << std::endl;
+        } catch (...) {
+            std::cerr << "Unknown exception creating error response" << std::endl;
+        }
+
+        // Always close the connection when there's an error
+        closeClientConnection(fd);
         return;
     }
 
@@ -260,31 +402,51 @@ void WebServer::handleClientResponse(int fd)
     if (!client.http_response->checkAvailablePacket())
     {
         try
-        {            
-            if (client.http_response->isChunked() )
+        {
+            if (client.http_response->isChunked())
             {
                 client.http_response->sendChunkedResponse(fd);
-                return ;
+                return;
             }
             else
             {
                 if (client.http_response->isFile())
                 {
-                    client.http_response->sendResponse(fd);
+                    try {
+                        client.http_response->sendResponse(fd);
+                    } catch (const std::exception& e) {
+                        std::cerr << "Error sending file response: " << e.what() << std::endl;
+                        closeClientConnection(fd);
+                        return;
+                    }
                 }
                 else
                 {
-                    client.http_response->sendChunkedResponse(fd);
+                    try {
+                        client.http_response->sendChunkedResponse(fd);
+                    } catch (const std::exception& e) {
+                        std::cerr << "Error sending chunked response: " << e.what() << std::endl;
+                        closeClientConnection(fd);
+                        return;
+                    }
                 }
 
                 this->updatePollEvents(fd, POLLIN);
+
                 // Reset request state for next request
                 if (client.http_response->isKeepAlive())
                 {
-                    std::cout << "after Resesting the request !!!\n";
-                    client.http_response->clear();
-                    client.http_request->ResetRequest();
-                    return ;
+                    std::cout << "after Resetting the request !!!\n";
+
+                    // Safely clear and reset
+                    if (client.http_response) {
+                        client.http_response->clear();
+                    }
+
+                    if (client.http_request) {
+                        client.http_request->ResetRequest();
+                    }
+                    return;
                 }
                 else
                 {
@@ -295,22 +457,51 @@ void WebServer::handleClientResponse(int fd)
         }
         catch(HttpException & e)
         {
-            std::cerr << e.what() << '\n';
+            std::cerr << "HttpException in handleClientResponse: " << e.what() << '\n';
+
+            // Try to send an error response
+            try {
+                if (client.http_response) {
+                    client.http_response->setStatusCode(e.GetCode());
+                    client.http_response->setStatusMessage(e.GetMessage());
+                    std::stringstream ss;
+                    ss << e.GetCode();
+                    client.http_response->setBuffer("<html><body><h1>" + ss.str() + " " + e.GetMessage() + "</h1></body></html>");
+                    client.http_response->sendResponse(fd);
+                }
+            } catch (const std::exception& ex) {
+                std::cerr << "Error sending exception response: " << ex.what() << std::endl;
+            } catch (...) {
+                std::cerr << "Unknown error sending exception response" << std::endl;
+            }
+
+            // Close connection on error
+            closeClientConnection(fd);
+        }
+        catch(std::exception & e)
+        {
+            std::cerr << "Standard exception in handleClientResponse: " << e.what() << '\n';
+            closeClientConnection(fd);
+        }
+        catch(...)
+        {
+            std::cerr << "Unknown exception in handleClientResponse" << '\n';
+            closeClientConnection(fd);
         }
     }
 }
-    
+
     /*
-    
+
         try
         {
-            //generate the rquest 
+            //generate the rquest
             //handle request..
             //generate response
         }
         catch (error)
         {
-            sendResponse as an error 
+            sendResponse as an error
         }
         char buf[4096];
         ssize_t bytes_recv = recv(fd, buf, sizeof(buf), 0);
@@ -378,12 +569,12 @@ void WebServer::handleClientWrite(int fd)
         }
         client.sendBuffer.erase(0, bytes_sent);
     }
-    
+
     // Handle next steps based on current state
     if (client.sendBuffer.empty())
     {
         // Debug: Check and log if http_request is null
-        if (client.http_request == nullptr)
+        if (client.http_request == NULL)
         {
             std::cerr << "Warning: client.http_request is null for fd " << fd << std::endl;
             updatePollEvents(fd, POLLIN);
@@ -393,7 +584,7 @@ void WebServer::handleClientWrite(int fd)
         if (client.http_request->request_status && static_cast<size_t>(client.http_request->remaine_bytes) > 0)
         requestHandler->serveFile(fd, client, client.http_request->full_path);
         // If completely done with file transfer
-        else if (client.http_request->request_status && 
+        else if (client.http_request->request_status &&
         client.http_request->remaine_bytes == 0)
         {
             if (!client.http_request->keep_alive)
@@ -403,10 +594,10 @@ void WebServer::handleClientWrite(int fd)
                 std::cout << "reset previous request !!!!!!!!!\n";
                 updatePollEvents(fd, POLLIN);
                 bool keepAlive = client.http_request->keep_alive;
-                
+
                 // Reset request state for next request, but be careful not to delete the object
                 client.http_request->reset();
-                if (client.http_request == nullptr)
+                if (client.http_request == NULL)
                 {
                     client.http_request = new RequestData();
                     client.http_request->keep_alive = keepAlive;

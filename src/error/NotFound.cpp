@@ -6,12 +6,12 @@ NotFound::NotFound()
 
 bool    NotFound::CanHandle(ERROR_TYPE type) const
 {
-    std::cout << "Can Handle Error Type: " << static_cast<int>(type) << std::endl;
-    if (type == ERROR_TYPE::NOT_FOUND)
+    std::cout << "Can Handle Error Type: " << (int)(type) << std::endl;
+    if (type == NOT_FOUND)
     {
         std::cout << "Not Found Error Handler is being used!!!!!!!!!!!!!\n";
     }
-    return ERROR_TYPE::NOT_FOUND == type;
+    return NOT_FOUND == type;
 }
 
 void    NotFound::ProcessError(Error &error)
@@ -29,7 +29,10 @@ void    NotFound::ProcessError(Error &error)
     std::string response = iss.str();
     // Set the response buffer
     if (error.GetClientData().http_response == NULL)
-        error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), {}, "text/plain", false, false);
+    {
+        std::map<std::string, std::string> emptyHeaders;
+        error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), emptyHeaders, "text/plain", false, false);
+    }
     error.GetClientData().http_response->setBuffer(response);
     error.GetClientData().http_response->setStatusCode(error.GetCodeError());
     // error->GetClientData().http_response.send(response, response);

@@ -23,7 +23,7 @@ HttpRequest::HttpRequest(HttpRequest const &src)
 
 bool HttpRequest::FindHeader(std::string key, std::string value)
 {
-    std::unordered_map<std::string, std::string>::iterator it = _headers.find(key);
+    std::map<std::string, std::string>::iterator it = _headers.find(key);
     if (it != _headers.end())
     {
         return it->second == value;
@@ -33,7 +33,7 @@ bool HttpRequest::FindHeader(std::string key, std::string value)
 
 std::string HttpRequest::GetHeader(std::string key) const
 {
-    std::unordered_map<std::string, std::string>::const_iterator it = _headers.find(key);
+    std::map<std::string, std::string>::const_iterator it = _headers.find(key);
     if (it != _headers.end())
     {
         return it->second;
@@ -41,7 +41,7 @@ std::string HttpRequest::GetHeader(std::string key) const
     return "";
 }
 
-std::unordered_map<std::string, std::string> HttpRequest::GetHeaders() const
+std::map<std::string, std::string> HttpRequest::GetHeaders() const
 {
     return _headers;
 }
@@ -122,7 +122,7 @@ void HttpRequest::SetBody(std::string body)
     _body = body;
 }
 
-void HttpRequest::SetQueryString(std::vector<std::pair<std::string, std::string>> query)
+void HttpRequest::SetQueryString(std::vector<std::pair<std::string, std::string> > query)
 {
     _query_string =  query;
 }
@@ -152,7 +152,7 @@ RequestLineStatus HttpRequest::GetIsRl() const
     return _is_rl;
 }
 
-std::vector<std::pair<std::string, std::string>> HttpRequest::GetQueryString() const
+std::vector<std::pair<std::string, std::string> > HttpRequest::GetQueryString() const
 {
     return _query_string;
 }

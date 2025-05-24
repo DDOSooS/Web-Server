@@ -1,6 +1,6 @@
 #pragma once
 #include <string>
-#include <unordered_map>
+#include <map>
 #include <sstream>
 #include <fstream>
 #include <iostream>
@@ -38,8 +38,8 @@ class HttpRequest
         std::string                                         _location;
         std::string                                         _buffer;
         std::string                                         _body;
-        std::unordered_map<std::string, std::string>        _headers;
-        std::vector<std::pair<std::string, std::string>>    _query_string;
+        std::map<std::string, std::string>                  _headers;
+        std::vector<std::pair<std::string, std::string> >    _query_string;
         enum RequestStatus                                  _status;
         bool                                                _is_crlf;
         RequestLineStatus                                   _is_rl; //request line
@@ -50,11 +50,11 @@ class HttpRequest
         HttpRequest(HttpRequest const &);
         bool                                            FindHeader(std::string, std::string);
         std::string                                     GetHeader(std::string )const;
-        std::unordered_map<std::string, std::string>    GetHeaders()const;
+        std::map<std::string, std::string>              GetHeaders()const;
         std::string                                     GetRequestLine() const;
         std::string                                     GetHttpVersion() const;
         std::string                                     GetBody() const;
-        std::vector<std::pair<std::string, std::string>> GetQueryString() const;
+        std::vector<std::pair<std::string, std::string> > GetQueryString() const;
         bool                                            GetIsCrlf() const;
         RequestLineStatus                               GetIsRl() const;
         std::string                                     GetMethod() const;
@@ -74,7 +74,7 @@ class HttpRequest
         void                                            SetIsRl(RequestLineStatus);
         void                                            SetAreHeaderParsed(bool);
         void                                            SetStatus(enum RequestStatus );
-        void                                            SetQueryString(std::vector<std::pair<std::string, std::string>> );
+        void                                            SetQueryString(std::vector<std::pair<std::string, std::string> > );
         void                                            ResetRequest();
         bool                                            IsValidRequest() const;
         ~HttpRequest();

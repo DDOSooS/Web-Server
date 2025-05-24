@@ -1,22 +1,22 @@
 #include "../include/ClientConnection.hpp"
-#include "./WebServer.hpp"
-#include "./request/Get.hpp"
-// Constructor
-// Default constructor
+#include "../include/WebServer.hpp"
+#include "../include/request/Get.hpp"
+#include "../include/request/Post.hpp"
+#include <cstring>  
 
-ClientConnection::ClientConnection(): fd(-1), ipAddress(0), port(0), connectTime(0), lastActivity(0)
-            , http_response(NULL), http_request(NULL), handler_chain(NULL) 
+ClientConnection::ClientConnection(): fd(-1), ipAddress(""), port(0), connectTime(0), lastActivity(0)
+            , builder(NULL), http_response(NULL), http_request(NULL), handler_chain(NULL)
 {
     this->_server = NULL;
 }
 
 // Constructor with socket and client address
-ClientConnection::ClientConnection(int socketFd, const sockaddr_in& clientAddr) : 
+ClientConnection::ClientConnection(int socketFd, const sockaddr_in& clientAddr) :
     _server(NULL),
     fd(socketFd),
     port(ntohs(clientAddr.sin_port)),
-    connectTime(time(nullptr)),
-    lastActivity(time(nullptr)),
+    connectTime(time(NULL)),
+    lastActivity(time(NULL)),
     builder(NULL),
     http_response(NULL),
     http_request(NULL),
@@ -31,24 +31,35 @@ void ClientConnection::GenerateRequest(int fd)
 {
     char buffer[REQUSET_LINE_BUFFER];
     ssize_t bytesRead = recv(fd, buffer, sizeof(buffer) - 1, 0);
-    if (bytesRead > 0)
-        buffer[bytesRead] = '\0';// Null-terminate the buffer
-    else if (bytesRead == 0)
+    if (bytesRead <= 0)
     {
-        std::cerr << "Internal Server EROOOOOOOOOOOOOR Generate Request\n";
-        throw HttpException(500 , "Internal Server Error", ERROR_TYPE::INTERNAL_SERVER_ERROR);
-    }
+        std::cerr << "Error receiving data: "
+                  << (bytesRead == 0 ? "Connection closed" : strerror(errno))
+                  << "\n";
+        throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
+    }    
+    // Null-terminate the buffer
+    buffer[bytesRead] = '\0';
 
     std::cout << "==================== (Buffer:) =====================\n " << buffer <<
         "\n==================================================================" << std::endl;
 
-    std::string rawRequest;
-
-    rawRequest = std::string(buffer);
-    HttpRequestBuilder build = HttpRequestBuilder(); 
-    build.ParseRequest(rawRequest);
-    this->http_request = new HttpRequest(build.GetHttpRequest());
-    this->http_request->SetClientData(this);
+    try {
+        std::string rawRequest(buffer);
+        HttpRequestBuilder build = HttpRequestBuilder();
+        build.ParseRequest(rawRequest);
+        
+        // Clean up any existing request object
+        if (this->http_request) {
+            delete this->http_request;
+        }
+        
+        this->http_request = new HttpRequest(build.GetHttpRequest());
+        this->http_request->SetClientData(this);
+    } catch (const std::exception& e) {
+        std::cerr << "Exception in GenerateRequest: " << e.what() << std::endl;
+        throw HttpException(400, "Bad Request", BAD_REQUEST);
+    }
 }
 
 
@@ -57,6 +68,7 @@ void    ClientConnection::ProcessRequest(int fd)
     RequestHandler     *chain_handler;
 
     chain_handler = new Get();
+    chain_handler->SetNext(new Post());
 
     if (http_request == NULL)
     {
@@ -64,57 +76,84 @@ void    ClientConnection::ProcessRequest(int fd)
         return;
     }
 
-    if (!this->http_response)
+    // Ensure http_response is properly initialized before proceeding
+    if (this->http_response == NULL)
     {
-        this->http_response = new HttpResponse(200,{}, "text/plain", false, false);
+        std::map<std::string, std::string> emptyHeaders;
+        this->http_response = new HttpResponse(200, emptyHeaders, "text/plain", false, false);
     }
-    chain_handler->HandleRequest(this->http_request);
-    // std::unordered_map <std::string , std::string> headers;
-    // // headers["Content-Type"] = "text/html";
-    // this->http_response = new HttpResponse(200, headers, "text/html", false, false);
-    // this->http_response->setFilePath("index.html");
-    // std::cout << "END OF PROCESSING THE REQUEST \n";
-    this->_server->updatePollEvents(fd, POLLOUT);
+    
+    try {
+        chain_handler->HandleRequest(this->http_request);
+        std::cout << "END OF PROCESSING THE REQUEST \n";
+        if (this->_server != NULL) {
+            this->_server->updatePollEvents(fd, POLLOUT);
+        } else {
+            std::cerr << "Error: Server pointer is NULL" << std::endl;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Exception in ProcessRequest: " << e.what() << std::endl;
+        if (this->http_response) {
+            this->http_response->setStatusCode(500);
+            this->http_response->setStatusMessage("Internal Server Error");
+            this->http_response->setBuffer("<html><body><h1>500 Internal Server Error</h1><p>" + std::string(e.what()) + "</p></body></html>");
+        }
+        if (this->_server != NULL) {
+            this->_server->updatePollEvents(fd, POLLOUT);
+        }
+    }
+    
+    // Memory management for handler
+    delete chain_handler;
 }
 
 
 ClientConnection::~ClientConnection()
 {
-    // if (http_request)
-    //     delete http_request;
-    // if (http_response)
-    //     delete http_response;
-    // if (builder)
-    //     delete builder;
-    /*
-        delete the handler chain
-    */
+    // Clean up allocated resources in a safe way
+    if (http_request != NULL) {
+        delete http_request;
+        http_request = NULL;
+    }
+    
+    if (http_response != NULL) {
+        delete http_response;
+        http_response = NULL;
+    }
+    
+    if (builder != NULL) {
+        delete builder;
+        builder = NULL;
+    }
+    
+    // Don't delete handler_chain here, it could be a dangling pointer
+    // or managed elsewhere
 }
 
 /*
 ClientConnection::ClientConnection() : fd(-1), port(0), connectTime(0), lastActivity(0)
             , bytesSent(0),  http_request(NULL){}
 
-ClientConnection::ClientConnection(int socketFd, const sockaddr_in& clientAddr) : 
+ClientConnection::ClientConnection(int socketFd, const sockaddr_in& clientAddr) :
     fd(socketFd),
     port(ntohs(clientAddr.sin_port)),
-    connectTime(time(nullptr)),
-    lastActivity(time(nullptr)),
+    connectTime(time(NULL)),
+    lastActivity(time(NULL)),
     bytesSent(0),
-    http_request(nullptr)
+    http_request(NULL)
 {
     char ipStr[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &(clientAddr.sin_addr), ipStr, INET_ADDRSTRLEN);
     ipAddress = ipStr;
-    }    
-    
+    }
+
     void ClientConnection::parseRequest(char *buff)
     {
         std::stringstream   stream;
         // std::istringstream  iss;
         std::string         tmp;
         size_t              pos;
-    
+
         if(!http_request)
             this->http_request =  new RequestData();
         tmp = std::string(buff);
@@ -144,23 +183,23 @@ ClientConnection::ClientConnection(int socketFd, const sockaddr_in& clientAddr) 
         stream.clear();
         stream.str("");
     }
-    
+
     RequestData::RequestData(): method(""), request_path(""), http_version(""), request_body(""),content_length(0), keep_alive(false), crlf_flag(false), request_line(false), request_status(0), remaine_bytes(0) {}
-    
+
     bool RequestData::findHeader(std::string header)
     {
         auto res = headers.find(header);
         return   res != headers.end() ;
     }
-    
+
     std::string RequestData::getHeader(std::string header) const
     {
         auto res = headers.find(header);
         if (res ==  headers.end())
-            return "nullptr";
+            return "NULL";
         return res->second;
     }
-    
+
     bool RequestData::findHeaderValue(std::string header, std::string value)
     {
         auto res = headers.find(header);
@@ -171,8 +210,8 @@ ClientConnection::ClientConnection(int socketFd, const sockaddr_in& clientAddr) 
         }
         return false;
     }
-    
-    std::unordered_map<std::string , std::string> RequestData::getAllHeaders() const
+
+    std::map<std::string , std::string> RequestData::getAllHeaders() const
     {
         return headers;
     }
@@ -182,11 +221,11 @@ ClientConnection::ClientConnection(int socketFd, const sockaddr_in& clientAddr) 
 // Update activity timestamp
 void ClientConnection::updateActivity()
 {
-    lastActivity = time(nullptr);
-}    
+    lastActivity = time(NULL);
+}
 
 // Check if connection is stale (timeout)
 bool ClientConnection::isStale(time_t timeoutSec) const
 {
-    return (time(nullptr) - lastActivity) > timeoutSec;
-}    
+    return (time(NULL) - lastActivity) > timeoutSec;
+}

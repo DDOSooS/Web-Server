@@ -15,7 +15,7 @@ class RequestHandler
 	
 	public:
 		RequestHandler();
-		~RequestHandler();
+		virtual ~RequestHandler();
 		virtual void 		HandleRequest(HttpRequest *request);
 		virtual	bool 		CanHandle(std::string method)=0;
 		virtual void 		ProccessRequest(HttpRequest *request)=0;

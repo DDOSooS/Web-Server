@@ -19,6 +19,6 @@ ERROR_TYPE HttpException::GetErrorType() const
     return this->_error_type;
 }
 
-HttpException::~HttpException()
+HttpException::~HttpException() throw()
 {
 }

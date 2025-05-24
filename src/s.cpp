@@ -14,7 +14,7 @@ RequestHandler::RequestHandler(WebServer* server) : server(server) {}
 void RequestHandler::processRequest(int fd)
 {
     ClientConnection& client = server->getClient(fd);
-    
+
     // Parse request line
     if (!client.http_request->request_line)
     {
@@ -51,7 +51,7 @@ std::string urlDecode(const std::string &str)
                 i += 2;
             }
             else
-            result += str[i]; 
+            result += str[i];
         }
         else if (str[i] == '+')
         result += ' ';
@@ -67,7 +67,7 @@ bool isValidPath(std::string &path)
 {
     std::string decoded_path;
     struct stat path_stat;
-    
+
     decoded_path = urlDecode(path);
     std::cout << "decoded " << decoded_path << std::endl;
     // const char* ptr =  getcwd(NULL, 256);
@@ -86,7 +86,7 @@ bool isDir(std::string &path)
 {
     struct stat path_stat;
     std::string decoded_path;
-    
+
     decoded_path = urlDecode(path);
     if(stat(decoded_path.c_str(), &path_stat) != 0)
     return (false);
@@ -98,7 +98,7 @@ bool isFile(std::string &path)
 {
     std::string decoded_path;
     struct stat path_stat;
-    
+
     decoded_path = urlDecode(path);
     if (stat(decoded_path.c_str(), &path_stat) != 0)
     return (false);
@@ -108,7 +108,7 @@ bool isFile(std::string &path)
 void RequestHandler::handleGet(int fd, ClientConnection& client)
 {
     std::string full_path;
-    
+
     std::cout << "Handling Get \n";
     // Security: prevent path traversal
     if (client.http_request->request_path.find("../") != std::string::npos)
@@ -138,10 +138,10 @@ void RequestHandler::handleGet(int fd, ClientConnection& client)
 }
 
 void RequestHandler::handlePost(int fd, ClientConnection& client)
-{    
+{
     bool isMultipart;
     bool isChunked;
-    
+
     isMultipart = client.http_request->findHeaderValue("Content-Type", "ultipart/form-data");
     isChunked = client.http_request->findHeaderValue("Transfer-Encoding", "chunked");
     if (isMultipart)
@@ -153,12 +153,12 @@ void RequestHandler::handlePost(int fd, ClientConnection& client)
         // Handle regular POST data
         std::string response_body = "POST request received\n";
         response_body += "Content Length: " + std::to_string(client.http_request->request_body.length()) + "\n";
-        
+
         client.responseHeaders = "HTTP/1.1 200 OK\r\n";
         client.responseHeaders += "Content-Type: text/plain\r\n";
         client.responseHeaders += "Content-Length: " + std::to_string(response_body.length()) + "\r\n";
         client.responseHeaders += "Connection: close\r\n\r\n";
-        
+
         client.sendBuffer = client.responseHeaders + response_body;
         server->updatePollEvents(fd, POLLOUT);
     }
@@ -167,7 +167,7 @@ void RequestHandler::handlePost(int fd, ClientConnection& client)
 //Listing File
 void RequestHandler::listingDir(int fd, ClientConnection &client, const std::string &full_path)
 {
-    
+
 std::cout << "Serving a Listing Directory\n";
 DIR *dir_ptr;
 struct dirent *entry;
@@ -200,7 +200,7 @@ while ((entry = readdir(dir_ptr)) != NULL)
 {
     std::string name;
     std::string full_name;
-    
+
     name = entry->d_name;
     if (name == "." || name == "..")
     continue;
@@ -212,7 +212,7 @@ while ((entry = readdir(dir_ptr)) != NULL)
     }
     else if (entry->d_type == DT_REG)
     {
-        response << "\">" << name;  
+        response << "\">" << name;
     }
     response << "</a> " << "</li> \n";
 }
@@ -235,10 +235,10 @@ server->updatePollEvents(fd, POLLOUT);
 }
 
 //serving File
-void RequestHandler::serveFile(int fd, ClientConnection& client, const std::string& full_path) 
+void RequestHandler::serveFile(int fd, ClientConnection& client, const std::string& full_path)
 {
     size_t CHUNK_SIZE = 8192; // 8KB chunks
-    
+
     // First call - initialize transfer
     if (!client.http_request->request_status) {
         // Open file and set up metadata
@@ -247,57 +247,57 @@ void RequestHandler::serveFile(int fd, ClientConnection& client, const std::stri
             server->sendErrorResponse(fd, 404, "Not Found");
             return;
         }
-        
+
         client.http_request->remaine_bytes = client.http_request->ressources.tellg();
         client.http_request->ressources.seekg(0, std::ios::beg);
         client.http_request->full_path = full_path;
-        
+
         // Build headers
         std::string content_type = determineContentType(full_path);
         bool keepAlive = client.http_request->findHeaderValue("Connection", "keep-alive");
-        
+
         std::stringstream headers;
         headers << "HTTP/1.1 200 OK\r\n"
         << "Content-Type: " << content_type << "\r\n"
         << "Transfer-Encoding: chunked\r\n"
         << "Connection: " << (keepAlive ? "keep-alive" : "close") << "\r\n"
         << "\r\n";
-        
+
         client.sendBuffer = headers.str();
         client.http_request->request_status = true;
     }
-    
+
     // Generate data chunks
     if (client.http_request->remaine_bytes > 0)
     {
         std::vector<char> buffer(CHUNK_SIZE);
         size_t bytes_to_read = std::min(CHUNK_SIZE, static_cast<size_t>(client.http_request->remaine_bytes));
-        
+
         client.http_request->ressources.read(buffer.data(), bytes_to_read);
         size_t bytes_read = client.http_request->ressources.gcount();
-        
+
         if (bytes_read > 0) {
             std::stringstream chunk;
             chunk << std::hex << bytes_read << "\r\n";
             chunk.write(buffer.data(), bytes_read);
             chunk << "\r\n";
-            
+
             client.sendBuffer += chunk.str();
-            client.http_request->remaine_bytes -= bytes_read;   
+            client.http_request->remaine_bytes -= bytes_read;
         } else {
             server->sendErrorResponse(fd, 500, "Internal Server Error");
             return;
         }
     }
-    
+
     // Final chunk when done
-    if (client.http_request->remaine_bytes == 0 && 
+    if (client.http_request->remaine_bytes == 0 &&
     client.sendBuffer.find("0\r\n\r\n") == std::string::npos)
     {
         client.sendBuffer += "0\r\n\r\n";
         client.http_request->ressources.close();
     }
-    
+
     server->updatePollEvents(fd, POLLOUT);
 }
 
@@ -305,7 +305,7 @@ std::string RequestHandler::determineContentType(const std::string& path)
 {
     int size;
     size_t dot_pos;
-    
+
     std::string contentType[] = { "html", "css", "js", "png", "jpeg", "gif", "json", "xml" , "pdf", "mp4", "mpeg", "x-www-form-urlencoded", "form-data", "woff2", "woff", "zip", "csv"};
     std::string contenetFormat[] = { "text/html", "text/css", "application/javascript", "image/png", "image/jpeg", "image/gif", "application/json", "application/xml", "application/pdf", "video/mp4", "audio/mpeg", "application/x-www-form-urlencoded", "multipart/form-data", "font/woff2", "font/woff", "application/zip", "text/csv"};
     size = sizeof(contentType) / sizeof(contentType[0]);
@@ -324,17 +324,17 @@ void RequestHandler::processMultipartData(int fd, ClientConnection& client)
 {
     std::string body = client.http_request->request_body;
     std::string headers = client.http_request->getHeader("Content-Type");
-    
-    
+
+
     size_t boundary_pos = headers.find("boundary=");
     if (boundary_pos == std::string::npos) {
         server->sendErrorResponse(fd, 400, "Bad Request: No boundary found");
         return;
     }
-    
+
     std::string boundary = "--" + headers.substr(boundary_pos + 9);
     boundary = boundary.substr(0, boundary.find("\r\n"));
-    
+
     std::vector<std::string> parts;
     size_t pos = 0;
     while ((pos = body.find(boundary)) != std::string::npos) {
@@ -356,11 +356,11 @@ void RequestHandler::processMultipartData(int fd, ClientConnection& client)
                 if (data_start != std::string::npos) {
                     data_start += 4;
                     std::string file_data = part.substr(data_start);
-                    
+
                     std::ofstream out("uploads/" + filename, std::ios::binary);
                     out << file_data;
                     out.close();
-                    
+
                     std::string response = "File uploaded successfully: " + filename;
                     client.responseHeaders = "HTTP/1.1 200 OK\r\n";
                     client.responseHeaders += "Content-Type: text/plain\r\n";
@@ -373,7 +373,7 @@ void RequestHandler::processMultipartData(int fd, ClientConnection& client)
             }
         }
     }
-    
+
     server->sendErrorResponse(fd, 400, "Bad Request: No file found in multipart data");
 }
 
@@ -382,24 +382,24 @@ void RequestHandler::processChunkedData(int fd, ClientConnection& client)
     std::string body = client.http_request->request_body;
     std::string decoded;
     size_t pos = 0;
-    
+
     while (pos < body.length()) {
         size_t crlf = body.find("\r\n", pos);
         if (crlf == std::string::npos) break;
-        
+
         std::string chunk_size_str = body.substr(pos, crlf - pos);
-        int chunk_size = std::stoi(chunk_size_str, nullptr, 16);
+        int chunk_size = std::stoi(chunk_size_str, NULL, 16);
         if (chunk_size == 0) break;
-        
+
         pos = crlf + 2;
         decoded += body.substr(pos, chunk_size);
         pos += chunk_size + 2;
     }
-    
+
     std::ofstream out("uploads/chunked_upload.txt", std::ios::binary);
     out << decoded;
     out.close();
-    
+
     std::string response = "Chunked data received and saved";
     client.responseHeaders = "HTTP/1.1 200 OK\r\n";
     client.responseHeaders += "Content-Type: text/plain\r\n";

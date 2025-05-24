@@ -1,10 +1,11 @@
 #pragma once
 
 #include <stdexcept>
+#include <string>
+#include "../error/ErrorType.hpp"
 
-#include "./HttpRequest.hpp"
-#include "../error/Error.hpp"
-enum class ERROR_TYPE;
+// Forward declarations to avoid circular includes
+class HttpRequest;
 
 class HttpException : public std::runtime_error
 {
@@ -13,10 +14,13 @@ class HttpException : public std::runtime_error
         std::string     _message;
         ERROR_TYPE      _error_type;
     public:
-        HttpException(int , std::string , ERROR_TYPE);
+        HttpException(int code, std::string message, ERROR_TYPE error_type);
         int         GetCode() const;
         std::string GetMessage() const;
         ERROR_TYPE  GetErrorType() const;
-        ~HttpException();
+        ~HttpException() throw();
 };
+
+// Include these after the class declaration to avoid circular dependency
+#include "./HttpRequest.hpp"
 

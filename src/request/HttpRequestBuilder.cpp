@@ -43,10 +43,10 @@ void HttpRequestBuilder::ParseQueryString(std::string &query_string)
         size_t pos =  query.find("=");
         if (pos != std::string::npos)
         {
-            this->_http_request.GetQueryString().emplace_back(query.substr(0,pos), query.substr(pos + 1));
+            this->_http_request.GetQueryString().push_back(std::make_pair(query.substr(0,pos), query.substr(pos + 1)));
         }
         else
-            this->_http_request.GetQueryString().emplace_back(query, "");
+            this->_http_request.GetQueryString().push_back(std::make_pair(query, ""));
     }
 }
 
@@ -64,7 +64,7 @@ std::string HttpRequestBuilder::UrlDecode(const std::string &req_line)
                 decoded += static_cast<char>(hexChar);
                 i += 2;
             }
-            else    
+            else
                 decoded += req_line[i];
         }
         else if (req_line[i] == '+')
@@ -96,11 +96,11 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line)
     }
     _http_request.SetRequestLine(request_line);
     //check crlf of the request line
-    std::cout << "<< RL :: " << _http_request.GetRequestLine() << ";;   >>>\n"; 
+    std::cout << "<< RL :: " << _http_request.GetRequestLine() << ";;   >>>\n";
     std::cout << "Methode :" << method << "\n";
     std::cout << "Location :" << path << "\n";
     std::cout << "Http Version:" << http_version << "\n";
-   
+
     // check if the request line is valid
     if (http_version != "HTTP/1.1" && http_version != "HTTP/1.0")
     {
@@ -113,7 +113,16 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line)
     // check if the method is valid
     std::cout << "Http TEST passed!!\n";
     // need to intergate the conf file congiguration!!!
-    std::vector<std::string> valid_methods = {"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD", "TRACE", "CONNECT"};
+    std::vector<std::string> valid_methods;
+    valid_methods.push_back("GET");
+    valid_methods.push_back("POST");
+    valid_methods.push_back("PUT");
+    valid_methods.push_back("DELETE");
+    valid_methods.push_back("PATCH");
+    valid_methods.push_back("OPTIONS");
+    valid_methods.push_back("HEAD");
+    valid_methods.push_back("TRACE");
+    valid_methods.push_back("CONNECT");
     if (std::find(valid_methods.begin(), valid_methods.end(), method) == valid_methods.end())
     {
         _http_request.SetIsRl(REQ_METHOD_ERROR);
@@ -145,7 +154,7 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line)
 void HttpRequestBuilder::ParseRequsetHeaders(std::istringstream &iss)
 {
     std::string line;
-    
+
     std::getline(iss, line);
     while (std::getline(iss, line) && line != "\r\n")
     {
@@ -169,7 +178,7 @@ void HttpRequestBuilder::ParseRequsetHeaders(std::istringstream &iss)
 
     while (std::getline(iss, line))
     {
-        std::string key; 
+        std::string key;
         std::string value;
         // Check for end of headers (empty line or \r)
         if (line.empty() || line == "\r") break;
@@ -178,7 +187,7 @@ void HttpRequestBuilder::ParseRequsetHeaders(std::istringstream &iss)
         {
             std::cerr << "Malformed Header: Missing ':'" << std::endl;
             exit(1);
-            throw HttpException(400, "Malformed Header: Missing ':'", ERROR_TYPE::BAD_REQUEST);
+            throw HttpException(400, "Malformed Header: Missing ':'", BAD_REQUEST);
         }
         key = line.substr(0, pos);
         value = line.substr(pos + 1);
@@ -210,18 +219,18 @@ void HttpRequestBuilder::ParseRequestBody(std::string &body)
 void HttpRequestBuilder::ParseRequest(std::string &rawRequest)
 {
     std::cout << "Parsing the Request !!!!!!!!!\n";
-    std::cout << "Req Line::" << rawRequest << "==========|" << (rawRequest.find("\r\n\r\n")== std::string::npos) << "====" << (rawRequest.find("\r\n") == std::string::npos) << ":"; 
+    std::cout << "Req Line::" << rawRequest << "==========|" << (rawRequest.find("\r\n\r\n")== std::string::npos) << "====" << (rawRequest.find("\r\n") == std::string::npos) << ":";
     // Split the raw request into lines
     if (rawRequest.find("\r\n") == std::string::npos && rawRequest.find("/r/n/r/n") == std::string::npos)
     {
         // Invalid request format exception or error handling
         std::cerr << "Invalid request format==================================????" << std::endl;
-        throw HttpException(400, "Bad Request", ERROR_TYPE::BAD_REQUEST);
+        throw HttpException(400, "Bad Request", BAD_REQUEST);
     }
     std::cout << "Crlf Test is BEING PASSED WELL!!!\n";
     std::istringstream iss(rawRequest);
     std::string line;
-    
+
     // Parse request line
     std::getline(iss, line);
     ParseRequestLine(line);
@@ -232,15 +241,15 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest)
         // exit(1);
         if (_http_request.GetIsRl() == REQ_HTTP_VERSION_ERROR)
         {
-            std::cout << "HTTP VERSION ERROR>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n";   
-            throw HttpException(404, "HTTP Version Not Supported", ERROR_TYPE::NOT_FOUND);
+            std::cout << "HTTP VERSION ERROR>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n";
+            throw HttpException(404, "HTTP Version Not Supported", NOT_FOUND);
         }
         else if (_http_request.GetIsRl() == REQ_METHOD_ERROR || _http_request.GetIsRl() == REQ_LOCATION_ERROR)
-            throw HttpException(500, "Bad Request", ERROR_TYPE::BAD_REQUEST);
+            throw HttpException(500, "Bad Request", BAD_REQUEST);
         else if (_http_request.GetIsRl() == REQ_LOCATION_ERROR)
-            throw HttpException(404, "Not Found", ERROR_TYPE::NOT_FOUND);
+            throw HttpException(404, "Not Found", NOT_FOUND);
         else if (_http_request.GetIsRl() == REQ_NOT_IMPLEMENTED)
-            throw HttpException(501, "Not Implemented", ERROR_TYPE::NOT_IMPLEMENTED);
+            throw HttpException(501, "Not Implemented", NOT_IMPLEMENTED);
         return;
     }
     // Parse headers
@@ -249,18 +258,18 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest)
     {
         std::cerr << "Invalid headers" << std::endl;
         if (_http_request.GetIsRl() == REQ_HTTP_VERSION_ERROR)
-            throw HttpException(505, "HTTP Version Not Supported", ERROR_TYPE::BAD_REQUEST);
+            throw HttpException(505, "HTTP Version Not Supported", BAD_REQUEST);
         else if (_http_request.GetIsRl() == REQ_METHOD_ERROR || _http_request.GetIsRl() == REQ_LOCATION_ERROR)
-            throw HttpException(500, "Bad Request", ERROR_TYPE::BAD_REQUEST);
+            throw HttpException(500, "Bad Request", BAD_REQUEST);
         else if (_http_request.GetIsRl() == REQ_LOCATION_ERROR)
-            throw HttpException(404, "Not Found", ERROR_TYPE::NOT_FOUND);
+            throw HttpException(404, "Not Found", NOT_FOUND);
         else if (_http_request.GetIsRl() == REQ_NOT_IMPLEMENTED)
-            throw HttpException(501, "Not Implemented", ERROR_TYPE::NOT_IMPLEMENTED);
-        
+            throw HttpException(501, "Not Implemented", NOT_IMPLEMENTED);
+
         return;
     }
-    
-    
+
+
     // Parse body if present
     // if (iss.peek() != EOF)
     // {
@@ -269,7 +278,7 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest)
     //     ParseRequestBody(body);
     // }
 }
-    
+
 
 /* build the http request   */
 HttpRequest& HttpRequestBuilder::GetHttpRequest()

@@ -2,7 +2,6 @@
 
 Get::Get()
 {
-
 }
 
 Get::~Get()
@@ -51,10 +50,20 @@ std::string Get::ListingDir(const std::string &path)
     std::stringstream response;
     std::string path_;
     
-    path_ =  "/home/aghergho/Desktop/Web-Server/www" + path;
+    // Make sure the path starts with a slash
+    std::string normalized_path = path;
+    if (normalized_path.empty() || normalized_path[0] != '/')
+        normalized_path = "/" + normalized_path;
+    
+    path_ = "www" + normalized_path;  // Use a relative path that exists in your project structure
+    std::cout << "Opening directory: " << path_ << std::endl;
+    
     dir = opendir(path_.c_str());
-    if (dir == NULL)
-        return ("");
+    if (dir == NULL) {
+        std::cerr << "Failed to open directory: " << path_ << " - " << strerror(errno) << std::endl;
+        return "";
+    }
+    
     response << "<html>\n"
     << "<head>\n<title>Index of " << path << "</title>\n"
     << "<style>\n"
@@ -70,18 +79,37 @@ std::string Get::ListingDir(const std::string &path)
     << "<body>\n"
     << "<h1>Index of " << path << "</h1>\n"
     << "<ul>\n";
+    
+    // Add parent directory link if not at root
+    if (path != "/") {
+        response << "<li><a href=\"";
+        size_t lastSlash = path.rfind('/');
+        if (lastSlash != std::string::npos) {
+            response << path.substr(0, lastSlash);
+        } else {
+            response << "/";
+        }
+        response << "\" class=\"folder\">..</a></li>\n";
+    }
+    
     while ((entry = readdir(dir)) != NULL)
     {
         std::string rs_name;//ressource name
   
         rs_name = entry->d_name;
-        if ( rs_name == "." || rs_name == "..")
+        if (rs_name == "." || rs_name == "..")
             continue;
-        response << "<li> <a href=\"" << path ;
+        
+        // Make sure path ends with a slash
+        std::string href_path = path;
+        if (href_path[href_path.length()-1] != '/')
+            href_path += "/";
+            
+        response << "<li> <a href=\"" << href_path << rs_name;
         if (entry->d_type == DT_DIR)
-           response << "/" << rs_name  << "\" class=\"folder\">"  << rs_name << "/";
+           response << "/\" class=\"folder\">"  << rs_name << "/";
         else if (entry->d_type == DT_REG)
-            response << "/" << rs_name << "\" class=\"file\">" << rs_name;
+            response << "\" class=\"file\">" << rs_name;
         response << "</a></li>\n";
     }
     response << "</ul>\n";
@@ -112,46 +140,84 @@ std::string Get::determineContentType(const std::string& path)
 
 void    Get::ProccessRequest(HttpRequest *request)
 {
-    std::string rel_path;
+    if (!request) {
+        std::cerr << "Error: Null request pointer\n";
+        throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
+    }
 
-    rel_path = "/home/aghergho/Desktop/Web-Server/www" + request->GetLocation();
+    if (!request->GetClientDatat()) {
+        std::cerr << "Error: Null client data pointer\n";
+        throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
+    }
+
+    if (!request->GetClientDatat()->http_response) {
+        std::cerr << "Error: Null http_response pointer\n";
+        std::map<std::string, std::string> emptyHeaders;
+        request->GetClientDatat()->http_response = new HttpResponse(200, emptyHeaders, "text/html", false, false);
+    }
+
+    // Normalize the location path
+    std::string location = request->GetLocation();
+    if (location.empty()) {
+        location = "/";
+    } else if (location[0] != '/') {
+        location = "/" + location;
+    }
+
+    std::string root_path = "www";  // Use a relative path that exists in your project structure
+    std::string rel_path = root_path + location;
+    
     std::cout << "RELATIVE PATH : " << rel_path << std::endl;
     if (!IsValidPath(rel_path))
     {
         std::cerr << "NOT FOUND INVALID LOCATION \n";
-        throw HttpException(404, "404 Not Found", ERROR_TYPE::NOT_FOUND);
+        throw HttpException(404, "404 Not Found", NOT_FOUND);
     }
+    
     if (IsDir(rel_path))
     {
         request->GetClientDatat()->http_response->setStatusCode(200);
         request->GetClientDatat()->http_response->setStatusMessage("OK");
         request->GetClientDatat()->http_response->setContentType("text/html");
         request->GetClientDatat()->http_response->setChunked(false);
-        std::string indexFile;
         
-        indexFile = rel_path + "index.html";
+        // Make sure directory path ends with a slash
+        if (rel_path[rel_path.length() - 1] != '/') {
+            rel_path += "/";
+        }
+        
+        // Make sure location ends with a slash for proper URL construction
+        if (location[location.length() - 1] != '/') {
+            location += "/";
+        }
+        
+        std::string indexFile = rel_path + "index.html";
         std::cout << "INDEX FILE : " << indexFile << std::endl;
+        
         if (IsFile(indexFile))
         {
-            std::cout << "INDEX FILE IS VALID-- " << request->GetLocation() + "index.html\n";
-            request->GetClientDatat()->http_response->setFilePath(request->GetLocation() + "index.html");
-            return ;
+            std::cout << "INDEX FILE IS VALID-- " << location + "index.html\n";
+            request->GetClientDatat()->http_response->setFilePath(location + "index.html");
+            return;
         }
         else
         {
-            std::cout << "INDEX FILE IS NOT VALID-- " <<  indexFile<<"\n";
-            std::string response;
-
-            response = ListingDir(request->GetLocation());
+            std::cout << "INDEX FILE IS NOT VALID-- " << indexFile << "\n";
+            std::string response = ListingDir(location);
+            
+            if (response.empty()) {
+                response = "<html><body><h1>Directory Listing Not Available</h1></body></html>";
+            }
+            
             std::cout << "RESPONSE :>>>>>>>>>>>>>>>>>> " << response << std::endl;
             request->GetClientDatat()->http_response->setBuffer(response);
-            return ;
+            return;
         }
     }
     else
     {
         std::cout << "FILE IS VALID-- " << rel_path << "\n";
-        request->GetClientDatat()->http_response->setFilePath(request->GetLocation());
-        return ;
+        request->GetClientDatat()->http_response->setFilePath(location);
+        return;
     }
 }

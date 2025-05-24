@@ -2,8 +2,10 @@
 #include <string>
 #include <vector>
 #include <utility>
-#include <unordered_map>
+#include <map>
 #include <istream>
+#include <sstream>
+#include <fstream>
 #include <sys/stat.h>
 #include "../request/HttpException.hpp"
 
@@ -11,7 +13,7 @@ class HttpResponse
 {
     private:
         int                                                 _status_code;
-        std::unordered_map<std::string, std::string>        _headers;
+        std::map<std::string, std::string>                  _headers;
         std::string                                         _status_message;
         std::string                                         _content_type;
 
@@ -25,7 +27,7 @@ class HttpResponse
         size_t                                              _byte_sent;
 
     public:
-        HttpResponse(int , std::unordered_map<std::string, std::string>, std::string, bool, bool);
+        HttpResponse(int , std::map<std::string, std::string>, std::string, bool, bool);
 
         void                                                setStatusCode(int code);
         void                                                setStatusMessage(std::string message);
@@ -46,7 +48,7 @@ class HttpResponse
         std::string                                         getBuffer() const;
         size_t                                              getByteSent() const;
         std::string                                         getContentType() const;
-        std::unordered_map<std::string, std::string>        getHeaders() const;
+        std::map<std::string, std::string>                  getHeaders() const;
 
         bool                                                checkAvailablePacket() const;
 
