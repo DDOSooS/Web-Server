@@ -17,5 +17,5 @@ class ErrorHandler
         virtual bool            CanHandle(ERROR_TYPE ) const = 0;
         virtual void            ProcessError(Error &error) = 0;
         virtual void            DefaultErrorHandler(Error &error);
-        ~ErrorHandler();
+        virtual ~ErrorHandler();
 };

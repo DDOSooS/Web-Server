@@ -7,11 +7,11 @@ NotImplemented::NotImplemented()
 
 bool    NotImplemented::CanHandle(ERROR_TYPE type) const
 {
-    if (type == ERROR_TYPE::NOT_IMPLEMENTED)
+    if (type == NOT_IMPLEMENTED)
     {
         std::cout << "Not Implemented Error Handler is being used!!!!!!!!!!!!!\n";
     }
-    return ERROR_TYPE::NOT_IMPLEMENTED == type;
+    return NOT_IMPLEMENTED == type;
 }
 
 void    NotImplemented::ProcessError(Error &error)
@@ -30,7 +30,10 @@ void    NotImplemented::ProcessError(Error &error)
     
     // Set the response buffer
     if (error.GetClientData().http_response == NULL)
-        error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), {}, "text/plain", false, false);
+    {
+        std::map<std::string, std::string> emptyHeaders;
+        error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), emptyHeaders, "text/plain", false, false);
+    }
     // Set the response buffer
     error.GetClientData().http_response->setBuffer(response);
     error.GetClientData().http_response->setStatusCode(error.GetCodeError());

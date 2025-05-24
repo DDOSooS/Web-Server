@@ -7,12 +7,14 @@ MethodNotAllowed::MethodNotAllowed()
 
 bool    MethodNotAllowed::CanHandle(ERROR_TYPE type) const
 {
-    if (type == ERROR_TYPE::METHOD_NOT_ALLOWED)
+    if (type == METHOD_NOT_ALLOWED)
     {
         std::cout << "Method Not Allowed Error Handler is being used!!!!!!!!!!!!!\n";
     }
-    return ERROR_TYPE::METHOD_NOT_ALLOWED == type;
+    return METHOD_NOT_ALLOWED == type;
 }
+
+MethodNotAllowed::~MethodNotAllowed() {}
 
 void    MethodNotAllowed::ProcessError(Error &error)
 {
@@ -30,7 +32,10 @@ void    MethodNotAllowed::ProcessError(Error &error)
 
     // Set the response buffer
     if (error.GetClientData().http_response == NULL)
-        error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), {}, "text/plain", false, false);
+    {
+        std::map<std::string, std::string> emptyHeaders;
+        error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), emptyHeaders, "text/plain", false, false);
+    }
     // Set the response buffer
     error.GetClientData().http_response->setBuffer(response);
     error.GetClientData().http_response->setStatusCode(error.GetCodeError());

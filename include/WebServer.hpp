@@ -13,14 +13,13 @@
 #include <fstream>
 #include <sys/select.h>
 #include <poll.h>
-#include <unordered_map>
-#define BUFFER_SIZE 4096
-#include "./ClientConnection.hpp"
-#include "./request/RequestHandler.hpp"
+#include <map>
 #include "./config/ServerConfig.hpp"
+#include "./ClientConnection.hpp"
+
+#define BUFFER_SIZE 4096
 
 class   RequestHandler;
-class   ClientConnection;
 class  WebServer
 {
     public:
@@ -40,7 +39,7 @@ class  WebServer
         void closeClientConnection(int clientSocket);
         void handleClientRequest(int fd);
         void handleClientResponse(int fd);
-        // void processHttpRequest(int fd); 
+        // void processHttpRequest(int fd);
 
     private:
         static const int                    DEFAULT_MAX_CONNECTIONS = 1024;
@@ -49,7 +48,7 @@ class  WebServer
         int                                 m_socket;      // Internal socket FD for the listening socket
         struct pollfd                       *pollfds; // files descriptor using poll
         int                                 maxfds, numfds;
-        std::unordered_map<int, ClientConnection> clients;  // Map of fd to ClientConnection
+        std::map<int, ClientConnection> clients;  // Map of fd to ClientConnection
 
         // fd_set          m_master;      // Master files descriptor set
         // nfds_t         nfds = 0;

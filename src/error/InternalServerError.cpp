@@ -6,11 +6,11 @@ InternalServerError::InternalServerError()
 
 bool    InternalServerError::CanHandle(ERROR_TYPE type) const
 {
-    if (type == ERROR_TYPE::INTERNAL_SERVER_ERROR)
+    if (type == INTERNAL_SERVER_ERROR)
     {
         std::cout << "Internal Server Error Handler is being used!!!!!!!!!!!!!\n";
     }
-    return ERROR_TYPE::INTERNAL_SERVER_ERROR == type;
+    return INTERNAL_SERVER_ERROR == type;
 }
 
 void    InternalServerError::ProcessError(Error &error)
@@ -30,7 +30,10 @@ void    InternalServerError::ProcessError(Error &error)
 
     // Set the response buffer
     if (error.GetClientData().http_response == NULL)
-        error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), {}, "text/plain", false, false);
+    {
+        std::map<std::string, std::string> emptyHeaders;
+        error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), emptyHeaders, "text/plain", false, false);
+    }
     // Set the response buffer
     error.GetClientData().http_response->setBuffer(response);
     error.GetClientData().http_response->setStatusCode(error.GetCodeError());
