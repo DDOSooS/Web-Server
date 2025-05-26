@@ -211,42 +211,42 @@ void Location::set_clientMaxBodySize(std::string body_size){
     this->_client_max_body_size = result;
 }
 
-std::string Location::get_path(){
+std::string Location::get_path() const{
 	return this->_path;
 }
 
-std::string Location::get_root_location(){
+std::string Location::get_root_location() const {
 	return this->_root;
 }
 
-bool 	Location::get_autoindex(){
+bool 	Location::get_autoindex() const{
 	return this->_autoindex;
 }
 
-std::string Location::get_index(){
+std::string Location::get_index() const{
 	return this->_index;
 }
 
-std::vector<bool> Location::get_allowMethods(){
+std::vector<bool> Location::get_allowMethods() const {
 	return this->_allow_methods;
 }
 
-std::string Location::get_return(){
+std::string Location::get_return() const {
 	return this->_return;
 }
 
-std::string Location::get_alias(){
+std::string Location::get_alias() const {
 	return this->_alias;
 }
 
-std::vector<std::string>	Location::get_cgiPath(){
+std::vector<std::string>	Location::get_cgiPath() const {
 	return this->_cgi_path;
 }
 
-std::vector<std::string>	Location::get_cgiExt(){
+std::vector<std::string>	Location::get_cgiExt() const {
 	return this->_cgi_ext;
 }
 
-unsigned long Location::get_clientMaxBodySize(){
+unsigned long Location::get_clientMaxBodySize() const {
 	return this->_client_max_body_size;
 }

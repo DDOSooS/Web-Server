@@ -12,7 +12,9 @@
 #include <fcntl.h>
 #include <map>
 #include <sstream>
-
+#include "../include/request/CgiHandler.hpp"  // Add this line
+#include "../include/request/RequestHandler.hpp" 
+// ... other includes
 WebServer::WebServer():
     m_socket(0),
     maxfds(DEFAULT_MAX_CONNECTIONS)
@@ -46,6 +48,8 @@ int WebServer::init(ServerConfig& config)
 {
     // set configuration
     this->setServerConfig(config);
+    // Initialize CGI handler
+    cgiHandler = new CgiHandler(this);
     // Create socket
     m_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (m_socket <= 0)

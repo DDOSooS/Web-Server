@@ -2,6 +2,7 @@
 #include "../include/WebServer.hpp"
 #include "../include/request/Get.hpp"
 #include "../include/request/Post.hpp"
+#include "../include/request/CgiHandler.hpp"
 #include <cstring>  
 
 ClientConnection::ClientConnection(): fd(-1), ipAddress(""), port(0), connectTime(0), lastActivity(0)
@@ -120,8 +121,17 @@ void    ClientConnection::ProcessRequest(int fd)
 {
     RequestHandler     *chain_handler;
 
-    chain_handler = new Get();
-    chain_handler->SetNext(new Post());
+    // add CgiHandler to the chain
+    if (this->_server == NULL) {
+        std::cerr << "Error: Server pointer is NULL" << std::endl;
+        return;
+    }
+    if (this->_server->getCgiHandler() == NULL) {
+        std::cerr << "Error: CgiHandler pointer is NULL" << std::endl;
+        return;
+    }
+    chain_handler = new CgiHandler(this->_server);
+    chain_handler->SetNext(new Get())->SetNext(new Post());
 
     if (http_request == NULL)
     {

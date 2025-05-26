@@ -36,16 +36,16 @@ public:
     void set_cgiExt(std::vector<std::string> cgi_exts);
     void set_clientMaxBodySize(std::string client_max_body_size);
 
-    std::string                 get_path();
-    std::string                 get_root_location();
-    bool                        get_autoindex();
-    std::string                 get_index();
-    std::vector<bool>          get_allowMethods(); // GET+ POST- DELETE- PUT- HEAD-
-    std::string                 get_return();
-    std::string                 get_alias();
-    std::vector<std::string>    get_cgiPath();
-    std::vector<std::string>    get_cgiExt();
-    unsigned long               get_clientMaxBodySize();
+    std::string                 get_path() const;
+    std::string                 get_root_location() const;
+    bool                        get_autoindex() const;
+    std::string                 get_index() const;
+    std::vector<bool>          get_allowMethods() const; // GET+ POST- DELETE- PUT- HEAD-
+    std::string                 get_return() const;
+    std::string                 get_alias() const;
+    std::vector<std::string>    get_cgiPath() const;
+    std::vector<std::string>    get_cgiExt() const;
+    unsigned long               get_clientMaxBodySize() const;
 };
 
 #endif // LOCATION_HPP

@@ -30,15 +30,15 @@ public:
     ServerConfig &operator=(const ServerConfig &rhs);
     ~ServerConfig();
 
-    uint16_t                    get_port();
-    std::string                   get_host();
-    std::string                 get_server_name();
-    std::string                 get_root();
-    unsigned long               get_client_max_body_size();
-    std::string                 get_index();
-    bool                        get_autoindex();
-    std::map<short, std::string> get_error_pages();
-    std::vector<Location>       get_locations();
+    uint16_t                    get_port() const;
+    std::string                   get_host() const;
+    std::string                 get_server_name() const;
+    std::string                 get_root() const;
+    unsigned long               get_client_max_body_size() const;
+    std::string                 get_index() const;
+    bool                        get_autoindex() const;
+    std::map<short, std::string> get_error_pages() const;
+    std::vector<Location>       get_locations() const;
 
     void set_port(std::string param);
     void set_host(std::string param);
@@ -50,7 +50,9 @@ public:
     void set_error_pages(std::string error_code, std::string error_page);
     void add_location(const Location& location);
 
-    friend class ConfigParser;
+    Location* findMatchingLocation(const std::string& path) const;
 };
 
 #endif // ServerConfig_HPP
+
+
