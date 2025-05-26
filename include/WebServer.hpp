@@ -17,6 +17,10 @@
 #include "./config/ServerConfig.hpp"
 #include "./ClientConnection.hpp"
 
+
+
+class CgiHandler;
+
 #define BUFFER_SIZE 4096
 
 class   RequestHandler;
@@ -34,6 +38,7 @@ class  WebServer
         const ServerConfig& getServerConfig();
         // void sendErrorResponse(int fd, int code, const std::string& message);
         //Location getLocationForPath(const std::string& path);
+        CgiHandler* getCgiHandler() const { return cgiHandler; }
 
     protected:
         void closeClientConnection(int clientSocket);
@@ -49,7 +54,7 @@ class  WebServer
         struct pollfd                       *pollfds; // files descriptor using poll
         int                                 maxfds, numfds;
         std::map<int, ClientConnection> clients;  // Map of fd to ClientConnection
-
+        CgiHandler                          *cgiHandler; // Pointer to the CGI handler
         // fd_set          m_master;      // Master files descriptor set
         // nfds_t         nfds = 0;
 };

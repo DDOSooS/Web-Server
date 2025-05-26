@@ -61,39 +61,39 @@ ServerConfig::~ServerConfig() {
 }
 
 
-uint16_t						ServerConfig::get_port(){
+uint16_t						ServerConfig::get_port() const {
     return this->_port;
 }
 
-std::string					ServerConfig::get_host(){
+std::string					ServerConfig::get_host() const {
     return this->_host;
 }
 
-std::string						ServerConfig::get_server_name(){
+std::string						ServerConfig::get_server_name() const {
     return this->_server_name;
 }
 
-std::string						ServerConfig::get_root(){
+std::string						ServerConfig::get_root() const {
     return this->_root;
 }
 
-unsigned long					ServerConfig::get_client_max_body_size(){
+unsigned long					ServerConfig::get_client_max_body_size() const {
     return this->_client_max_body_size;
 }
 
-std::string						ServerConfig::get_index(){
+std::string						ServerConfig::get_index() const {
     return this->_index;
 }
 
-bool							ServerConfig::get_autoindex(){
+bool							ServerConfig::get_autoindex() const {
     return this->_autoindex;
 }
 
-std::map<short, std::string>	ServerConfig::get_error_pages(){
+std::map<short, std::string>	ServerConfig::get_error_pages() const {
     return this->_error_pages;
 }
 
-std::vector<Location> 			ServerConfig::get_locations(){
+std::vector<Location> 			ServerConfig::get_locations() const {
     return this->_locations;
 }
 
@@ -197,4 +197,24 @@ void ServerConfig::set_error_pages(std::string error_code, std::string error_pag
 
 void ServerConfig::add_location(const Location& location) {
     this->_locations.push_back(location);
+}
+
+
+Location* ServerConfig::findMatchingLocation(const std::string& path) const {
+    Location* best_match = NULL;
+    size_t best_match_length = 0;
+    
+    for (std::vector<Location>::const_iterator it = _locations.begin(); 
+         it != _locations.end(); ++it) {
+        std::string location_path = it->get_path();
+        
+        if (path.find(location_path) == 0) {
+            if (location_path.length() > best_match_length) {
+                best_match = const_cast<Location*>(&(*it));
+                best_match_length = location_path.length();
+            }
+        }
+    }
+    
+    return best_match;
 }
