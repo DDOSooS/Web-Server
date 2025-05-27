@@ -6,11 +6,6 @@ import os
 import cgi
 
 def main():
-    # CGI content type header
-    print("Content-Type: text/html")
-    print()  # Empty line required to end headers
-    
-    # HTML start
     print("""<!DOCTYPE html>
 <html>
 <head>
@@ -26,11 +21,11 @@ def main():
 </head>
 <body>""")
     
-    print('<h1 class="header">🚀 CGI Direct Streaming Test</h1>')
+    print('<h1 class="header"> CGI Direct Streaming Test</h1>')
     
     # Show environment info
     print('<div class="info">')
-    print('<h3>📋 Request Information:</h3>')
+    print('<h3> Request Information:</h3>')
     print(f'<p><strong>Method:</strong> {os.environ.get("REQUEST_METHOD", "Unknown")}</p>')
     print(f'<p><strong>Script:</strong> {os.environ.get("SCRIPT_NAME", "Unknown")}</p>')
     print(f'<p><strong>Query String:</strong> {os.environ.get("QUERY_STRING", "None")}</p>')
@@ -46,7 +41,7 @@ def main():
             if content_length > 0:
                 post_data = sys.stdin.read(content_length)
                 print('<div class="info">')
-                print('<h3>📨 POST Data Received:</h3>')
+                print('<h3> POST Data Received:</h3>')
                 print(f'<pre>{post_data}</pre>')
                 
                 # Parse form data
@@ -61,7 +56,7 @@ def main():
             print(f'<div class="error">Error reading POST data: {e}</div>')
     
     # Streaming demonstration
-    print('<h3>🌊 Streaming Demonstration:</h3>')
+    print('<h3> Streaming Demonstration:</h3>')
     print('<p>Watch this content appear progressively (should start immediately):</p>')
     
     # Force output of everything so far
@@ -74,11 +69,11 @@ def main():
         print(f'Timestamp: {time.strftime("%Y-%m-%d %H:%M:%S")}<br>')
         print(f'Process ID: {os.getpid()}<br>')
         if i == 0:
-            print('✅ <em>If you see this immediately, streaming is working!</em><br>')
+            print(' <em>If you see this immediately, streaming is working!</em><br>')
         elif i == 3:
-            print('🔄 <em>Halfway through the streaming test...</em><br>')
+            print(' <em>Halfway through the streaming test...</em><br>')
         elif i == 7:
-            print('🎉 <em>Streaming test completed successfully!</em><br>')
+            print(' <em>Streaming test completed successfully!</em><br>')
         
         # Simulate some processing time
         processing_time = 0.5 + (i * 0.1)  # Gradually increase delay
@@ -117,12 +112,12 @@ def main():
     
     # Final summary
     print('<div class="footer">')
-    print('<h3>📊 Test Summary:</h3>')
-    print('<p>✅ <strong>Headers sent:</strong> Immediately at start</p>')
-    print('<p>✅ <strong>Content streaming:</strong> Progressive delivery</p>')
-    print('<p>✅ <strong>POST handling:</strong> Working (if POST data sent)</p>')
-    print('<p>✅ <strong>Environment variables:</strong> Properly set</p>')
-    print('<p>✅ <strong>Performance:</strong> No temporary files used</p>')
+    print('<h3> Test Summary:</h3>')
+    print('<p> <strong>Headers sent:</strong> Immediately at start</p>')
+    print('<p> <strong>Content streaming:</strong> Progressive delivery</p>')
+    print('<p> <strong>POST handling:</strong> Working (if POST data sent)</p>')
+    print('<p> <strong>Environment variables:</strong> Properly set</p>')
+    print('<p> <strong>Performance:</strong> No temporary files used</p>')
     print('<p><em>If you can see this, CGI direct streaming is working perfectly!</em></p>')
     print(f'<p><small>Test completed at: {time.strftime("%Y-%m-%d %H:%M:%S")}</small></p>')
     print('</div>')
@@ -136,7 +131,5 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        print("Content-Type: text/html")
-        print()
         print(f"<html><body><h1>CGI Error</h1><p>Error: {e}</p></body></html>")
         sys.stderr.write(f"CGI Error: {e}\n")
