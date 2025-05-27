@@ -5,19 +5,26 @@
 #include <string>
 
 // Forward declarations for other classes
-class WebServer;
+class ClientConnection;
 class HttpRequest;
 
 class CgiHandler : public RequestHandler {
     private:
-        WebServer* m_webServer;
+        ClientConnection* _client;
+
         std::string executeCgiScript(HttpRequest *request);
+        bool cgiExec();
+
+        bool isCgiRequest(HttpRequest *) const;
     public:
-        CgiHandler(WebServer* webServer);
+        CgiHandler(ClientConnection *);
         ~CgiHandler();
-        void HandleRequest(HttpRequest *request);
+
+
         bool CanHandle(std::string method);
         void ProccessRequest(HttpRequest *request);
+        char ** setGgiEnv(HttpRequest *request);
+        //std::string getCgiPath(HttpRequest *request) const; // to get interpreter from configuration
 };
 
 #endif // CGI_HANDLER_HPP
