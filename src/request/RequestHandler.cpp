@@ -17,6 +17,9 @@ RequestHandler *   RequestHandler::SetNext(RequestHandler *handler)
     }
     return this;
 }
+RequestHandler * RequestHandler::GetNext(){
+    return (_nextHandler);
+}
 
 void    RequestHandler::HandleRequest(HttpRequest *request)
 {
