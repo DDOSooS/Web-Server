@@ -43,6 +43,7 @@ int main(int argc, char *argv[]) {
         std::cerr << "Configuration validation failed." << std::endl;
         return 1;
     }
+
     std::vector<ServerConfig> configs = parser.create_servers();
     std::cout << "Created " << configs.size() << " server objects." << std::endl;
 
