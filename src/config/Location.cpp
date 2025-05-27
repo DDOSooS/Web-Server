@@ -13,7 +13,6 @@ Location::Location() {
     this->_allow_methods.push_back(false);
     this->_allow_methods.push_back(false);
     this->_allow_methods.push_back(false);
-    this->_return = "";
     this->_alias = "";
     this->_client_max_body_size = 0;
     this->_cgi_ext.clear();
@@ -45,7 +44,6 @@ Location::Location(const Block &location) {
     this->_allow_methods.push_back(false);
     this->_allow_methods.push_back(false);
     this->_allow_methods.push_back(false);
-    this->_return = "";
     this->_alias = "";
     this->_client_max_body_size = 0;
     this->_cgi_ext.clear();
@@ -73,7 +71,7 @@ Location::Location(const Block &location) {
             this->set_allowMethods(directive.parameters);
         }
         else if (directive.name == "return" && !directive.parameters.empty()) {
-            this->_return = directive.parameters[0];
+            this->_return = directive.parameters;
         }
         else if (directive.name == "alias" && !directive.parameters.empty()) {
             this->_alias = directive.parameters[0];
@@ -154,7 +152,7 @@ void Location::set_allowMethods(std::vector<std::string> allow_methods){
 	}
 }
 // GET POST- DELETE- PUT- HEAD-
-void Location::set_return(std::string new_return){
+void Location::set_return(std::vector<std::string> new_return){
 	this->_return = new_return;
 }
 
@@ -231,7 +229,7 @@ std::vector<bool> Location::get_allowMethods() const {
 	return this->_allow_methods;
 }
 
-std::string Location::get_return() const {
+std::vector<std::string> Location::get_return() const {
 	return this->_return;
 }
 

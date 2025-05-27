@@ -307,11 +307,17 @@ bool ConfigParser::validateDirective(const Directive& directive, const std::stri
     }
     
     if (!allowed) {
-        addError(ValidationError::WARNING, "Unknown directive \"" + directive.name + "\"", 
+        addError(ValidationError::ERROR, "Unknown directive \"" + directive.name + "\"", 
                 getTokenLine(directive.name), context);
         return false;
     }
-    
+    for (size_t i = 0; i < directive.parameters.size(); ++i) {
+        if (directive.parameters[i].empty()) {
+            addError(ValidationError::ERROR, "Invalid parameter \"\"", 
+                getTokenLine(directive.name), context);
+            return (false);
+        }
+    }
     return true;
 }
 
