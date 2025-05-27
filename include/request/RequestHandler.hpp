@@ -20,5 +20,7 @@ class RequestHandler
 		virtual	bool 		CanHandle(std::string method)=0;
 		virtual void 		ProccessRequest(HttpRequest *request)=0;
 		RequestHandler *	SetNext(RequestHandler *);
+		RequestHandler *	GetNext();
+
 };
 
