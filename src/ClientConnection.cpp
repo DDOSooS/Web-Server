@@ -120,19 +120,8 @@ void ClientConnection::GenerateRequest(int fd)
 void    ClientConnection::ProcessRequest(int fd)
 {
     RequestHandler     *chain_handler;
-
-    // add CgiHandler to the chain
-    if (this->_server == NULL) {
-        std::cerr << "Error: Server pointer is NULL" << std::endl;
-        return;
-    }
-    if (this->_server->getCgiHandler() == NULL) {
-        std::cerr << "Error: CgiHandler pointer is NULL" << std::endl;
-        return;
-    }
-    chain_handler = new CgiHandler(this->_server);
-    chain_handler->SetNext(new Get())->SetNext(new Post());
-
+    chain_handler = new CgiHandler(this);
+    (chain_handler->SetNext(new Get()))->SetNext(new Post());
     if (http_request == NULL)
     {
         std::cerr << "Error: No request to process" << std::endl;

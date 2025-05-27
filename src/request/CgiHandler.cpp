@@ -2,58 +2,125 @@
 #include "../../include/request/RequestHandler.hpp"
 #include "../../include/WebServer.hpp"
 #include "../../include/request/HttpRequest.hpp"
+#include "../../include/request/RequestHandler.hpp"
 #include <iostream>
 #include <stdexcept>
 #include "../../include/config/ServerConfig.hpp"
+#include "../../include/config/Location.hpp"
 
-CgiHandler::CgiHandler(WebServer* webServer) : m_webServer(webServer) {}
+CgiHandler::CgiHandler(ClientConnection* client) : _client(client) {}
 CgiHandler::~CgiHandler() {}
 
-
-void CgiHandler::HandleRequest(HttpRequest *request) {
-    try {
-        std::string response = executeCgiScript(request);
-        request->SetBody(response);
-        request->GetClientDatat()->http_response->setStatusCode(200);
-        request->GetClientDatat()->http_response->setStatusMessage("OK");
-        request->GetClientDatat()->http_response->setContentType("text/html");
-        request->GetClientDatat()->http_response->setChunked(false);
-        request->GetClientDatat()->http_response->setBuffer(response);
-    } catch (const std::exception &e) {
-        std::cerr << "Error handling CGI request: " << e.what() << std::endl;
-        request->GetClientDatat()->http_response->setStatusCode(500);
-        request->GetClientDatat()->http_response->setStatusMessage("Internal Server Error");
-        request->GetClientDatat()->http_response->setContentType("text/plain");
-        request->GetClientDatat()->http_response->setBuffer("Internal Server Error");
+bool CgiHandler::isCgiRequest(HttpRequest *request) const {
+    // Keep your existing implementation
+    std::string request_path = request->GetLocation();
+    std::cout << "=== CGI Detection Debug ===" << std::endl;
+    std::cout << "Request path: " << request_path << std::endl;
+    
+    Location* matching_location = _client->_server->getServerConfig().findMatchingLocation(request_path);
+    
+    if (!matching_location) {
+        std::cout << "No matching location found" << std::endl;
+        return false;
     }
+    
+    std::cout << "Found matching location: " << matching_location->get_path() << std::endl;
+    
+    std::vector<std::string> cgi_extensions = matching_location->get_cgiExt();
+    std::vector<std::string> cgi_paths = matching_location->get_cgiPath();
+    for (size_t i = 0; i < cgi_extensions.size(); ++i) {
+        std::cout << "Configured extension[" << i << "]: '" << cgi_extensions[i] << "' -> (" << cgi_paths[i] << ")"<< std::endl;
+    }
+    
+    if (cgi_extensions.empty() || cgi_paths.empty()) {
+        std::cout << "❌No CGI configured for this location" << std::endl;
+        return false;
+    }
+    
+    size_t dot_pos = request_path.rfind('.');
+    if (dot_pos == std::string::npos) {
+        std::cout << "❌No file extension found" << std::endl;
+        return false;
+    }
+    
+    std::string extension = request_path.substr(dot_pos);
+    std::cout << "Request extension: '" << extension << "'" << std::endl;
+    
+    for (std::vector<std::string>::const_iterator it = cgi_extensions.begin(); 
+         it != cgi_extensions.end(); ++it) {
+        std::cout << "Comparing '" << extension << "' with '" << *it << "'" << std::endl;
+        if (*it == extension) {
+            std::cout << "✅CGI match found for extension: " << extension << std::endl;
+            return true;
+        }
+    }
+    
+    std::cout << "❌No CGI extension match found" << std::endl;
+    return false;
 }
 
 bool CgiHandler::CanHandle(std::string method) {
-    // Check if the method is POST or GET, which are commonly used with CGI scripts
-    return (method == "POST" || method == "GET");
+    return ((method == "POST" || method == "GET") && isCgiRequest(_client->http_request));
 }
 
 void CgiHandler::ProccessRequest(HttpRequest *request) {
-    // This method is called to process the request.
-    // In this case, it will just call HandleRequest.
-    HandleRequest(request);
-}
-std::string CgiHandler::executeCgiScript(HttpRequest *request) {
-    // This function should execute the CGI script and return the output.
-    // For simplicity, we will just return a dummy response.
-    // In a real implementation, you would use fork/exec to run the CGI script.
+    if (!isCgiRequest(request)) {
+        std::cout << "Not a CGI request, passing to next handler" << std::endl;
+        if (this->GetNext()) {
+            this->GetNext()->HandleRequest(request);
+        }
+        return;
+    }
+    try {
+            std::cout << "CGI process started successfully - streaming output directly" << std::endl;
+            std::string response = executeCgiScript(request);
+            request->GetClientDatat()->http_response->setStatusCode(200);
+            request->GetClientDatat()->http_response->setStatusMessage("OK");
+            request->GetClientDatat()->http_response->setChunked(false);
+            request->GetClientDatat()->http_response->setBuffer(response);
+            request->GetClientDatat()->http_response->setContentType("text/html");
+    } catch (const std::exception &e) {
+        std::cerr << "Error in CGI processing: " << e.what() << std::endl;
+        throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
+    }
     
-    std::string scriptOutput = "<html><body><h1>CGI Script Output</h1>";
-    scriptOutput += "<p>Method: " + request->GetMethod() + "</p>";
-    scriptOutput += "<p>Location: " + request->GetLocation() + "</p>";
-    scriptOutput += "<p>Body: " + request->GetBody() + "</p>";
-    scriptOutput += "<h1>Note: In a real-world scenario, you would need to handle the execution of the CGI script here.</h1>";
-    scriptOutput += "<p>This is a placeholder response.</p>";
-    scriptOutput += "<p>Headers:</p><ul>";
-    scriptOutput += "</body></html>";
-    return scriptOutput;
 }
-// Note: In a real-world scenario, you would need to handle the execution of the CGI script here.
-// This might involve using fork/exec to run the script and capture its output.
-// For now, this is a placeholder implementation that simulates CGI script execution.
-// You would replace this with actual logic to execute the CGI script and return its output.        
+char ** CgiHandler::setGgiEnv(HttpRequest *request){
+   char *envp[] =
+        {
+            "HOME=/",
+            "PATH=/bin:/usr/bin",
+            "TZ=UTC0",
+            "USER=beelzebub",
+            "LOGNAME=tarzan",
+            0
+        };
+    return envp;
+}
+
+std::string CgiHandler::executeCgiScript(HttpRequest *request) {
+    int pipe_in[2];
+    int pie_out[2];
+    if(pipe(pipe_in) == -1 || pipe(pie_out) == -1){
+        std::cerr << "Error in CGI pipe" << std::endl;
+        throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
+    }
+    int cgi_pid = fork();
+    if (cgi_pid < 0){
+        std::cerr << "Error in CGI Fork" << std::endl;
+        throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
+    }
+    
+    if (cgi_pid == 0){
+        
+    }
+    return ("<h1 color='red'> Hello from CGI handler </h1>");
+}
+
+
+bool CgiHandler::cgiExec(){
+    // setup env
+    // create pipe
+    // execute script
+    return (true);
+}
