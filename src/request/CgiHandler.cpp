@@ -111,6 +111,9 @@ std::string CgiHandler::executeCgiScript(HttpRequest *request) {
         dup2(pipe_out[1], STDERR_FILENO);
         close(pipe_out[1]);
         
+
+        std::string request_path = request->GetLocation();
+        std::string script_name = "www" + request_path;
         char *env[] =
         {
             "QUERYSRING=name=ayoub&age=26&city=benguerir",
@@ -118,7 +121,9 @@ std::string CgiHandler::executeCgiScript(HttpRequest *request) {
             "SERVERNAME=webserv",
             0
         };
-        char *argv[] = {"/bin/python3", "www/cgi-bin/hello.py", NULL};
+        char* python_path = strdup("/bin/python3");
+        char* script_path_cstr = strdup(script_name.c_str());
+        char* argv[] = {python_path, script_path_cstr, NULL};
         
         execve("/bin/python3", argv, env);
         perror("execve failed");

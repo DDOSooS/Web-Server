@@ -1,0 +1,5 @@
+  File "/home/aezzahir/Dev/webserv/www/cgi-bin/test.cgi", line 3
+    echo "Content-Type: text/html"
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: invalid syntax
+

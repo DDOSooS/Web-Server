@@ -1,12 +1,4 @@
 #!/usr/bin/env python3
-
-# HTTP Headers
-print("Content-Type: text/html")
-print("Cache-Control: no-cache")
-print("Connection: close")
-print()  # Blank line required to separate headers from body
-
-# HTML Content
 print("""<html>
 <head>
     <title>CGI Streaming Test</title>
