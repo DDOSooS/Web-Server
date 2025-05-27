@@ -48,8 +48,6 @@ int WebServer::init(ServerConfig& config)
 {
     // set configuration
     this->setServerConfig(config);
-    // Initialize CGI handler
-    cgiHandler = new CgiHandler(this);
     // Create socket
     m_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (m_socket <= 0)
