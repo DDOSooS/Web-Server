@@ -312,7 +312,7 @@ bool ConfigParser::validateDirective(const Directive& directive, const std::stri
         return false;
     }
     for (size_t i = 0; i < directive.parameters.size(); ++i) {
-        if (directive.parameters[i] == "") {
+        if (directive.parameters[i] == "\"\"") {
             addError(ValidationError::ERROR, "Invalid parameter \"\"", 
                 getTokenLine(directive.name), context);
             return (false);
