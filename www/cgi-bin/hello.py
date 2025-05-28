@@ -8,8 +8,6 @@ import os
 
 
 # body
-print("Content-Type: text/html")  # HTML is following
-print()  # Blank line to end headers
 print("<html>")
 print("<head>")
 print("<title>Hello CGI</title>")
@@ -20,6 +18,10 @@ print("<p>This is a simple CGI script.</p>")
 print("<p>Environment Variables:</p>")
 print("<ul>")
 # Print environment variables
+i = 1
+while i <= 100:
+    print(f"<li>Variable {i}</li>")
+    i += 1
 for key, value in os.environ.items():
     print(f"<li><strong>{key}:</strong> {value}</li>")
 print("</ul>")
