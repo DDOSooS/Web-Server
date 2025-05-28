@@ -20,8 +20,6 @@ void    InternalServerError::ProcessError(Error &error)
 
     std::stringstream iss;
 
-    iss << "HTTP/1.1 500 Internal Server Error\r\n";
-    iss << "Content-Type: text/html\r\n\r\n";
     iss << "<html><head><title>500 Internal Server Error</title></head>";
     iss << "<body><h1>Internal Server Error</h1>";
     iss << "<p>The server encountered an internal error and was unable to complete your request.</p>";
@@ -32,11 +30,13 @@ void    InternalServerError::ProcessError(Error &error)
     if (error.GetClientData().http_response == NULL)
     {
         std::map<std::string, std::string> emptyHeaders;
-        error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), emptyHeaders, "text/plain", false, false);
+        error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), emptyHeaders, "text/html", false, false);
     }
     // Set the response buffer
     error.GetClientData().http_response->setBuffer(response);
     error.GetClientData().http_response->setStatusCode(error.GetCodeError());
+    if (!error.GetClientData().http_response->getContentType().empty())
+        error.GetClientData().http_response->setContentType("text/html");
 }
 
 const char *    InternalServerError::what() const throw()

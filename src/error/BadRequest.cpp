@@ -20,8 +20,6 @@ void    BadRequest::ProcessError(Error &error)
     std::cout << "Bad Request Error: " << error.GetErroeMessage() << std::endl;
     std::stringstream iss;
 
-    iss << "HTTP/1.1 400 Bad Request\r\n";
-    iss << "Content-Type: text/html\r\n\r\n";
     iss << "<html><head><title>400 Bad Request</title></head>";
     iss << "<body><h1>Bad Request</h1>";
     iss << "<p>The server could not understand the request due to invalid syntax.</p>";
@@ -32,12 +30,14 @@ void    BadRequest::ProcessError(Error &error)
     if (! error.GetClientData().http_response)
     {
         std::map<std::string, std::string> emptyHeaders;
-        error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), emptyHeaders, "text/plain", false, false);
+        error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), emptyHeaders, "text/html", false, false);
     }
 
     // Set the response buffer
     error.GetClientData().http_response->setBuffer(response);
     error.GetClientData().http_response->setStatusCode(error.GetCodeError());
+    if (!error.GetClientData().http_response->getContentType().empty())
+        error.GetClientData().http_response->setContentType("text/html");
 }
 
 const char *    BadRequest::what() const throw()

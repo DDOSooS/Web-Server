@@ -50,7 +50,7 @@ public:
     void set_error_pages(std::string error_code, std::string error_page);
     void add_location(const Location& location);
 
-    Location* findMatchingLocation(const std::string& path) const;
+    const Location* findMatchingLocation(const std::string& ) const;
 };
 
 #endif // ServerConfig_HPP

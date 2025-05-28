@@ -200,21 +200,20 @@ void ServerConfig::add_location(const Location& location) {
 }
 
 
-Location* ServerConfig::findMatchingLocation(const std::string& path) const {
-    Location* best_match = NULL;
-    size_t best_match_length = 0;
+const Location *ServerConfig::findMatchingLocation(const std::string &path) const
+{
+    const Location *default_location = NULL;
     
-    for (std::vector<Location>::const_iterator it = _locations.begin(); 
-         it != _locations.end(); ++it) {
-        std::string location_path = it->get_path();
-        
-        if (path.find(location_path) == 0) {
-            if (location_path.length() > best_match_length) {
-                best_match = const_cast<Location*>(&(*it));
-                best_match_length = location_path.length();
-            }
+    for (size_t i = 0; i < this->_locations.size(); i++)
+    {
+        if (!this->_locations[i].get_path().empty() && this->_locations[i].get_path() == path)
+            return &this->_locations[i];
+        // Check for default location "/"
+        if (this->_locations[i].get_path() == "/")
+        {
+            default_location = &this->_locations[i];
         }
     }
-    
-    return best_match;
+    // If no specific location found, return the default location
+    return default_location;
 }

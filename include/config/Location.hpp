@@ -11,7 +11,7 @@ private:
     std::string                 _root;
     bool                        _autoindex;
     std::string                 _index;
-    std::vector<bool>          _allow_methods; // GET POST DELETE PUT- HEAD-
+    std::vector<std::string>     _allow_methods; // GET POST DELETE PUT- HEAD-
     std::vector<std::string>    _return; // 301 /new-page
     std::string                 _alias;
     std::vector<std::string>    _cgi_path;
@@ -40,12 +40,13 @@ public:
     std::string                 get_root_location() const;
     bool                        get_autoindex() const;
     std::string                 get_index() const;
-    std::vector<bool>           get_allowMethods() const; // GET+ POST- DELETE- PUT- HEAD-
+    std::vector<std::string>    get_allowMethods() const; // GET+ POST- DELETE- PUT- HEAD-
     std::vector<std::string>    get_return() const;
     std::string                 get_alias() const;
     std::vector<std::string>    get_cgiPath() const;
     std::vector<std::string>    get_cgiExt() const;
     unsigned long               get_clientMaxBodySize() const;
+    bool                        is_method_allowed(std::string method) const;
 };
 
 #endif // LOCATION_HPP

@@ -20,8 +20,6 @@ void    NotImplemented::ProcessError(Error &error)
     std::cout << "Not Implemented Error: " << error.GetErroeMessage() << std::endl;
     std::stringstream iss;
 
-    iss << "HTTP/1.1 501 Not Implemented\r\n";
-    iss << "Content-Type: text/html\r\n\r\n";
     iss << "<html><head><title>501 Not Implemented</title></head>";
     iss << "<body><h1>Not Implemented</h1>";
     iss << "<p>The server does not support the functionality required to fulfill the request.</p>";
@@ -32,11 +30,13 @@ void    NotImplemented::ProcessError(Error &error)
     if (error.GetClientData().http_response == NULL)
     {
         std::map<std::string, std::string> emptyHeaders;
-        error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), emptyHeaders, "text/plain", false, false);
+        error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), emptyHeaders, "text/html", false, false);
     }
     // Set the response buffer
     error.GetClientData().http_response->setBuffer(response);
     error.GetClientData().http_response->setStatusCode(error.GetCodeError());
+    if (!error.GetClientData().http_response->getContentType().empty())
+        error.GetClientData().http_response->setContentType("text/html");
 }
 
 const char *    NotImplemented::what() const throw()

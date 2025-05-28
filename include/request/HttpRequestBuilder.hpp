@@ -2,7 +2,7 @@
 
 #include "./HttpRequest.hpp"
 #include "./HttpException.hpp"
-
+#include "../config/ServerConfig.hpp"
 class HttpRequestBuilder
 {
     private:
@@ -16,10 +16,10 @@ class HttpRequestBuilder
         void SetLocation(std::string );
         void SetBody(std::string );
         void addHeader(std::string &, std::string &);
-        void ParseRequestLine(std::string & /* request Line*/);
+        void ParseRequestLine(std::string & /* request Line*/,const ServerConfig & /* server config */);
         void ParseRequsetHeaders(std::istringstream & /* Headers*/);
         void ParseRequestBody(std::string & /* Body*/);
-        void ParseRequest(std::string & /* request Line*/);
+        void ParseRequest(std::string & /* request Line*/,const ServerConfig & /* server config */);
         void ParseQueryString(std::string & /* query string*/);
         std::string UrlDecode(const std::string &);
         HttpRequest& GetHttpRequest();
