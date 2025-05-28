@@ -187,7 +187,29 @@ std::string    Get::GetRelativePath(const Location * cur_location,HttpRequest *r
     std::cout << "GET RELATIVE PATH !!!!!!!!!!!!!!  "<< cur_location->get_root_location() << "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n";
     std::cout << "GET RELATIVE PATH !!!!!!!!!!!!!!  "<< cur_location->get_alias() << "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n";
     */
-
+        std::cout << "[ DEBUG ] : LOCATION INFOT\n";
+    
+    std::cout << "PATH : " << cur_location->get_path() << std::endl;
+    std::cout << "ROOT LOCATION : " << cur_location->get_root_location() << std::endl;
+    std::cout << "ALIAS : " << cur_location->get_alias() << std::endl;
+    std::cout << "RETURN : " << cur_location->get_return().size() << std::endl;
+    std::cout << "AUTO INDEX : " << (cur_location->get_autoindex() ? "ON" : "OFF") << std::endl;
+    std::cout << "INDEX : " << cur_location->get_index() << std::endl;
+    std::cout << "ALLOW METHODS : ";
+    for (size_t i = 0; i < cur_location->get_allowMethods().size(); i++)
+    {
+        // const std::string &method = cur_location->get_allowMethods()[i];
+        if (i > 0)
+            std::cout << ", ";
+        // Print the method
+        std::cout <<  cur_location->get_allowMethods()[i];
+    }
+    for (size_t i = 0; i < cur_location->get_return().size(); i++)
+    {
+        if (i > 0)
+            std::cout << ", ";
+        std::cout << "return Redirection  : " << cur_location->get_return()[i];
+    }
     if (!cur_location->get_return().empty())
     {        
         this->setIsRedirected(true);
@@ -246,6 +268,7 @@ void    Get::ProccessRequest(HttpRequest *request)
     }
     rel_path = GetRelativePath(cur_location, request);
     std::cout << "RELATIVE PATH : " << rel_path << ":::::::::::::" << std::endl;
+    
     if (rel_path.empty())
     {
         std::cerr << "NOT FOUND RELATIVE PATH \n";
