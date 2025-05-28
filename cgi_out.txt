@@ -1,58 +1,142 @@
-Content-Type: text/html
-
 <html>
 <head>
-<title>Test POST Data</title>
+<title>Hello CGI</title>
 </head>
 <body>
-<h1>Received POST Data</h1>
-<p><strong>age:</strong> 26</p>
-<p><strong>city:</strong> benguerir</p>
-<p><strong>name:</strong> ayoub</p>
-<!--: spam
-Content-Type: text/html
-
-<body bgcolor="#f0f0f8"><font color="#f0f0f8" size="-5"> -->
-<body bgcolor="#f0f0f8"><font color="#f0f0f8" size="-5"> --> -->
-</font> </font> </font> </script> </object> </blockquote> </pre>
-</table> </table> </table> </table> </table> </font> </font> </font><body bgcolor="#f0f0f8">
-<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="heading">
-<tr bgcolor="#6622aa">
-<td valign=bottom>&nbsp;<br>
-<font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong>AttributeError</strong></big></big></font></td
-><td align=right valign=bottom
-><font color="#ffffff" face="helvetica, arial">Python 3.9.6: /Library/Developer/CommandLineTools/usr/bin/python3<br>Wed May 28 13:59:38 2025</font></td></tr></table>
-    
-<p>A problem occurred in a Python script.  Here is the sequence of
-function calls leading up to the error, in the order they occurred.</p>
-<table width="100%" cellspacing=0 cellpadding=0 border=0>
-<tr><td bgcolor="#d8bbff"><big>&nbsp;</big><a href="file:///Users/aezzahir/Dev/webserv/www/cgi-bin/test_post.py">/Users/aezzahir/Dev/webserv/www/cgi-bin/test_post.py</a> in <strong>&lt;module&gt;</strong></td></tr>
-<tr><td><font color="#909090"><tt>&nbsp;&nbsp;<small>&nbsp;&nbsp;&nbsp;35</small>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;existing_data&nbsp;=&nbsp;json.load(json_file)<br>
-</tt></font></td></tr>
-<tr><td><font color="#909090"><tt>&nbsp;&nbsp;<small>&nbsp;&nbsp;&nbsp;36</small>&nbsp;#&nbsp;Append&nbsp;the&nbsp;new&nbsp;data&nbsp;to&nbsp;the&nbsp;existing&nbsp;data<br>
-</tt></font></td></tr>
-<tr><td bgcolor="#ffccee"><tt>=&gt;<small>&nbsp;&nbsp;&nbsp;37</small>&nbsp;existing_data.append(data)<br>
-</tt></td></tr>
-<tr><td><font color="#909090"><tt>&nbsp;&nbsp;<small>&nbsp;&nbsp;&nbsp;38</small>&nbsp;#&nbsp;Write&nbsp;the&nbsp;updated&nbsp;data&nbsp;back&nbsp;to&nbsp;the&nbsp;JSON&nbsp;file<br>
-</tt></font></td></tr>
-<tr><td><font color="#909090"><tt>&nbsp;&nbsp;<small>&nbsp;&nbsp;&nbsp;39</small>&nbsp;with&nbsp;open(json_file_path,&nbsp;'w')&nbsp;as&nbsp;json_file:<br>
-</tt></font></td></tr>
-<tr><td><small><font color="#909090"><strong>existing_data</strong>&nbsp;= {'email': None, 'name': 'ayoub'}, existing_data.append <em>undefined</em>, <strong>data</strong>&nbsp;= {'age': '26', 'city': 'benguerir', 'name': 'ayoub'}</font></small></td></tr></table><p><strong>AttributeError</strong>: 'dict' object has no attribute 'append'
-<br><tt><small>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</small>&nbsp;</tt>args&nbsp;=
-("'dict' object has no attribute 'append'",)
-<br><tt><small>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</small>&nbsp;</tt>with_traceback&nbsp;=
-&lt;built-in method with_traceback of AttributeError object&gt;
-
-
-<!-- The above is a description of an error in a Python program, formatted
-     for a Web browser because the 'cgitb' module was enabled.  In case you
-     are not reading this in a Web browser, here is the original traceback:
-
-Traceback (most recent call last):
-  File "/Users/aezzahir/Dev/webserv/www/cgi-bin/test_post.py", line 37, in &lt;module&gt;
-    existing_data.append(data)
-AttributeError: 'dict' object has no attribute 'append'
-
--->
-
+<h1>Hello, CGI!</h1>
+<p>This is a simple CGI script.</p>
+<p>Environment Variables:</p>
+<ul>
+<li>Variable 1</li>
+<li>Variable 2</li>
+<li>Variable 3</li>
+<li>Variable 4</li>
+<li>Variable 5</li>
+<li>Variable 6</li>
+<li>Variable 7</li>
+<li>Variable 8</li>
+<li>Variable 9</li>
+<li>Variable 10</li>
+<li>Variable 11</li>
+<li>Variable 12</li>
+<li>Variable 13</li>
+<li>Variable 14</li>
+<li>Variable 15</li>
+<li>Variable 16</li>
+<li>Variable 17</li>
+<li>Variable 18</li>
+<li>Variable 19</li>
+<li>Variable 20</li>
+<li>Variable 21</li>
+<li>Variable 22</li>
+<li>Variable 23</li>
+<li>Variable 24</li>
+<li>Variable 25</li>
+<li>Variable 26</li>
+<li>Variable 27</li>
+<li>Variable 28</li>
+<li>Variable 29</li>
+<li>Variable 30</li>
+<li>Variable 31</li>
+<li>Variable 32</li>
+<li>Variable 33</li>
+<li>Variable 34</li>
+<li>Variable 35</li>
+<li>Variable 36</li>
+<li>Variable 37</li>
+<li>Variable 38</li>
+<li>Variable 39</li>
+<li>Variable 40</li>
+<li>Variable 41</li>
+<li>Variable 42</li>
+<li>Variable 43</li>
+<li>Variable 44</li>
+<li>Variable 45</li>
+<li>Variable 46</li>
+<li>Variable 47</li>
+<li>Variable 48</li>
+<li>Variable 49</li>
+<li>Variable 50</li>
+<li>Variable 51</li>
+<li>Variable 52</li>
+<li>Variable 53</li>
+<li>Variable 54</li>
+<li>Variable 55</li>
+<li>Variable 56</li>
+<li>Variable 57</li>
+<li>Variable 58</li>
+<li>Variable 59</li>
+<li>Variable 60</li>
+<li>Variable 61</li>
+<li>Variable 62</li>
+<li>Variable 63</li>
+<li>Variable 64</li>
+<li>Variable 65</li>
+<li>Variable 66</li>
+<li>Variable 67</li>
+<li>Variable 68</li>
+<li>Variable 69</li>
+<li>Variable 70</li>
+<li>Variable 71</li>
+<li>Variable 72</li>
+<li>Variable 73</li>
+<li>Variable 74</li>
+<li>Variable 75</li>
+<li>Variable 76</li>
+<li>Variable 77</li>
+<li>Variable 78</li>
+<li>Variable 79</li>
+<li>Variable 80</li>
+<li>Variable 81</li>
+<li>Variable 82</li>
+<li>Variable 83</li>
+<li>Variable 84</li>
+<li>Variable 85</li>
+<li>Variable 86</li>
+<li>Variable 87</li>
+<li>Variable 88</li>
+<li>Variable 89</li>
+<li>Variable 90</li>
+<li>Variable 91</li>
+<li>Variable 92</li>
+<li>Variable 93</li>
+<li>Variable 94</li>
+<li>Variable 95</li>
+<li>Variable 96</li>
+<li>Variable 97</li>
+<li>Variable 98</li>
+<li>Variable 99</li>
+<li>Variable 100</li>
+<li><strong>REQUEST_METHOD:</strong> GET</li>
+<li><strong>SCRIPT_NAME:</strong> /cgi-bin/hello.py</li>
+<li><strong>QUERY_STRING:</strong> name=ayoub&age=26&city=benguerir</li>
+<li><strong>SERVER_NAME:</strong> webserv</li>
+<li><strong>SERVER_PORT:</strong> 8080</li>
+<li><strong>SERVER_PROTOCOL:</strong> HTTP/1.1</li>
+<li><strong>REMOTE_ADDR:</strong> 127.0.0.1</li>
+<li><strong>REMOTE_PORT:</strong> 52063</li>
+<li><strong>CONTENT_TYPE:</strong> </li>
+<li><strong>CONTENT_LENGTH:</strong> 0</li>
+<li><strong>HTTP_HOST:</strong> 0.0.0.0:8080</li>
+<li><strong>HTTP_USER_AGENT:</strong> Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36</li>
+<li><strong>HTTP_ACCEPT:</strong> text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7</li>
+<li><strong>HTTP_ACCEPT_LANGUAGE:</strong> en-US,en;q=0.9</li>
+<li><strong>HTTP_ACCEPT_ENCODING:</strong> gzip, deflate</li>
+<li><strong>HTTP_CONNECTION:</strong> keep-alive</li>
+<li><strong>HTTP_COOKIE:</strong> </li>
+<li><strong>HTTP_REFERER:</strong> http://0.0.0.0:8080/</li>
+<li><strong>HTTP_UPGRADE_INSECURE_REQUESTS:</strong> 1</li>
+<li><strong>HTTP_X_FORWARDED_FOR:</strong> </li>
+<li><strong>HTTP_X_FORWARDED_PROTO:</strong> </li>
+<li><strong>HTTP_X_FORWARDED_HOST:</strong> </li>
+<li><strong>HTTP_X_FORWARDED_SERVER:</strong> </li>
+<li><strong>__CF_USER_TEXT_ENCODING:</strong> 0x1F5:0x0:0x0</li>
+<li><strong>SDKROOT:</strong> /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk</li>
+<li><strong>CPATH:</strong> /usr/local/include</li>
+<li><strong>LIBRARY_PATH:</strong> /usr/local/lib</li>
+<li><strong>MANPATH:</strong> /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/share/man:/Library/Developer/CommandLineTools/usr/share/man:/Library/Developer/CommandLineTools/Toolchains/XcodeDefault.xctoolchain/usr/share/man:</li>
+<li><strong>LC_CTYPE:</strong> UTF-8</li>
+</ul>
+</body>
+</html>
 
