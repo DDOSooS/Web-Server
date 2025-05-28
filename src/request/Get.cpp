@@ -52,7 +52,7 @@ bool    Get::IsFile(const std::string &path)
     return (S_ISREG(_statinfo.st_mode));
 }
 
-std::string Get::ListingDir(const std::string &path)
+std::string Get::ListingDir(const std::string &path, std::string request_path)
 {
     //To Check the auto indexing Option  Conf File
 
@@ -66,7 +66,7 @@ std::string Get::ListingDir(const std::string &path)
     if (normalized_path.empty() || normalized_path[0] != '/')
         normalized_path = "/" + normalized_path;
     
-    path_ = "www" + normalized_path;  // Use a relative path that exists in your project structure
+    path_ = normalized_path;  // Use a relative path that exists in your project structure
     std::cout << "Opening directory: " << path_ << std::endl;
     
     dir = opendir(path_.c_str());
@@ -113,10 +113,12 @@ std::string Get::ListingDir(const std::string &path)
         
         // Make sure path ends with a slash
         std::string href_path = path;
-        if (href_path[href_path.length()-1] != '/')
-            href_path += "/";
-            
-        response << "<li> <a href=\"" << href_path << rs_name;
+        if (request_path[request_path.length()-1] != '/')
+            request_path += "/";
+        std::cout << "[ DEBUG ] : href_path : " << href_path << std::endl;
+        std::cout << "[ DEBUG ] : request_path : " << request_path << std::endl;
+        std::cout << "[ DEBUG ] : rs_name : " << rs_name << std::endl;
+        response << "<li> <a href=\"" << request_path << rs_name;
         if (entry->d_type == DT_DIR)
            response << "/\" class=\"folder\">"  << rs_name << "/";
         else if (entry->d_type == DT_REG)
@@ -179,17 +181,19 @@ std::string Get::determineContentType(const std::string& path)
 std::string    Get::GetRelativePath(const Location * cur_location,HttpRequest *request)
 {
     std::string rel_path;
+    /*
     std::cout << "GET RELATIVE PATH !!!!!!!!!!!!!!  "<< cur_location->get_return().size() << "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n";
     std::cout << "GET RELATIVE PATH !!!!!!!!!!!!!!  "<< cur_location->get_path() << "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n";
     std::cout << "GET RELATIVE PATH !!!!!!!!!!!!!!  "<< cur_location->get_root_location() << "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n";
     std::cout << "GET RELATIVE PATH !!!!!!!!!!!!!!  "<< cur_location->get_alias() << "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n";
+    */
+
     if (!cur_location->get_return().empty())
-    {
-        
+    {        
         this->setIsRedirected(true);
         std::cout << "REDIRECTED TO : " << cur_location->get_return()[0] << std::endl;
         std::cout << "REQUEST LOCATION : " << request->GetLocation()  << std::endl;
-        exit(0);
+        // exit(0);
         rel_path = cur_location->get_return()[1];
         return rel_path;
     }
@@ -197,8 +201,8 @@ std::string    Get::GetRelativePath(const Location * cur_location,HttpRequest *r
     {
         rel_path = cur_location->get_alias() + request->GetLocation();
         std::cout << "ALIAS PATH : " << rel_path << std::endl;
-        if (rel_path[rel_path.size() - 1] != '/')
-            rel_path += '/';
+        // if (rel_path[rel_path.size() - 1] != '/')
+        //     rel_path += '/';
         std::cout << "RELATIVE PATH : " << rel_path << std::endl;
         return rel_path;
     }
@@ -206,11 +210,13 @@ std::string    Get::GetRelativePath(const Location * cur_location,HttpRequest *r
     {
         rel_path = cur_location->get_root_location() + request->GetLocation();
         std::cout << "ROOT LOCATION PATH : " << rel_path << std::endl;
-        if (rel_path[rel_path.size() - 1] != '/')
-            rel_path += '/';
+        // if (rel_path[rel_path.size() - 1] != '/')
+        //     rel_path += '/';
         std::cout << "RELATIVE PATH : " << rel_path << std::endl;
         return rel_path;
     }
+    // If no alias or root location is specified, use the Server's root path
+    rel_path = request->GetClientDatat()->_server->getServerConfig().get_root() + request->GetLocation();
     return rel_path;
 }
 
@@ -219,7 +225,7 @@ void    Get::ProccessRequest(HttpRequest *request)
 {
     std::cout << "PROCCESSING GET REQUEST !!!!!!!!!\n";
 
-    std::string rel_path;
+    std::string     rel_path;
     const Location *cur_location;
     
     if (!request)
@@ -227,7 +233,6 @@ void    Get::ProccessRequest(HttpRequest *request)
         std::cerr << "Error: Null request pointer\n";
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
-
     if (!request->GetClientDatat())
     {
         std::cerr << "Error: Null client data pointer\n";
@@ -240,7 +245,7 @@ void    Get::ProccessRequest(HttpRequest *request)
         throw HttpException(404, "404 Not Found", NOT_FOUND);
     }
     rel_path = GetRelativePath(cur_location, request);
-    std::cout << "RELATIVE PATH : " << rel_path << std::endl;
+    std::cout << "RELATIVE PATH : " << rel_path << ":::::::::::::" << std::endl;
     if (rel_path.empty())
     {
         std::cerr << "NOT FOUND RELATIVE PATH \n";
@@ -270,7 +275,7 @@ void    Get::ProccessRequest(HttpRequest *request)
         else
         {
             std::cout << "INDEX FILE IS NOT VALID-- " << indexFile << "\n";
-            std::string response = ListingDir(rel_path);
+            std::string response = ListingDir(rel_path, request->GetLocation());
             
             if (response.empty())
             {

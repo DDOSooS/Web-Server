@@ -221,9 +221,9 @@ std::string HttpResponse::toString()
         response += "Connection: keep-alive\r\n";
 
     std::cout << "Content Type :|||||||||1111||||||||||||||||| " << this->_content_type << std::endl;
-    if (this->_content_type.empty() && !this->_file_path.empty())
+    if (!this->_file_path.empty())
         this->_content_type = determineContentType(this->_file_path);
-    std::cout << "Content Type :||||||||||||||||||||||||||| " << this->_content_type << std::endl;
+    // std::cout << "Content Type :||||||||||||||||||||||||||| " << this->_content_type << std::endl;
     response += "Content-Type: " + (this->_content_type.empty() ? "text/plain" : this->_content_type) + "\r\n";
 
     std::string body;
@@ -242,7 +242,7 @@ std::string HttpResponse::toString()
         if (normalized_path.empty() || normalized_path[0] != '/')
             normalized_path = "/" + normalized_path;
             
-        std::string file_name = "www" + normalized_path;
+        std::string file_name = normalized_path;
         std::cout << "Attempting to open file: " << file_name << std::endl;
         std::ifstream file(file_name.c_str(), std::ios::binary);
         if (!file)
