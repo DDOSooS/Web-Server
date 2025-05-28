@@ -156,10 +156,14 @@ bool Location::is_method_allowed(const std::string& method) const {
 
 // GET POST- DELETE- PUT- HEAD-
 void Location::set_return(const std::vector<std::string> &new_return){
-    this->_return = new_return;
     if (new_return.size() < 2) {
         std::cerr << "config error: set_return requires at least two parameters" << std::endl;
         return;
+    }
+    // Clear existing return values and add new ones
+    this->_return.clear();
+    for (size_t i = 0; i < new_return.size(); ++i) {
+        this->_return.push_back(new_return[i]);
     }
 }
 
