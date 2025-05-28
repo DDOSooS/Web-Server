@@ -5,8 +5,8 @@ Block::Block(const std::string& name, const std::vector<std::string>& parameters
 
 Block::Block() {}
 
-Block::Block(const Block &other){
-    if (this != &other){
+Block::Block(const Block &other) {
+    if (this != &other) {
         this->name = other.name;
         this->parameters = other.parameters;
         this->directives = other.directives;
@@ -14,8 +14,8 @@ Block::Block(const Block &other){
     }
 }
 
-Block& Block::operator=(const Block &rhs){
-    if (this != &rhs){
+Block& Block::operator=(const Block &rhs) {
+    if (this != &rhs) {
         this->name = rhs.name;
         this->parameters = rhs.parameters;
         this->directives = rhs.directives;
@@ -24,21 +24,36 @@ Block& Block::operator=(const Block &rhs){
     return (*this);
 }
 
-Block::~Block(){}
+Block::~Block() {}
 
-
-std::vector<std::string>& Block::get_parameters(){
+const std::vector<std::string>& Block::get_parameters() const {
     return this->parameters;
 }
 
-std::vector<std::string>& Block::get_directive(std::string& directive_name){
-    static std::vector<std::string> empty;
-    
+// Thread-safe and more efficient implementation
+std::vector<std::string> Block::get_directive_params(const std::string& directive_name) const {
     for (size_t i = 0; i < directives.size(); ++i) {
         if (directives[i].name == directive_name) {
-            return this->directives[i].parameters;
+            return directives[i].parameters;
         }
     }
-    empty.clear();
-    return empty;
+    return std::vector<std::string>(); // Return empty vector by value
+}
+
+bool Block::has_directive(const std::string& directive_name) const {
+    for (size_t i = 0; i < directives.size(); ++i) {
+        if (directives[i].name == directive_name) {
+            return true;
+        }
+    }
+    return false;
+}
+
+const Directive* Block::find_directive(const std::string& directive_name) const {
+    for (size_t i = 0; i < directives.size(); ++i) {
+        if (directives[i].name == directive_name) {
+            return &directives[i];
+        }
+    }
+    return NULL; // C++98 compatible
 }

@@ -1,7 +1,7 @@
 #include "config/ServerConfig.hpp"
 #include "config/Location.hpp"
 
-ServerConfig::ServerConfig(){
+ServerConfig::ServerConfig() {
     this->_port = 0;
     this->_host = "0.0.0.0";
     this->_server_name = "";
@@ -9,22 +9,20 @@ ServerConfig::ServerConfig(){
     this->_client_max_body_size = 0;
     this->_index = "";
     this->_autoindex = false;
-    // init error pages
-    _error_pages[301] = "";
-	_error_pages[302] = "";
-	_error_pages[400] = "";
-	_error_pages[401] = "";
-	_error_pages[402] = "";
-	_error_pages[403] = "";
-	_error_pages[404] = "";
-	_error_pages[405] = "";
-	_error_pages[406] = "";
-	_error_pages[500] = "";
-	_error_pages[501] = "";
-	_error_pages[502] = "";
-	_error_pages[503] = "";
-	_error_pages[505] = "";
-	_error_pages[505] = "";
+    
+    // Initialize common error pages more elegantly
+    initializeDefaultErrorPages();
+}
+
+void ServerConfig::initializeDefaultErrorPages() {
+    const int common_errors[] = {
+        301, 302, 400, 401, 403, 404, 405, 406, 
+        500, 501, 502, 503, 504, 505
+    }; 
+    const size_t num_errors = sizeof(common_errors) / sizeof(common_errors[0]);
+    for (size_t i = 0; i < num_errors; ++i) {
+        _error_pages[common_errors[i]] = "";
+    }
 }
 
 ServerConfig::ServerConfig(const ServerConfig &other){
@@ -216,4 +214,38 @@ const Location *ServerConfig::findMatchingLocation(const std::string &path) cons
     }
     // If no specific location found, return the default location
     return default_location;
+}
+// in C++98  no auto 
+void ServerConfig::print_server_config() const {
+    std::cout << "Server Config:" << std::endl;
+    std::cout << "  Port: " << this->_port << std::endl;
+    std::cout << "  Host: " << this->_host << std::endl;
+    std::cout << "  Server Name: " << this->_server_name << std::endl;
+    std::cout << "  Root: " << this->_root << std::endl;
+    std::cout << "  Client Max Body Size: " << this->_client_max_body_size << " bytes" << std::endl;
+    std::cout << "  Index: " << this->_index << std::endl;
+    std::cout << "  Autoindex: " << (this->_autoindex ? "on" : "off") << std::endl;
+
+    // Print error pages
+   for (size_t i = 100; i <= 599; ++i) {
+        std::map<short, std::string>::const_iterator it = this->_error_pages.find(static_cast<short>(i));
+        if (it == this->_error_pages.end()) {
+            continue; // Skip if no error page is set for this code
+        }
+        std::cout << "  Error Page " << i << ": ";
+        // If the error page is empty, print a message indicating no page is set
+        if (it != this->_error_pages.end() && !it->second.empty()) {
+            std::cout << "  Error Page " << i << ": " << it->second << std::endl;
+        }
+    }
+    std::cout << "  Locations: " << this->_locations.size() << std::endl;
+    for (size_t i = 0; i < this->_locations.size(); ++i) {
+        std::cout << "  Location " << i + 1 << ":" << std::endl;
+        this->_locations[i].print_location_config();
+    }
+    if (this->_locations.empty()) {
+        std::cout << "  No locations configured." << std::endl;
+    }
+    // Print end of server config
+    std::cout << "End of Server Config" << std::endl;
 }

@@ -108,7 +108,7 @@ std::vector<std::string> ConfigParser::tokenize(const std::string& content) {
     int line_number = 1;
     char c;
     
-   for(size_t i = 0; i < content.length(); ++i){
+    for(size_t i = 0; i < content.length(); ++i){
         c = content[i];
         
         // Track line numbers
@@ -117,7 +117,7 @@ std::vector<std::string> ConfigParser::tokenize(const std::string& content) {
         }
         
         // Handle comments
-        if (c == '#' && !in_quotes) { // start of comment #
+        if (c == '#' && !in_quotes) {
             in_comment = true;
             if (!current_token.empty()) {
                 tokens.push_back(current_token);
@@ -126,22 +126,32 @@ std::vector<std::string> ConfigParser::tokenize(const std::string& content) {
             }
             continue;
         }
-        if (in_comment && c == '\n') { // end of comment \n
+        if (in_comment && c == '\n') {
             in_comment = false;
             continue;
         }
-        if (in_comment) { // while still in comment move to next char
+        if (in_comment) {
             continue;
         }
         
-        // Handle quotes
+        // Handle quotes - FIXED VERSION
         if (c == '"') {
-            in_quotes = !in_quotes;
-            current_token += c;
+            if (!in_quotes) {
+                // Starting a quoted string
+                in_quotes = true;
+                // Don't add the quote to the token
+            } else {
+                // Ending a quoted string
+                in_quotes = false;
+                // Add the token (which might be empty)
+                tokens.push_back(current_token);
+                token_line_numbers_[current_token] = line_number;
+                current_token.clear();
+            }
             continue;
         }
 
-         // Handle special characters
+        // Handle special characters
         if (!in_quotes && (c == '{' || c == '}' || c == ';')) {
             if (!current_token.empty()) {
                 tokens.push_back(current_token);
@@ -173,6 +183,12 @@ std::vector<std::string> ConfigParser::tokenize(const std::string& content) {
         tokens.push_back(current_token);
         token_line_numbers_[current_token] = line_number;
     }
+    
+    // Check for unclosed quotes
+    if (in_quotes) {
+        addError(ValidationError::ERROR, "Unclosed quoted string", line_number, "");
+    }
+    
     return tokens;
 }
 
@@ -311,17 +327,23 @@ bool ConfigParser::validateDirective(const Directive& directive, const std::stri
                 getTokenLine(directive.name), context);
         return false;
     }
-    for (size_t i = 0; i < directive.parameters.size(); ++i) {
-        if (directive.parameters[i] == "\"\"") {
-            addError(ValidationError::ERROR, "Invalid parameter \"\"", 
+    // Validate directive parameters if a parameter is "" return false;
+    if (directive.parameters.empty()) {
+        addError(ValidationError::ERROR, "Directive \"" + directive.name + "\" requires parameters", 
                 getTokenLine(directive.name), context);
-            return (false);
+        return false;
+    }
+    for (size_t i = 0; i < directive.parameters.size(); ++i) {
+        if (directive.parameters[i].empty()) {
+            addError(ValidationError::ERROR, "Directive \"" + directive.name + "\" parameter cannot be empty", 
+                    getTokenLine(directive.name), context);
+            return false;
         }
     }
     return true;
 }
 
-void ConfigParser::printValidationResults() const {
+bool ConfigParser::printValidationResults() const {
     if (_errors.empty()) {
         std::cout << "Configuration file syntax is ok" << std::endl;
     } else {
@@ -340,6 +362,10 @@ void ConfigParser::printValidationResults() const {
         std::cerr << "Configuration file test failed" << std::endl;
         std::cerr << error_count << " errors and " << warning_count << " warnings found" << std::endl;
     }
+    if (_errors.empty()) {
+        return true;  // No errors, validation successful
+    }
+    return false; // Errors found, validation failed
 }
 
 int ConfigParser::getTokenLine(const std::string& token) {
@@ -381,7 +407,7 @@ bool ConfigParser::validate_config() {
     }
     
     // Print final validation result
-    printValidationResults();
+    valid = printValidationResults();
     
     return valid;
 }

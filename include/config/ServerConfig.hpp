@@ -50,7 +50,9 @@ public:
     void set_error_pages(std::string error_code, std::string error_page);
     void add_location(const Location& location);
 
+    void initializeDefaultErrorPages();
     const Location* findMatchingLocation(const std::string& ) const;
+    void print_server_config() const;
 };
 
 #endif // ServerConfig_HPP
