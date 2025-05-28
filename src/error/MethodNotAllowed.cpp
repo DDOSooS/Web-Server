@@ -22,8 +22,6 @@ void    MethodNotAllowed::ProcessError(Error &error)
     std::cout << "Method Not Allowed Error: " << error.GetErroeMessage() << std::endl;
     std::stringstream iss;
 
-    iss << "HTTP/1.1 405 Method Not Allowed\r\n";
-    iss << "Content-Type: text/html\r\n\r\n";
     iss << "<html><head><title>405 Method Not Allowed</title></head>";
     iss << "<body><h1>Method Not Allowed</h1>";
     iss << "<p>The requested method is not allowed for the specified resource.</p>";
@@ -34,11 +32,13 @@ void    MethodNotAllowed::ProcessError(Error &error)
     if (error.GetClientData().http_response == NULL)
     {
         std::map<std::string, std::string> emptyHeaders;
-        error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), emptyHeaders, "text/plain", false, false);
+        error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), emptyHeaders, "text/html", false, false);
     }
     // Set the response buffer
     error.GetClientData().http_response->setBuffer(response);
     error.GetClientData().http_response->setStatusCode(error.GetCodeError());
+    if (!error.GetClientData().http_response->getContentType().empty())
+        error.GetClientData().http_response->setContentType("text/html");
 }
 
 const char *    MethodNotAllowed::what() const throw()

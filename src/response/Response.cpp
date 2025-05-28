@@ -128,9 +128,9 @@ std::string HttpResponse::getContentType() const
 
 bool HttpResponse::checkAvailablePacket() const
 {
-    if (this->_buffer.empty() || this->_file_path.empty())
-        return false;
-    return true;
+    if (!this->_buffer.empty() || !this->_file_path.empty())
+        return true;
+    return false;
 }
 
 bool HttpResponse::isFile() const
@@ -220,9 +220,10 @@ std::string HttpResponse::toString()
     if (this->_keep_alive)
         response += "Connection: keep-alive\r\n";
 
-    if (!this->_file_path.empty())
+    std::cout << "Content Type :|||||||||1111||||||||||||||||| " << this->_content_type << std::endl;
+    if (this->_content_type.empty() && !this->_file_path.empty())
         this->_content_type = determineContentType(this->_file_path);
-    // std::cout << "Content Type :||||||||||||||||||||||||||| " << this->_content_type << std::endl;
+    std::cout << "Content Type :||||||||||||||||||||||||||| " << this->_content_type << std::endl;
     response += "Content-Type: " + (this->_content_type.empty() ? "text/plain" : this->_content_type) + "\r\n";
 
     std::string body;

@@ -20,8 +20,7 @@ void    NotFound::ProcessError(Error &error)
     std::cout << "Not Found Error: " << error.GetErroeMessage() << std::endl;
     std::stringstream iss;
 
-    iss << "HTTP/1.1 404 Not Found\r\n";
-    iss << "Content-Type: text/html\r\n\r\n";
+
     iss << "<html><head><title>404 Not Found</title></head>";
     iss << "<body><h1>Not Found</h1>";
     iss << "<p>The requested resource could not be found on the server.</p>";
@@ -31,10 +30,12 @@ void    NotFound::ProcessError(Error &error)
     if (error.GetClientData().http_response == NULL)
     {
         std::map<std::string, std::string> emptyHeaders;
-        error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), emptyHeaders, "text/plain", false, false);
+        error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), emptyHeaders, "text/html", false, false);
     }
     error.GetClientData().http_response->setBuffer(response);
     error.GetClientData().http_response->setStatusCode(error.GetCodeError());
+    if (!error.GetClientData().http_response->getContentType().empty())
+        error.GetClientData().http_response->setContentType("text/html");
     // error->GetClientData().http_response.send(response, response);
     std::cerr << "Not Found Error: " << error.GetErroeMessage() << std::endl;
 }

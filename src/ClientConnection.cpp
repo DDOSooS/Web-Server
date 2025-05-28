@@ -49,7 +49,7 @@ void ClientConnection::GenerateRequest(int fd)
     try {
         // Parse headers first
         HttpRequestBuilder build = HttpRequestBuilder();
-        build.ParseRequest(rawRequest);
+        build.ParseRequest(rawRequest, this->_server->getServerConfig());
         
         // Check if we need to read more data (for POST requests with Content-Length)
         std::string contentLengthStr = build.GetHttpRequest().GetHeader("Content-Length");
@@ -116,7 +116,7 @@ void ClientConnection::GenerateRequest(int fd)
     }
 }
 
-
+//@todo: Consider logical work flow before !!!!! refactoring this function to handle errors more gracefully
 void    ClientConnection::ProcessRequest(int fd)
 {
     RequestHandler     *chain_handler;
@@ -135,27 +135,17 @@ void    ClientConnection::ProcessRequest(int fd)
         this->http_response = new HttpResponse(200, emptyHeaders, "text/plain", false, false);
     }
     
-    try {
-        chain_handler->HandleRequest(this->http_request);
-        std::cout << "END OF PROCESSING THE REQUEST \n";
-        if (this->_server != NULL) {
-            this->_server->updatePollEvents(fd, POLLOUT);
-        } else {
-            std::cerr << "Error: Server pointer is NULL" << std::endl;
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "Exception in ProcessRequest: " << e.what() << std::endl;
-        if (this->http_response) {
-            this->http_response->setStatusCode(500);
-            this->http_response->setStatusMessage("Internal Server Error");
-            this->http_response->setBuffer("<html><body><h1>500 Internal Server Error</h1><p>" + std::string(e.what()) + "</p></body></html>");
-        }
-        if (this->_server != NULL) {
-            this->_server->updatePollEvents(fd, POLLOUT);
-        }
+    chain_handler->HandleRequest(this->http_request);
+    std::cout << "END OF PROCESSING THE REQUEST \n";
+    if (this->_server != NULL)
+    {
+        this->_server->updatePollEvents(fd, POLLOUT);
+    } 
+    else
+    {
+        std::cerr << "Error: Server pointer is NULL" << std::endl;
     }
-    
-    // Memory management for handler
+       
     delete chain_handler;
 }
 

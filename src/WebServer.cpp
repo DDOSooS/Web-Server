@@ -341,6 +341,7 @@ void WebServer::handleClientRequest(int fd)
     delete errorHandler;
 }
 
+// @TO TAKE CARE OF: before any change in the response, check with @abdessalam before making changes
 void WebServer::handleClientResponse(int fd)
 {
     //check if the client exists in our map
@@ -351,6 +352,7 @@ void WebServer::handleClientResponse(int fd)
     }
 
     ClientConnection &client = clients[fd];
+/*
     if (client.http_response)
         std::cout << "Client ip: " << client.ipAddress << " is sending response============\n";
     else
@@ -365,22 +367,22 @@ void WebServer::handleClientResponse(int fd)
     if (client.http_response == NULL)
     {
         std::cerr << "Warning: client.http_response is null for fd " << fd << std::endl;
-
+        
         try {
             // Create a default response for error handling
             std::map<std::string, std::string> headers;
             headers["Content-Type"] = "text/html";
             headers["Connection"] = "close"; // Force connection close on error
-
+            
             client.http_response = new HttpResponse(500, headers, "text/html", false, false);
             if (client.http_response == NULL) {
                 std::cerr << "Failed to allocate HttpResponse" << std::endl;
                 closeClientConnection(fd);
                 return;
             }
-
+            
             client.http_response->setBuffer("<html><body><h1>500 Internal Server Error</h1><p>Invalid response state</p></body></html>");
-
+            
             // Send this error response
             try {
                 client.http_response->sendResponse(fd);
@@ -394,61 +396,52 @@ void WebServer::handleClientResponse(int fd)
         } catch (...) {
             std::cerr << "Unknown exception creating error response" << std::endl;
         }
-
+        
         // Always close the connection when there's an error
         closeClientConnection(fd);
         return;
     }
+    */
+    
+    // Check if we have data to send
+    if (client.http_response == NULL)
+    {
+        std::cerr << "Warning: client.http_response is null for fd " << fd << std::endl;
+        updatePollEvents(fd, POLLIN);
+        // exit(0);
+        return;
+    }
 
     // Check if we have data to send
-    if (!client.http_response->checkAvailablePacket())
+    if (client.http_response->checkAvailablePacket())
     {
+        std::cout << "No data to send for client fd: " << fd << std::endl;
         try
-        {
-            if (client.http_response->isChunked())
+        {            
+            if (client.http_response->isChunked() )
             {
                 client.http_response->sendChunkedResponse(fd);
-                return;
+                return ;
             }
             else
             {
                 if (client.http_response->isFile())
                 {
-                    try {
-                        client.http_response->sendResponse(fd);
-                    } catch (const std::exception& e) {
-                        std::cerr << "Error sending file response: " << e.what() << std::endl;
-                        closeClientConnection(fd);
-                        return;
-                    }
+                    client.http_response->sendResponse(fd);
                 }
                 else
                 {
-                    try {
-                        client.http_response->sendChunkedResponse(fd);
-                    } catch (const std::exception& e) {
-                        std::cerr << "Error sending chunked response: " << e.what() << std::endl;
-                        closeClientConnection(fd);
-                        return;
-                    }
+                    client.http_response->sendChunkedResponse(fd);
                 }
 
                 this->updatePollEvents(fd, POLLIN);
-
                 // Reset request state for next request
                 if (client.http_response->isKeepAlive())
                 {
-                    std::cout << "after Resetting the request !!!\n";
-
-                    // Safely clear and reset
-                    if (client.http_response) {
-                        client.http_response->clear();
-                    }
-
-                    if (client.http_request) {
-                        client.http_request->ResetRequest();
-                    }
-                    return;
+                    std::cout << "after Resesting the request !!!\n";
+                    client.http_response->clear();
+                    client.http_request->ResetRequest();
+                    return ;
                 }
                 else
                 {
@@ -459,39 +452,65 @@ void WebServer::handleClientResponse(int fd)
         }
         catch(HttpException & e)
         {
-            std::cerr << "HttpException in handleClientResponse: " << e.what() << '\n';
-
-            // Try to send an error response
-            try {
-                if (client.http_response) {
-                    client.http_response->setStatusCode(e.GetCode());
-                    client.http_response->setStatusMessage(e.GetMessage());
-                    std::stringstream ss;
-                    ss << e.GetCode();
-                    client.http_response->setBuffer("<html><body><h1>" + ss.str() + " " + e.GetMessage() + "</h1></body></html>");
-                    client.http_response->sendResponse(fd);
-                }
-            } catch (const std::exception& ex) {
-                std::cerr << "Error sending exception response: " << ex.what() << std::endl;
-            } catch (...) {
-                std::cerr << "Unknown error sending exception response" << std::endl;
-            }
-
-            // Close connection on error
-            closeClientConnection(fd);
-        }
-        catch(std::exception & e)
-        {
-            std::cerr << "Standard exception in handleClientResponse: " << e.what() << '\n';
-            closeClientConnection(fd);
-        }
-        catch(...)
-        {
-            std::cerr << "Unknown exception in handleClientResponse" << '\n';
-            closeClientConnection(fd);
+            std::cerr << e.what() << '\n';
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     /*
 

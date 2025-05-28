@@ -1,5 +1,5 @@
 #include "../../include/request/HttpRequestBuilder.hpp"
-
+#include "../../include/config/Location.hpp"
 HttpRequestBuilder::HttpRequestBuilder()
 {
     _http_request.ResetRequest();
@@ -75,7 +75,7 @@ std::string HttpRequestBuilder::UrlDecode(const std::string &req_line)
     return decoded;
 }
 
-void HttpRequestBuilder::ParseRequestLine(std::string &request_line)
+void HttpRequestBuilder::ParseRequestLine(std::string &request_line,const ServerConfig &serverConfig)
 {
     std::cout << "PARSING REQ LINE !!!!!!!!!!!!!!\n";
     // decode the request line
@@ -110,8 +110,26 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line)
         return;
     }
     _http_request.SetHttpVersion(http_version);
+    // check if the path is valid
+    if (path.empty() || path[0] != '/')
+    {
+        _http_request.SetIsRl(REQ_LOCATION_ERROR);
+        return;
+    }
+    std::cout << "HTTP LOCATION TEST passed!!\n";
+    _http_request.SetLocation(path);
     // check if the method is valid
-    std::cout << "Http TEST passed!!\n";
+
+    // check if the method is valid
+    /*
+        check for location -> default locatoin -> error page 404
+
+        std::cout << "PATH (( " << path << "  ))\n";  
+        if (cur_location)
+            std::cout << "CURRENT LOCATION EXIST !!!!!!!!!!!!!---" << cur_location->get_path() << "==" << cur_location->get_allowMethods().size() << "===" << cur_location->get_root_location() << std::endl;
+        else
+            std::cout << "CURRENT LOCATION DOESN'T EXIST !!!!!!!!!!!!!\n";
+    */
     // need to intergate the conf file congiguration!!!
     std::vector<std::string> valid_methods;
     valid_methods.push_back("GET");
@@ -128,24 +146,16 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line)
         _http_request.SetIsRl(REQ_METHOD_ERROR);
         return;
     }
-    std::cout << "METOHD SELECTED IS A VALID METHOD !!\n";
     // check if the method is valid
-    if (method != "GET" && method != "POST" && method != "PUT" && method != "DELETE")
+    const Location *cur_location = serverConfig.findMatchingLocation(path);
+    if (cur_location && !cur_location->is_method_allowed(method))
     {
-        _http_request.SetIsRl(REQ_NOT_IMPLEMENTED);
+        _http_request.SetIsRl(REQ_METHOD_ERROR);
         return;
     }
     std::cout << "Http METHOD TEST passed!!\n";
 
     _http_request.SetMethod(method);
-    // check if the path is valid
-    if (path.empty() || path[0] != '/')
-    {
-        _http_request.SetIsRl(REQ_LOCATION_ERROR);
-        return;
-    }
-    std::cout << "HTTP LOCATION TEST passed!!\n";
-    _http_request.SetLocation(path);
     _http_request.SetIsRl(REQ_DONE);
     _http_request.SetStatus(PARSER);
 }
@@ -216,7 +226,7 @@ void HttpRequestBuilder::ParseRequestBody(std::string &body)
 }
 
 
-void HttpRequestBuilder::ParseRequest(std::string &rawRequest)
+void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig &serverConfig)
 {
     std::cout << "Parsing the Request !!!!!!!!!\n";
     std::cout << "Req Line::" << rawRequest << "==========|" << (rawRequest.find("\r\n\r\n")== std::string::npos) << "====" << (rawRequest.find("\r\n") == std::string::npos) << ":";
@@ -233,7 +243,7 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest)
 
     // Parse request line
     std::getline(iss, line);
-    ParseRequestLine(line);
+    ParseRequestLine(line, serverConfig);
     if (_http_request.GetIsRl() != REQ_DONE)
     {
         //throw an exception or handle error
@@ -271,6 +281,8 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest)
 
 
     // Parse body if present
+    //@todo Ilyas: check if the body is too large to be processed and being parsed at once does will affect the performance of 
+    // the server
     std::string body;
     std::string bodyLine;
     

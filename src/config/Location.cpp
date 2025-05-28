@@ -7,12 +7,6 @@ Location::Location() {
     this->_root = "";
     this->_autoindex = false;
     this->_index = "";
-    this->_allow_methods.reserve(5);
-    this->_allow_methods.push_back(false);
-    this->_allow_methods.push_back(false);
-    this->_allow_methods.push_back(false);
-    this->_allow_methods.push_back(false);
-    this->_allow_methods.push_back(false);
     this->_alias = "";
     this->_client_max_body_size = 0;
     this->_cgi_ext.clear();
@@ -38,12 +32,6 @@ Location::Location(const Block &location) {
     this->_root = "";
     this->_autoindex = false;
     this->_index = "";
-    this->_allow_methods.reserve(5);
-    this->_allow_methods.push_back(false);
-    this->_allow_methods.push_back(false);
-    this->_allow_methods.push_back(false);
-    this->_allow_methods.push_back(false);
-    this->_allow_methods.push_back(false);
     this->_alias = "";
     this->_client_max_body_size = 0;
     this->_cgi_ext.clear();
@@ -127,30 +115,28 @@ void Location::set_index(std::string new_index){
 	this->_index =	new_index;
 }
 
-void Location::set_allowMethods(std::vector<std::string> allow_methods){
-	this->_allow_methods.push_back(false);
-    this->_allow_methods.push_back(false);
-    this->_allow_methods.push_back(false);
-    this->_allow_methods.push_back(false);
-    this->_allow_methods.push_back(false);
-	for(size_t i = 0; i < allow_methods.size(); ++i) {
-		if (allow_methods[i] == "GET")
-			this->_allow_methods[0] = true;
-		else if (allow_methods[i] == "POST")
-			this->_allow_methods[1] = true;
-		else if (allow_methods[i] == "DELETE")
-			this->_allow_methods[2] = true;
-		else if (allow_methods[i] == "PUT")
-			this->_allow_methods[3] = true;
-		else if (allow_methods[i] == "HEAD")
-			this->_allow_methods[4] = true;
-		else {
-			std::cout << "config error: set_allowMeths [" << allow_methods[i] << "]" << std::endl;
-			return;
-		}
-		
+void Location::set_allowMethods(std::vector<std::string> methods)
+{
+    std::cout << "Mehod has being called -----------------\n";
+    
+	for(size_t i = 0; i < methods.size(); ++i)
+    {
+        std::cout << "=======" << methods[i] << "=============\n";
+        this->_allow_methods.push_back(methods[i]);
 	}
 }
+
+bool    Location::is_method_allowed(std::string method) const
+{
+    // std::cout << "HEHOOOOOOOOOOOOOOOOOOOOOOOOO ==" << _allow_methods.size() << std::endl;
+    if (_allow_methods.empty())
+        std::cout<< "METHODS NULLLLLLLLLLLL\n"; 
+    else
+        std::cout << _allow_methods.size() << std::endl;
+    std::vector<std::string>::const_iterator flag = std::find(_allow_methods.begin(), _allow_methods.end(), method);
+    return (flag != _allow_methods.end() ? true : false);
+}
+
 // GET POST- DELETE- PUT- HEAD-
 void Location::set_return(std::vector<std::string> new_return){
 	this->_return = new_return;
@@ -225,7 +211,8 @@ std::string Location::get_index() const{
 	return this->_index;
 }
 
-std::vector<bool> Location::get_allowMethods() const {
+std::vector<std::string> Location::get_allowMethods() const
+{
 	return this->_allow_methods;
 }
 

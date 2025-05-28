@@ -17,7 +17,7 @@ bool CgiHandler::isCgiRequest(HttpRequest *request) const {
     std::cout << "=== CGI Detection Debug ===" << std::endl;
     std::cout << "Request path: " << request_path << std::endl;
     
-    Location* matching_location = _client->_server->getServerConfig().findMatchingLocation(request_path);
+    const Location* matching_location = _client->_server->getServerConfig().findMatchingLocation(request_path);
     
     if (!matching_location) {
         std::cout << "No matching location found" << std::endl;

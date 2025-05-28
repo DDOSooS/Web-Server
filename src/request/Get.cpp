@@ -1,4 +1,5 @@
 #include "../../include/request/Get.hpp"
+#include "../../include/config/Location.hpp" // Include the header file for Location
 
 Get::Get()
 {
@@ -7,6 +8,16 @@ Get::Get()
 Get::~Get()
 {
 
+}
+
+void Get::setIsRedirected(bool is_redirected)
+{
+    this->_is_redirected = is_redirected;
+}
+
+bool Get::getIsRedirected() const
+{
+    return this->_is_redirected;
 }
 
 bool Get::CanHandle(std::string method)
@@ -119,6 +130,33 @@ std::string Get::ListingDir(const std::string &path)
     return response.str();
 }
 
+/*
+    case scenario for an http request 
+    incomming request !!!!
+    | |
+    -_-
+    check if the location exist in the conf file -> (NO) check the / location ->(NO) -> 404 error page
+                                                |
+                                                 -> (Yes) handle location as it is 
+    
+*/
+/*
+    Nginx processes directives in this order of precedence:
+    nginxlocation /example {
+        # 1. RETURN - Highest priority (stops processing)
+        return 301 /new-location;
+        
+        # 2. ALIAS - If no return, and alias exists
+        alias /var/www/files/;
+        
+        # 3. ROOT - If no return and no alias
+        root /var/www/html;
+        
+        # 4. Other directives (try_files, etc.)
+        try_files $uri $uri/ =404;
+    }
+*/
+
 std::string Get::determineContentType(const std::string& path)
 {
     int size;
@@ -138,42 +176,82 @@ std::string Get::determineContentType(const std::string& path)
     return "text/plain";
 }
 
+std::string    Get::GetRelativePath(const Location * cur_location,HttpRequest *request)
+{
+    std::string rel_path;
+    std::cout << "GET RELATIVE PATH !!!!!!!!!!!!!!  "<< cur_location->get_return().size() << "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n";
+    std::cout << "GET RELATIVE PATH !!!!!!!!!!!!!!  "<< cur_location->get_path() << "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n";
+    std::cout << "GET RELATIVE PATH !!!!!!!!!!!!!!  "<< cur_location->get_root_location() << "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n";
+    std::cout << "GET RELATIVE PATH !!!!!!!!!!!!!!  "<< cur_location->get_alias() << "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n";
+    if (!cur_location->get_return().empty())
+    {
+        
+        this->setIsRedirected(true);
+        std::cout << "REDIRECTED TO : " << cur_location->get_return()[0] << std::endl;
+        std::cout << "REQUEST LOCATION : " << request->GetLocation()  << std::endl;
+        exit(0);
+        rel_path = cur_location->get_return()[1];
+        return rel_path;
+    }
+    else if (!cur_location->get_alias().empty())
+    {
+        rel_path = cur_location->get_alias() + request->GetLocation();
+        std::cout << "ALIAS PATH : " << rel_path << std::endl;
+        if (rel_path[rel_path.size() - 1] != '/')
+            rel_path += '/';
+        std::cout << "RELATIVE PATH : " << rel_path << std::endl;
+        return rel_path;
+    }
+    else if (!cur_location->get_root_location().empty())
+    {
+        rel_path = cur_location->get_root_location() + request->GetLocation();
+        std::cout << "ROOT LOCATION PATH : " << rel_path << std::endl;
+        if (rel_path[rel_path.size() - 1] != '/')
+            rel_path += '/';
+        std::cout << "RELATIVE PATH : " << rel_path << std::endl;
+        return rel_path;
+    }
+    return rel_path;
+}
+
+// @Todo : before making any edit to this function, check the work flow of the processRequest function ~
 void    Get::ProccessRequest(HttpRequest *request)
 {
-    if (!request) {
+    std::cout << "PROCCESSING GET REQUEST !!!!!!!!!\n";
+
+    std::string rel_path;
+    const Location *cur_location;
+    
+    if (!request)
+    {
         std::cerr << "Error: Null request pointer\n";
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
 
-    if (!request->GetClientDatat()) {
+    if (!request->GetClientDatat())
+    {
         std::cerr << "Error: Null client data pointer\n";
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
-
-    if (!request->GetClientDatat()->http_response) {
-        std::cerr << "Error: Null http_response pointer\n";
-        std::map<std::string, std::string> emptyHeaders;
-        request->GetClientDatat()->http_response = new HttpResponse(200, emptyHeaders, "text/html", false, false);
+    cur_location = request->GetClientDatat()->_server->getServerConfig().findMatchingLocation(request->GetLocation());
+    if(cur_location == NULL)
+    {
+        std::cerr << "NOT FOUND LOCATION \n";
+        throw HttpException(404, "404 Not Found", NOT_FOUND);
     }
-
-    // Normalize the location path
-    std::string location = request->GetLocation();
-    if (location.empty()) {
-        location = "/";
-    } else if (location[0] != '/') {
-        location = "/" + location;
-    }
-
-    std::string root_path = "www";  // Use a relative path that exists in your project structure
-    std::string rel_path = root_path + location;
-    
+    rel_path = GetRelativePath(cur_location, request);
     std::cout << "RELATIVE PATH : " << rel_path << std::endl;
+    if (rel_path.empty())
+    {
+        std::cerr << "NOT FOUND RELATIVE PATH \n";
+        throw HttpException(404, "404 Not Found", NOT_FOUND);
+    }
+    // Check if the relative path is valid
     if (!IsValidPath(rel_path))
     {
         std::cerr << "NOT FOUND INVALID LOCATION \n";
         throw HttpException(404, "404 Not Found", NOT_FOUND);
     }
-    
     if (IsDir(rel_path))
     {
         request->GetClientDatat()->http_response->setStatusCode(200);
@@ -181,31 +259,21 @@ void    Get::ProccessRequest(HttpRequest *request)
         request->GetClientDatat()->http_response->setContentType("text/html");
         request->GetClientDatat()->http_response->setChunked(false);
         
-        // Make sure directory path ends with a slash
-        if (rel_path[rel_path.length() - 1] != '/') {
-            rel_path += "/";
-        }
-        
-        // Make sure location ends with a slash for proper URL construction
-        if (location[location.length() - 1] != '/') {
-            location += "/";
-        }
-        
         std::string indexFile = rel_path + "index.html";
         std::cout << "INDEX FILE : " << indexFile << std::endl;
-        
         if (IsFile(indexFile))
         {
-            std::cout << "INDEX FILE IS VALID-- " << location + "index.html\n";
-            request->GetClientDatat()->http_response->setFilePath(location + "index.html");
+            std::cout << "INDEX FILE IS VALID-- " << rel_path + "index.html\n";
+            request->GetClientDatat()->http_response->setFilePath(rel_path + "index.html");
             return;
         }
         else
         {
             std::cout << "INDEX FILE IS NOT VALID-- " << indexFile << "\n";
-            std::string response = ListingDir(location);
+            std::string response = ListingDir(rel_path);
             
-            if (response.empty()) {
+            if (response.empty())
+            {
                 response = "<html><body><h1>Directory Listing Not Available</h1></body></html>";
             }
             
@@ -217,7 +285,7 @@ void    Get::ProccessRequest(HttpRequest *request)
     else
     {
         std::cout << "FILE IS VALID-- " << rel_path << "\n";
-        request->GetClientDatat()->http_response->setFilePath(location);
+        request->GetClientDatat()->http_response->setFilePath(rel_path);
         return;
     }
 }
