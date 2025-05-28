@@ -20,7 +20,7 @@ class Get : public RequestHandler
         bool            IsValidPath(const std::string &path);
         bool            IsDir(const std::string &path);
         bool            IsFile(const std::string &path);
-        std::string     ListingDir(const std::string &path);
+        std::string     ListingDir(const std::string &path, std::string /* request Path*/);
         std::string     determineContentType(const std::string& path);
         bool            getIsRedirected() const;
         void            setIsRedirected(bool );

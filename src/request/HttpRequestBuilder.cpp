@@ -251,7 +251,7 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
         // exit(1);
         if (_http_request.GetIsRl() == REQ_HTTP_VERSION_ERROR)
         {
-            std::cout << "HTTP VERSION ERROR>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n";
+            // std::cout << "HTTP VERSION ERROR>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n";
             throw HttpException(404, "HTTP Version Not Supported", NOT_FOUND);
         }
         else if (_http_request.GetIsRl() == REQ_METHOD_ERROR || _http_request.GetIsRl() == REQ_LOCATION_ERROR)

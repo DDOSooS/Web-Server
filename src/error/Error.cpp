@@ -2,10 +2,7 @@
 
 Error::Error(ClientConnection& client, int code, const std::string& message, ERROR_TYPE type)
 : _code_error(code), _message(message), _error_type(type), _client(client) {}
-// Error::Error(ClientConnection& client, int code, const std::string& message, ERROR_TYPE errorType)
-//     : _client(client), _code_error(code), _message(message), _error_type(errorType)
-// {
-// }
+
 ClientConnection& Error::GetClientData() const
 {
     return _client;
