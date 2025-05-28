@@ -7,6 +7,8 @@
 #include <stdexcept>
 #include "../../include/config/ServerConfig.hpp"
 #include "../../include/config/Location.hpp"
+#include <sys/types.h>
+#include <sys/wait.h>
 
 CgiHandler::CgiHandler(ClientConnection* client) : _client(client) {}
 CgiHandler::~CgiHandler() {}
@@ -86,37 +88,75 @@ void CgiHandler::ProccessRequest(HttpRequest *request) {
     
 }
 char ** CgiHandler::setGgiEnv(HttpRequest *request){
-   char *envp[] =
-        {
-            "HOME=/",
-            "PATH=/bin:/usr/bin",
-            "TZ=UTC0",
-            "USER=beelzebub",
-            "LOGNAME=tarzan",
-            0
-        };
-    return envp;
+    //TODO:set up env variables
+    return NULL;
 }
-
 std::string CgiHandler::executeCgiScript(HttpRequest *request) {
-    int pipe_in[2];
-    int pie_out[2];
-    if(pipe(pipe_in) == -1 || pipe(pie_out) == -1){
-        std::cerr << "Error in CGI pipe" << std::endl;
-        throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
-    }
-    int cgi_pid = fork();
-    if (cgi_pid < 0){
-        std::cerr << "Error in CGI Fork" << std::endl;
+    int pipe_out[2];
+    if(pipe(pipe_out) == -1) {
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
     
-    if (cgi_pid == 0){
-        
+    pid_t cgi_pid = fork();
+    if (cgi_pid < 0) {
+        close(pipe_out[0]);
+        close(pipe_out[1]);
+        throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
-    return ("<h1 color='red'> Hello from CGI handler </h1>");
-}
+    
+    if (cgi_pid == 0) {
+        // Child process
+        close(pipe_out[0]); // Close read end
+        dup2(pipe_out[1], STDOUT_FILENO);
+        dup2(pipe_out[1], STDERR_FILENO);
+        close(pipe_out[1]);
+        
 
+        std::string request_path = request->GetLocation();
+        std::string script_name = "www" + request_path;
+        char *env[] =
+        {
+            "QUERYSRING=name=ayoub&age=26&city=benguerir",
+            "SOFTWARE=CGI/1.1",
+            "SERVERNAME=webserv",
+            0
+        };
+        char* python_path = strdup("/bin/python3");
+        char* script_path_cstr = strdup(script_name.c_str());
+        char* argv[] = {python_path, script_path_cstr, NULL};
+        
+        execve("/bin/python3", argv, env);
+        perror("execve failed");
+        exit(1);
+    }
+    
+    // Parent process
+    close(pipe_out[1]); // Close write end
+    
+    std::string result;
+    char buffer[4097]; // +1 for null terminator
+    ssize_t bytes_read;
+    
+    while((bytes_read = read(pipe_out[0], buffer, 4096)) > 0) {
+        buffer[bytes_read] = '\0'; // Null terminate
+        result += buffer;
+    }
+    
+    close(pipe_out[0]);
+    
+    // Wait for child to prevent zombies
+    int status;
+    waitpid(cgi_pid, &status, 0);
+    
+    std::ofstream outputFile1("cgi_out.txt");
+    if (outputFile1.is_open()) {
+        outputFile1 << result << std::endl;
+        outputFile1.close();
+    } else {
+        std::cerr << "Error opening file!" << std::endl;
+    }
+    return result;
+}
 
 bool CgiHandler::cgiExec(){
     // setup env
