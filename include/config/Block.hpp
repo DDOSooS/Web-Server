@@ -11,23 +11,23 @@
 #include <vector>
 #include "Directive.hpp"
 
-
 class Block {
-    public:
-        std::string name;                      // "server", "location"
-        std::vector<std::string> parameters;   // ["/"] for "location /"
-        std::vector<Directive> directives;     // Contained directives
-        std::vector<Block> nested_blocks;      // Nested blocks
+public:
+    std::string name;
+    std::vector<std::string> parameters;
+    std::vector<Directive> directives;
+    std::vector<Block> nested_blocks;
 
-        Block(const std::string& name, const std::vector<std::string>& parameters);
-        Block();
-        Block(const Block &other);
-		Block &operator=(const Block &rhs);
-		~Block();
+    Block(const std::string& name, const std::vector<std::string>& parameters);
+    Block();
+    Block(const Block &other);
+    Block &operator=(const Block &rhs);
+    ~Block();
 
-        // Utility methods
-        std::vector<std::string>& get_parameters();
-        std::vector<std::string>& get_directive(std::string& directive_name);
-    };
+    const std::vector<std::string>& get_parameters() const;
+    std::vector<std::string> get_directive_params(const std::string& directive_name) const;
+    bool has_directive(const std::string& directive_name) const;
+    const Directive* find_directive(const std::string& directive_name) const;
+};
 
 #endif // BLOCK_HPP

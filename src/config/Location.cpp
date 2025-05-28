@@ -50,7 +50,13 @@ Location::Location(const Block &location) {
             this->_root = directive.parameters[0];
         }
         else if (directive.name == "autoindex" && !directive.parameters.empty()) {
-            this->set_autoindex(directive.parameters[0]);
+            if (directive.parameters[0] == "on") {
+                this->_autoindex = true;
+            } else if (directive.parameters[0] == "off") {
+                this->_autoindex = false;
+            } else {
+                std::cerr << "config error: autoindex must be 'on' or 'off'" << std::endl;
+            }
         }
         else if (directive.name == "index" && !directive.parameters.empty()) {
             this->_index = directive.parameters[0];
@@ -59,7 +65,7 @@ Location::Location(const Block &location) {
             this->set_allowMethods(directive.parameters);
         }
         else if (directive.name == "return" && !directive.parameters.empty()) {
-            this->_return = directive.parameters;
+            this->set_return(directive.parameters);
         }
         else if (directive.name == "alias" && !directive.parameters.empty()) {
             this->_alias = directive.parameters[0];
@@ -94,52 +100,67 @@ Location &Location::operator=(const Location &other) {
 
 Location::~Location() {}
 
-void Location::set_path(std::string new_path){
-	this->_path = new_path;
+void Location::set_path(const std::string &new_path) {
+    if (new_path.empty() || new_path[0] != '/') {
+        std::cerr << "config error: set_path [" << new_path << "] must start with '/'" << std::endl;
+        return;
+    }
+    this->_path = new_path;
 }
 
 void Location::set_root_location(std::string new_root){
 	this->_root = new_root;
 }
 
-void Location::set_autoindex(std::string index){
-	if (index == "on" || index == "off")
-		this->_autoindex = (index == "on");
-	else {
-		std::cout << "config error: set_autoindex [" << index << "]" << std::endl;
-		return;
-	}
+void Location::set_autoindex(bool new_auto_index){
+    if (new_auto_index)
+        this->_autoindex = true;
+    else
+        this->_autoindex = false;
 }
 
 void Location::set_index(std::string new_index){
 	this->_index =	new_index;
 }
 
-void Location::set_allowMethods(std::vector<std::string> methods)
-{
-    std::cout << "Mehod has being called -----------------\n";
+void Location::set_allowMethods(const std::vector<std::string> &methods) {
+    if (methods.empty()) {
+        std::cerr << "config error: set_allowMethods requires at least one method" << std::endl;
+        return;
+    }
     
-	for(size_t i = 0; i < methods.size(); ++i)
-    {
-        std::cout << "=======" << methods[i] << "=============\n";
-        this->_allow_methods.push_back(methods[i]);
-	}
+    // Clear existing methods and add new ones
+    this->_allow_methods.clear();
+    for (size_t i = 0; i < methods.size(); ++i) {
+        std::string method = methods[i];
+        if (method == "GET" || method == "POST" || method == "DELETE" || method == "PUT" || method == "HEAD") {
+            this->_allow_methods.push_back(method);
+        } else {
+            std::cerr << "config error: set_allowMethods [" << method << "] is not a valid HTTP method" << std::endl;
+        }
+    }
+    if (this->_allow_methods.empty()) {
+        std::cerr << "config error: set_allowMethods must contain at least one valid HTTP method" << std::endl;
+    }
 }
 
-bool    Location::is_method_allowed(std::string method) const
-{
-    // std::cout << "HEHOOOOOOOOOOOOOOOOOOOOOOOOO ==" << _allow_methods.size() << std::endl;
-    if (_allow_methods.empty())
-        std::cout<< "METHODS NULLLLLLLLLLLL\n"; 
-    else
-        std::cout << _allow_methods.size() << std::endl;
-    std::vector<std::string>::const_iterator flag = std::find(_allow_methods.begin(), _allow_methods.end(), method);
-    return (flag != _allow_methods.end() ? true : false);
+bool Location::is_method_allowed(const std::string& method) const {
+    if (_allow_methods.empty()) {
+        // Default: allow only GET and HEAD if no methods specified
+        return (method == "GET" || method == "HEAD");
+    }
+    
+    return std::find(_allow_methods.begin(), _allow_methods.end(), method) 
+           != _allow_methods.end();
 }
 
 // GET POST- DELETE- PUT- HEAD-
-void Location::set_return(std::vector<std::string> new_return){
-	this->_return = new_return;
+void Location::set_return(const std::vector<std::string> &new_return){
+    this->_return = new_return;
+    if (new_return.size() < 2) {
+        std::cerr << "config error: set_return requires at least two parameters" << std::endl;
+        return;
+    }
 }
 
 void Location::set_alias(std::string new_alias){
@@ -234,4 +255,86 @@ std::vector<std::string>	Location::get_cgiExt() const {
 
 unsigned long Location::get_clientMaxBodySize() const {
 	return this->_client_max_body_size;
+}
+// void Location::print_location_config() const in c++ 98
+void Location::print_location_config() const {
+    std::cout << "Location Config:" << std::endl;
+    std::cout << "  Path: " << this->_path << std::endl;
+    std::cout << "  Root: " << this->_root << std::endl;
+    std::cout << "  Autoindex: " << (this->_autoindex ? "on" : "off") << std::endl;
+    std::cout << "  Index: " << this->_index << std::endl;
+    std::cout << "  Allow Methods: ";
+    for (size_t i = 0; i < this->_allow_methods.size(); ++i) {
+        const std::string &method = this->_allow_methods[i];
+        if (i > 0) {
+            std::cout << "+";
+        }
+        if (method == "GET") {
+            std::cout << "GET+";
+        } else if (method == "POST") {
+            std::cout << "POST+";
+        } else if (method == "DELETE") {
+            std::cout << "DELETE+";
+        } else if (method == "PUT") {
+            std::cout << "PUT+";
+        } else if (method == "HEAD") {
+            std::cout << "HEAD-";
+        }
+        // Print the method without the trailing '+' or '-'
+        else {
+            std::cout << method;
+        }
+    }
+    if (this->_allow_methods.empty()) {
+        std::cout << "None";
+    }
+    std::cout << std::endl;
+    std::cout << "  Return: ";
+    for (size_t i = 0; i < this->_return.size(); ++i) {
+        if (i > 0) {
+            std::cout << " ";
+        }
+        std::cout << this->_return[i];
+    }
+    if (this->_return.empty()) {
+        std::cout << "None";
+    }
+    std::cout << std::endl;
+    std::cout << "  Alias: " << this->_alias << std::endl;
+    std::cout << "  CGI Path: ";
+    for (size_t i = 0; i < this->_cgi_path.size(); ++i) {
+        if (i > 0) {
+            std::cout << ", ";
+        }
+        std::cout << this->_cgi_path[i];
+    }
+    if (this->_cgi_path.empty()) {
+        std::cout << "None";
+    }
+    std::cout << std::endl;
+    std::cout << "  CGI Extensions: ";
+    for (size_t i = 0; i < this->_cgi_ext.size(); ++i) {
+        if (i > 0) {
+            std::cout << ", ";
+        }
+        std::cout << this->_cgi_ext[i];
+    }
+    if (this->_cgi_ext.empty()) {
+        std::cout << "None";
+    }
+    std::cout << std::endl;
+    std::cout << "  Client Max Body Size: " << this->_client_max_body_size << " bytes" << std::endl;
+    std::cout << std::endl;
+}
+bool Location::operator==(const Location &rhs) const {
+    return (this->_path == rhs._path &&
+            this->_root == rhs._root &&
+            this->_autoindex == rhs._autoindex &&
+            this->_index == rhs._index &&
+            this->_allow_methods == rhs._allow_methods &&
+            this->_return == rhs._return &&
+            this->_alias == rhs._alias &&
+            this->_client_max_body_size == rhs._client_max_body_size &&
+            this->_cgi_ext == rhs._cgi_ext &&
+            this->_cgi_path == rhs._cgi_path);
 }

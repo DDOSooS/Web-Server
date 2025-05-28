@@ -24,16 +24,17 @@ public:
     Location(const Block &location);
     Location &operator=(const Location &rhs);
     ~Location();
-
-    void set_path(std::string new_path);
-    void set_root_location(std::string new_root);     
-    void set_autoindex(std::string new_auto_index);
-    void set_index(std::string new_index);
-    void set_allowMethods(std::vector<std::string> allow_methods); // GET POST- DELETE- PUT- HEAD-
-    void set_return(std::vector<std::string> new_return);
-    void set_alias(std::string new_alias);
-    void set_cgiPath(std::vector<std::string> cgi_paths);
-    void set_cgiExt(std::vector<std::string> cgi_exts);
+    // == operator is not needed for this class, as it is not a POD type and has no dynamic memory management.
+    bool operator==(const Location &rhs) const;
+    void set_path(const std::string &new_path); // e.g. "/"
+    void set_root_location(std::string new_root); // e.g. "/var/www/html"
+    void set_autoindex(bool new_auto_index); // true for "on", false for "off
+    void set_index(std::string new_index); // e.g. "index.html"
+    void set_allowMethods(const std::vector<std::string> &methods); // e.g. {"GET", "POST", "DELETE", "PUT", "HEAD"}
+    void set_return(const std::vector<std::string> &return_values); // 301 /new-page
+    void set_alias(std::string new_alias); // e.g. "/alias
+    void set_cgiPath(std::vector<std::string> cgi_paths); // e.g. {"/usr/bin/php-cgi", "/usr/bin/python"}
+    void set_cgiExt(std::vector<std::string> cgi_exts); // e.g. {".php", ".py"}
     void set_clientMaxBodySize(std::string client_max_body_size);
 
     std::string                 get_path() const;
@@ -46,7 +47,8 @@ public:
     std::vector<std::string>    get_cgiPath() const;
     std::vector<std::string>    get_cgiExt() const;
     unsigned long               get_clientMaxBodySize() const;
-    bool                        is_method_allowed(std::string method) const;
+    bool                        is_method_allowed(const std::string& method) const; // Check if a method is allowed in this location
+    void print_location_config() const; // For debugging purposes
 };
 
 #endif // LOCATION_HPP

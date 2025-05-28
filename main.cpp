@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
 
     // Validate configuration
     if (!parser.validate_config()) {
-        std::cerr << "Configuration validation failed." << std::endl;
+        std::cerr << "Configuration validation failed. Oooooops!" << std::endl;
         return 1;
     }
 
@@ -59,6 +59,7 @@ int main(int argc, char *argv[]) {
         std::cerr << "Server initialization failed: " << configs[0].get_server_name() << std::endl;
         return -1;
     }
+    server.getServerConfig().print_server_config();
 
     std::cout << "Started server: " << configs[0].get_server_name() << std::endl;
 

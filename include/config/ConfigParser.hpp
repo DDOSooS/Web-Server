@@ -72,7 +72,7 @@ private:
     bool validate_location_block(const Block& location);
     void addError(ValidationError::ErrorLevel level, const std::string& message, int line = -1, const std::string& context = "");
     bool validateDirective(const Directive& directive, const std::string& context, const std::vector<std::string>& allowed_directives);
-    void printValidationResults() const;
+    bool printValidationResults() const;
     int getTokenLine(const std::string& token);
 };
 
