@@ -24,7 +24,7 @@ class CgiHandler : public RequestHandler {
         bool CanHandle(std::string method);
         void ProccessRequest(HttpRequest *request);
         char ** setGgiEnv(HttpRequest *request);
-        //std::string getCgiPath(HttpRequest *request) const; // to get interpreter from configuration
+        std::string  getCgiPath(HttpRequest *request) const;
 };
 
 #endif // CGI_HANDLER_HPP
