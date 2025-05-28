@@ -16,43 +16,34 @@ CgiHandler::~CgiHandler() {}
 bool CgiHandler::isCgiRequest(HttpRequest *request) const {
     
     std::string request_path = request->GetLocation();
-    std::cout << "=== CGI Detection Debug ===" << std::endl;
-    std::cout << "Request path: " << request_path << std::endl;
-    
+    if (request_path.empty()) {
+        std::cout << "❌Empty request path" << std::endl;
+        return false;
+    }
+    if (request_path[0] != '/') {
+        std::cout << "❌Request path does not start with '/'" << std::endl;
+        return false;
+    }
     const Location* matching_location = _client->_server->getServerConfig().findMatchingLocation(request_path);
     
     if (!matching_location) {
-        std::cout << "No matching location found" << std::endl;
         return false;
-    }
-    
-    std::cout << "Found matching location: " << matching_location->get_path() << std::endl;
-    
+    }    
     std::vector<std::string> cgi_extensions = matching_location->get_cgiExt();
-    std::vector<std::string> cgi_paths = matching_location->get_cgiPath();
-    for (size_t i = 0; i < cgi_extensions.size(); ++i) {
-        std::cout << "Configured extension[" << i << "]: '" << cgi_extensions[i] << "' -> (" << cgi_paths[i] << ")"<< std::endl;
-    }
-    
+    std::vector<std::string> cgi_paths = matching_location->get_cgiPath();    
     if (cgi_extensions.empty() || cgi_paths.empty()) {
-        std::cout << "❌No CGI configured for this location" << std::endl;
         return false;
     }
     
     size_t dot_pos = request_path.rfind('.');
     if (dot_pos == std::string::npos) {
-        std::cout << "❌No file extension found" << std::endl;
         return false;
     }
     
     std::string extension = request_path.substr(dot_pos);
-    std::cout << "Request extension: '" << extension << "'" << std::endl;
-    
     for (std::vector<std::string>::const_iterator it = cgi_extensions.begin(); 
          it != cgi_extensions.end(); ++it) {
-        std::cout << "Comparing '" << extension << "' with '" << *it << "'" << std::endl;
         if (*it == extension) {
-            std::cout << "✅CGI match found for extension: " << extension << std::endl;
             return true;
         }
     }
@@ -150,10 +141,23 @@ char ** CgiHandler::setGgiEnv(HttpRequest *request) {
 
 std::string CgiHandler::executeCgiScript(HttpRequest *request) {
     int pipe_out[2];
+    int pipe_in[2];
+    // Create pipes for communication between parent and child processes
+    if(pipe(pipe_in) == -1) {
+        throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
+    }
+    // Create pipes for communication between parent and child processes
     if(pipe(pipe_out) == -1) {
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
-    
+
+    if (request->GetMethod() == "POST") {
+        // Write the request body to the pipe
+        write(pipe_in[1], request->GetBody().c_str(), request->GetBody().length());
+        close(pipe_in[1]); // Close write end after writing
+    } else {
+        close(pipe_in[1]); // Close write end if not POST
+    }
     pid_t cgi_pid = fork();
     if (cgi_pid < 0) {
         close(pipe_out[0]);
@@ -189,7 +193,13 @@ std::string CgiHandler::executeCgiScript(HttpRequest *request) {
         }
         char* argv[] = {interpreter, script_path_cstr, NULL};
         char** envp = env; // Use the environment variables set earlier
-        
+        // if request->GetMethod() == "POST", we need to read from pipe_in
+        dup2(pipe_in[0], STDIN_FILENO); // Redirect stdin to read from pipe_in
+        close(pipe_in[0]); // Close read end after redirecting stdin
+        close(pipe_in[1]); // Close write end, we don't need it in child process
+        // Execute the CGI script
+        // Use execve to execute the CGI script
+        // The first argument is the interpreter, the second is the script path, and the third is the environment variables
         execve(interpreter, argv, env);
         // If execve fails
         std::cerr << "Error executing CGI script: " << strerror(errno) << std::endl;
@@ -230,9 +240,4 @@ std::string CgiHandler::executeCgiScript(HttpRequest *request) {
     return result;
 }
 
-bool CgiHandler::cgiExec(){
-    // setup env
-    // create pipe
-    // execute script
-    return (true);
-}
+// now for the execution I wanna separate it and handle POST and GET differently

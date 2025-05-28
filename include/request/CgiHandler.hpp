@@ -13,7 +13,6 @@ class CgiHandler : public RequestHandler {
         ClientConnection* _client;
 
         std::string executeCgiScript(HttpRequest *request);
-        bool cgiExec();
 
         bool isCgiRequest(HttpRequest *) const;
     public:
