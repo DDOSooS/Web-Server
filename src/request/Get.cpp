@@ -3,6 +3,7 @@
 
 Get::Get()
 {
+    this->_is_redirected = false;
 }
 
 Get::~Get()
@@ -52,10 +53,27 @@ bool    Get::IsFile(const std::string &path)
     return (S_ISREG(_statinfo.st_mode));
 }
 
-std::string Get::ListingDir(const std::string &path, std::string request_path)
+bool Get::check_auto_indexing(const Location *cur_location, const ServerConfig &serverConfig)
+{
+    if (!cur_location)
+    {
+        if (serverConfig.get_autoindex())
+            return true;
+        std::cerr << "[ WARNING ] : No matching location found, auto indexing cannot be checked." << std::endl;
+        return false;
+    }
+    return cur_location->get_autoindex();
+}
+
+std::string Get::ListingDir(const std::string &path, std::string request_path, const Location *cur_location,const ServerConfig &serverConfig)
 {
     //To Check the auto indexing Option  Conf File
 
+    if (!check_auto_indexing(cur_location, serverConfig))
+    {
+        std::cerr << "[ WARNING ] : Auto indexing is disabled for this location." << std::endl;
+        return "";
+    }
     DIR *dir;
     struct dirent *entry;
     std::stringstream response;
@@ -181,47 +199,83 @@ std::string Get::determineContentType(const std::string& path)
 std::string    Get::GetRelativePath(const Location * cur_location,HttpRequest *request)
 {
     std::string rel_path;
-    /*
-    std::cout << "GET RELATIVE PATH !!!!!!!!!!!!!!  "<< cur_location->get_return().size() << "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n";
-    std::cout << "GET RELATIVE PATH !!!!!!!!!!!!!!  "<< cur_location->get_path() << "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n";
-    std::cout << "GET RELATIVE PATH !!!!!!!!!!!!!!  "<< cur_location->get_root_location() << "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n";
-    std::cout << "GET RELATIVE PATH !!!!!!!!!!!!!!  "<< cur_location->get_alias() << "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n";
-    */
 
+    // in case of no location found, 
+    if (!cur_location)
+    {
+        rel_path = request->GetClientDatat()->_server->getServerConfig().get_root() + request->GetLocation();
+        if (rel_path[rel_path.length() - 1] != '/')
+            rel_path += '/';
+        std::cout << "[ WARNING ] : No matching location found, using server root: " << rel_path << std::endl;
+        return rel_path;
+    }
+
+    // in case the location is just a default
+    /*
+    std::cout << "[ DEBUG ] : LOCATION INFOT\n";
+    std::cout << "PATH : " << cur_location->get_path() << std::endl;
+    std::cout << "ROOT LOCATION : " << cur_location->get_root_location() << std::endl;
+    std::cout << "ALIAS : " << cur_location->get_alias() << std::endl;
+    std::cout << "RETURN : " << cur_location->get_return().size() << std::endl;
+    std::cout << "AUTO INDEX : " << (cur_location->get_autoindex() ? "ON" : "OFF") << std::endl;
+    std::cout << "INDEX : " << cur_location->get_index() << std::endl;
+    std::cout << "ALLOW METHODS : ";
+    for (size_t i = 0; i < cur_location->get_allowMethods().size(); i++)
+    {
+        if (i > 0)
+        std::cout << ", ";
+        std::cout <<  cur_location->get_allowMethods()[i];
+    }
+    for (size_t i = 0; i < cur_location->get_return().size(); i++)
+    {
+        if (i > 0)
+        std::cout << ", ";
+        std::cout << "return Redirection  : " << cur_location->get_return()[i];
+    }
+    std::cout << std::endl;
+    std::cout << "CLIENT MAX BODY SIZE : " << cur_location->get_clientMaxBodySize() << std::endl;
+    std::cout << "[====================================================]\n";
+    */
     if (!cur_location->get_return().empty())
     {        
         this->setIsRedirected(true);
         std::cout << "REDIRECTED TO : " << cur_location->get_return()[0] << std::endl;
+        std::cout << "REDIRECTED TO : " << cur_location->get_return()[1] << std::endl;
         std::cout << "REQUEST LOCATION : " << request->GetLocation()  << std::endl;
-        // exit(0);
         rel_path = cur_location->get_return()[1];
         return rel_path;
     }
     else if (!cur_location->get_alias().empty())
     {
+        std::cout << "[ DEBUG ] : Using alias : " << cur_location->get_alias() << std::endl;
         rel_path = cur_location->get_alias() + request->GetLocation();
-        std::cout << "ALIAS PATH : " << rel_path << std::endl;
-        // if (rel_path[rel_path.size() - 1] != '/')
-        //     rel_path += '/';
-        std::cout << "RELATIVE PATH : " << rel_path << std::endl;
-        return rel_path;
     }
     else if (!cur_location->get_root_location().empty())
     {
+        std::cout << "[ DEBUG ] : Using root location : " << cur_location->get_root_location() << std::endl;
         rel_path = cur_location->get_root_location() + request->GetLocation();
-        std::cout << "ROOT LOCATION PATH : " << rel_path << std::endl;
-        // if (rel_path[rel_path.size() - 1] != '/')
-        //     rel_path += '/';
-        std::cout << "RELATIVE PATH : " << rel_path << std::endl;
-        return rel_path;
     }
-    // If no alias or root location is specified, use the Server's root path
-    rel_path = request->GetClientDatat()->_server->getServerConfig().get_root() + request->GetLocation();
+    else if (rel_path.empty())
+    {
+        std::cerr << "[ WARNING ] : No alias or root location specified, using server root." << std::endl;
+        // If no alias or root location is specified, we use the Server's root path
+        std::cout << "[ Server Root Path :" << request->GetClientDatat()->_server->getServerConfig().get_root() << " ]\n";
+        rel_path = request->GetClientDatat()->_server->getServerConfig().get_root() + request->GetLocation();
+    }
+    if (rel_path[rel_path.length() - 1] != '/')
+    {
+        rel_path += '/';
+    }
+    else
+    {
+        std::cout << "[ DEBUG ] : Relative Path already ends with a slash : !!!!!!!!!!!" << rel_path << std::endl;
+    }
+    std::cout << "[------------ FInal rel_path :" << rel_path << " ----------------------]\n";
     return rel_path;
 }
 
 // @Todo : before making any edit to this function, check the work flow of the processRequest function ~
-void    Get::ProccessRequest(HttpRequest *request)
+void    Get::ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig)
 {
     std::cout << "PROCCESSING GET REQUEST !!!!!!!!!\n";
 
@@ -239,57 +293,60 @@ void    Get::ProccessRequest(HttpRequest *request)
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
     cur_location = request->GetClientDatat()->_server->getServerConfig().findMatchingLocation(request->GetLocation());
-    if(cur_location == NULL)
-    {
-        std::cerr << "NOT FOUND LOCATION \n";
-        throw HttpException(404, "404 Not Found", NOT_FOUND);
-    }
     rel_path = GetRelativePath(cur_location, request);
-    std::cout << "RELATIVE PATH : " << rel_path << ":::::::::::::" << std::endl;
+    std::cout << "\n[---------[DEBUG] : Relative Path : " << rel_path << "--------------------]" << std::endl;
+    if (this->getIsRedirected())
+    {
+        std::stringstream ss;
+        int               status_code;
+
+        ss << cur_location->get_return()[0];
+        ss >> status_code;
+        std::cout << "[REDIRECTED TO : " << rel_path  << " ]"<< std::endl;
+        request->GetClientDatat()->http_response->setStatusCode(status_code);
+        request->GetClientDatat()->http_response->setStatusMessage("Moved Permanently");
+        request->GetClientDatat()->http_response->setBuffer(" ");
+        request->GetClientDatat()->http_response->setChunked(false);
+        request->GetClientDatat()->http_response->setHeader("Location", rel_path);
+        return;
+    }
     if (rel_path.empty())
     {
-        std::cerr << "NOT FOUND RELATIVE PATH \n";
+        std::cerr << "[empty rel_path Not Found ]\n";
         throw HttpException(404, "404 Not Found", NOT_FOUND);
     }
     // Check if the relative path is valid
     if (!IsValidPath(rel_path))
     {
-        std::cerr << "NOT FOUND INVALID LOCATION \n";
+        std::cerr << "[ Debug ] : file is not a Valid one \n";
         throw HttpException(404, "404 Not Found", NOT_FOUND);
     }
+    else
+        std::cout << "[Debug] : Valid Path Found : " << rel_path << std::endl;
     if (IsDir(rel_path))
     {
         request->GetClientDatat()->http_response->setStatusCode(200);
         request->GetClientDatat()->http_response->setStatusMessage("OK");
         request->GetClientDatat()->http_response->setContentType("text/html");
         request->GetClientDatat()->http_response->setChunked(false);
-        
-        std::string indexFile = rel_path + "index.html";
+        std::string indexFile = rel_path + request->GetClientDatat()->_server->getServerConfig().get_index();
         std::cout << "INDEX FILE : " << indexFile << std::endl;
         if (IsFile(indexFile))
         {
-            std::cout << "INDEX FILE IS VALID-- " << rel_path + "index.html\n";
             request->GetClientDatat()->http_response->setFilePath(rel_path + "index.html");
             return;
         }
         else
         {
-            std::cout << "INDEX FILE IS NOT VALID-- " << indexFile << "\n";
-            std::string response = ListingDir(rel_path, request->GetLocation());
-            
+            std::string response = ListingDir(rel_path, request->GetLocation(), cur_location, serverConfig);
             if (response.empty())
-            {
-                response = "<html><body><h1>Directory Listing Not Available</h1></body></html>";
-            }
-            
-            std::cout << "RESPONSE :>>>>>>>>>>>>>>>>>> " << response << std::endl;
+                   throw HttpException(403, "403 Forbidden", FORBIDDEN);
             request->GetClientDatat()->http_response->setBuffer(response);
             return;
         }
     }
     else
     {
-        std::cout << "FILE IS VALID-- " << rel_path << "\n";
         request->GetClientDatat()->http_response->setFilePath(rel_path);
         return;
     }

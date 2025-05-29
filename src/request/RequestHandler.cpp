@@ -21,7 +21,7 @@ RequestHandler * RequestHandler::GetNext(){
     return (_nextHandler);
 }
 
-void    RequestHandler::HandleRequest(HttpRequest *request)
+void    RequestHandler::HandleRequest(HttpRequest *request, const ServerConfig &serverConfig)
 {
     // Validate the request
     if (!request)
@@ -35,12 +35,12 @@ void    RequestHandler::HandleRequest(HttpRequest *request)
     if (CanHandle(request->GetMethod()))
     {
         std::cout << "RequestHandler::Processing the request================="  << request->GetMethod() << std::endl;
-        ProccessRequest(request);
+        ProccessRequest(request, serverConfig);
     }
     else if (this->_nextHandler)
     {
         // Forward to the next handler in the chain
-        this->_nextHandler->HandleRequest(request);
+        this->_nextHandler->HandleRequest(request, serverConfig);
     }
     else {
         // No handler found for this method

@@ -220,7 +220,7 @@ std::string HttpResponse::toString()
     if (this->_keep_alive)
         response += "Connection: keep-alive\r\n";
 
-    std::cout << "Content Type :|||||||||1111||||||||||||||||| " << this->_content_type << std::endl;
+    // std::cout << "Content Type :|||||||||1111||||||||||||||||| " << this->_content_type << std::endl;
     if (!this->_file_path.empty())
         this->_content_type = determineContentType(this->_file_path);
     // std::cout << "Content Type :||||||||||||||||||||||||||| " << this->_content_type << std::endl;
@@ -243,7 +243,7 @@ std::string HttpResponse::toString()
             normalized_path = "/" + normalized_path;
             
         std::string file_name = normalized_path;
-        std::cout << "Attempting to open file: " << file_name << std::endl;
+        // std::cout << "Attempting to open file: " << file_name << std::endl;
         std::ifstream file(file_name.c_str(), std::ios::binary);
         if (!file)
         {

@@ -16,14 +16,15 @@ class Get : public RequestHandler
     public:
         Get();
         bool            CanHandle(std::string method);
-        void            ProccessRequest(HttpRequest *);
+        void            ProccessRequest(HttpRequest *, const ServerConfig &serverConfig);
         bool            IsValidPath(const std::string &path);
         bool            IsDir(const std::string &path);
         bool            IsFile(const std::string &path);
-        std::string     ListingDir(const std::string &path, std::string /* request Path*/);
+        std::string     ListingDir(const std::string &path, std::string /* request Path*/, const Location * /* location*/,const ServerConfig & /*config file*/);
         std::string     determineContentType(const std::string& path);
         bool            getIsRedirected() const;
         void            setIsRedirected(bool );
+        bool            check_auto_indexing(const Location * /* location*/, const ServerConfig & /*config file*/);
         std::string     GetRelativePath(const Location * cur_location,HttpRequest *request);
         ~Get();
 };

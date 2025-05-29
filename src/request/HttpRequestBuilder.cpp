@@ -120,8 +120,8 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line,const Server
     _http_request.SetLocation(path);
     // check if the method is valid
 
-    // check if the method is valid
     /*
+    // check if the method is valid
         check for location -> default locatoin -> error page 404
 
         std::cout << "PATH (( " << path << "  ))\n";  
@@ -196,25 +196,26 @@ void HttpRequestBuilder::ParseRequsetHeaders(std::istringstream &iss)
         if (pos == std::string::npos)
         {
             std::cerr << "Malformed Header: Missing ':'" << std::endl;
-            exit(1);
             throw HttpException(400, "Malformed Header: Missing ':'", BAD_REQUEST);
         }
         key = line.substr(0, pos);
         value = line.substr(pos + 1);
         value.erase(0, value.find_first_not_of(" \t"));
-        // if (key.empty() || value.empty())
-        // {
-
-        //     throw HttpException(400, "Empty Header Key/Value", ERROR_TYPE::BAD_REQUEST);
-        // }
-        // Check for invalid characters in key
-        // if (key.find_first_of("()<>@,;:\\/[]?={} \t") != std::string::npos) {
-        //     throw HttpException(400, "Invalid Header Key: " + key, ERROR_TYPE::BAD_REQUEST);
-        // }
-
-        // if (_http_request.GetHeader(key).empty()){
-        //     throw HttpException(400, "Duplicate Header: " + key, ERROR_TYPE::BAD_REQUEST);
-        // }
+        /*
+            if (key.empty() || value.empty())
+            {
+                
+            throw HttpException(400, "Empty Header Key/Value", ERROR_TYPE::BAD_REQUEST);
+            }
+            Check for invalid characters in key
+            if (key.find_first_of("()<>@,;:\\/[]?={} \t") != std::string::npos) {
+                throw HttpException(400, "Invalid Header Key: " + key, ERROR_TYPE::BAD_REQUEST);
+            }
+            
+            if (_http_request.GetHeader(key).empty()){
+                throw HttpException(400, "Duplicate Header: " + key, ERROR_TYPE::BAD_REQUEST);
+            }
+        */
         _http_request.SetHeader(key, value);
     }
 }

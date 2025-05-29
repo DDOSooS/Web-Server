@@ -22,7 +22,7 @@ class CgiHandler : public RequestHandler {
 
 
         bool CanHandle(std::string method);
-        void ProccessRequest(HttpRequest *request);
+        void ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig);
         char ** setGgiEnv(HttpRequest *request);
         //std::string getCgiPath(HttpRequest *request) const; // to get interpreter from configuration
 };

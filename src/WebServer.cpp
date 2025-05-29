@@ -7,6 +7,7 @@
 #include "../include/error/InternalServerError.hpp"
 #include "../include/error/MethodNotAllowed.hpp"
 #include "../include/error/NotImplemented.hpp"
+#include "../include/error/Forbidden.hpp"
 #include <vector>
 #include <algorithm>
 #include <fcntl.h>
@@ -120,41 +121,37 @@ int WebServer::run()
             break;  // Exit on serious poll errors
         }
 
-        // Process all ready file descriptors
         for (int i = 0; i < numfds; i++)
         {
-            // Skip if no events
             if (pollfds[i].revents == 0)
                 continue;
 
             int fd = pollfds[i].fd;
 
-            // Always check for errors first
             if (pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL))
             {
                 if (fd == m_socket) {
-                    // Error on listening socket is fatal
                     std::cerr << "Error on listening socket!" << std::endl;
                     running = false;
                     break;
                 } else {
-                    // Close client connection on error
                     closeClientConnection(fd);
                 }
                 continue;
             }
 
-            // Handle incoming data
             if (pollfds[i].revents & POLLIN)
             {
                 if (fd == m_socket) {
-                    // Accept new connection
                     acceptNewConnection();
-                } else {
-                    // Handle client request
-                    try {
+                } else
+                {
+                    try
+                    {
                         handleClientRequest(fd);
-                    } catch (const std::exception& e) {
+                    }
+                    catch (const std::exception& e)
+                    {
                         std::cerr << "Unhandled exception in handleClientRequest: " << e.what() << std::endl;
                         closeClientConnection(fd);
                     }
@@ -301,7 +298,8 @@ void WebServer::handleClientRequest(int fd)
     errorHandler->SetNext(new BadRequest())
                 ->SetNext(new InternalServerError())
                 ->SetNext(new NotImplemented())
-                ->SetNext(new MethodNotAllowed());
+                ->SetNext(new MethodNotAllowed())
+                ->SetNext(new Forbidden());
     try
     {
         // Generate and process the request
@@ -336,8 +334,6 @@ void WebServer::handleClientRequest(int fd)
         std::cerr << "Unknown exception in handleClientRequest" << std::endl;
         closeClientConnection(fd);
     }
-
-    // Clean up the error handler chain
     delete errorHandler;
 }
 
