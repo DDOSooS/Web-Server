@@ -1,20 +1,17 @@
 #!/bin/bash
-
-echo "Content-Type: text/html"
-echo ""
+# This script is a CGI script that returns a simple HTML page with a message.
 echo "<html>"
-echo "<head><title>Shell CGI Test</title></head>"
+echo "<head><title>Test CGI Script</title></head>"
 echo "<body>"
-echo "<h1>Shell CGI Script Working!</h1>"
-echo "<h2>Environment Variables:</h2>"
-echo "<ul>"
-echo "<li>REQUEST_METHOD: $REQUEST_METHOD</li>"
-echo "<li>QUERY_STRING: $QUERY_STRING</li>"
-echo "<li>SCRIPT_NAME: $SCRIPT_NAME</li>"
-echo "<li>SERVER_NAME: $SERVER_NAME</li>"
-echo "<li>SERVER_PORT: $SERVER_PORT</li>"
-echo "</ul>"
-echo "<h2>Current Date:</h2>"
-echo "<p>$(date)</p>"
+echo "<h1>Test CGI Script</h1>"
+echo "<p>This is a test CGI script running on the server.</p>"
+echo "<p>Current date and time: $(date)</p>"
+echo "<p>Server name: $(hostname)</p>"clear
+echo "<p>Server IP address: $(hostname -I | awk '{print $1}')</p>"
+echo "<p>Server software: $(cat /etc/os-release | grep PRETTY_NAME | cut -d '=' -f2)</p>"
+echo "<p>CGI script executed successfully!</p>"
 echo "</body>"
 echo "</html>"
+# End of script
+# Make sure to set the correct permissions for this script to be executable:
+# chmod 755 /path/to/test.cgi

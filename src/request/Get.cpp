@@ -294,6 +294,7 @@ void    Get::ProccessRequest(HttpRequest *request, const ServerConfig &serverCon
     }
     cur_location = request->GetClientDatat()->_server->getServerConfig().findMatchingLocation(request->GetLocation());
     rel_path = GetRelativePath(cur_location, request);
+<<<<<<< HEAD
     std::cout << "\n[---------[DEBUG] : Relative Path : " << rel_path << "--------------------]" << std::endl;
     if (this->getIsRedirected())
     {
@@ -310,6 +311,10 @@ void    Get::ProccessRequest(HttpRequest *request, const ServerConfig &serverCon
         request->GetClientDatat()->http_response->setHeader("Location", rel_path);
         return;
     }
+=======
+    std::cout << "RELATIVE PATH : " << rel_path << ":::::::::::::" << std::endl;
+    
+>>>>>>> c8a9b8ffb67e7894bb765224e59ad6b177de561c
     if (rel_path.empty())
     {
         std::cerr << "[empty rel_path Not Found ]\n";
