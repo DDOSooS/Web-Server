@@ -65,11 +65,11 @@ bool CgiHandler::CanHandle(std::string method) {
     return ((method == "POST" || method == "GET") && isCgiRequest(_client->http_request));
 }
 
-void CgiHandler::ProccessRequest(HttpRequest *request) {
+void CgiHandler::ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig) {
     if (!isCgiRequest(request)) {
         std::cout << "Not a CGI request, passing to next handler" << std::endl;
         if (this->GetNext()) {
-            this->GetNext()->HandleRequest(request);
+            this->GetNext()->HandleRequest(request, serverConfig);
         }
         return;
     }

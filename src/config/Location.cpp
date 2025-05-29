@@ -164,6 +164,7 @@ void Location::set_return(const std::vector<std::string> &new_return){
     this->_return.clear();
     for (size_t i = 0; i < new_return.size(); ++i) {
         this->_return.push_back(new_return[i]);
+        std::cout << "Return value added: [ " << new_return[i] << "  ]" << std::endl;
     }
 }
 

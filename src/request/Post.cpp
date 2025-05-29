@@ -25,7 +25,7 @@ bool Post::CanHandle(std::string method) {
     return method == "POST";
 }
 
-void Post::ProccessRequest(HttpRequest *request) {
+void Post::ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig) {
     std::string contentType = request->GetHeader("Content-Type");
     std::string transferEncoding = request->GetHeader("Transfer-Encoding");
     std::string body = request->GetBody();

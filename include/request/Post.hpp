@@ -14,7 +14,7 @@ public:
     ~Post();
 
     bool CanHandle(std::string method);
-    void ProccessRequest(HttpRequest *request);
+    void ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig);
 
     static const size_t MAX_MEMORY_CHUNK = 1000000; // 1MB
 
