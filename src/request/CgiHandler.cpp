@@ -14,51 +14,69 @@ CgiHandler::CgiHandler(ClientConnection* client) : _client(client) {}
 CgiHandler::~CgiHandler() {}
 
 bool CgiHandler::isCgiRequest(HttpRequest *request) const {
-    // Keep your existing implementation
-    std::string request_path = request->GetLocation();
-    std::cout << "=== CGI Detection Debug ===" << std::endl;
-    std::cout << "Request path: " << request_path << std::endl;
     
+    std::string request_path = request->GetLocation();
+    if (request_path.empty()) {
+        std::cout << "❌Empty request path" << std::endl;
+        return false;
+    }
+    if (request_path[0] != '/') {
+        std::cout << "❌Request path does not start with '/'" << std::endl;
+        return false;
+    }
     const Location* matching_location = _client->_server->getServerConfig().findMatchingLocation(request_path);
     
     if (!matching_location) {
-        std::cout << "No matching location found" << std::endl;
         return false;
-    }
-    
-    std::cout << "Found matching location: " << matching_location->get_path() << std::endl;
-    
+    }    
     std::vector<std::string> cgi_extensions = matching_location->get_cgiExt();
-    std::vector<std::string> cgi_paths = matching_location->get_cgiPath();
-    for (size_t i = 0; i < cgi_extensions.size(); ++i) {
-        std::cout << "Configured extension[" << i << "]: '" << cgi_extensions[i] << "' -> (" << cgi_paths[i] << ")"<< std::endl;
-    }
-    
+    std::vector<std::string> cgi_paths = matching_location->get_cgiPath();    
     if (cgi_extensions.empty() || cgi_paths.empty()) {
-        std::cout << "❌No CGI configured for this location" << std::endl;
         return false;
     }
     
     size_t dot_pos = request_path.rfind('.');
     if (dot_pos == std::string::npos) {
-        std::cout << "❌No file extension found" << std::endl;
         return false;
     }
     
     std::string extension = request_path.substr(dot_pos);
-    std::cout << "Request extension: '" << extension << "'" << std::endl;
-    
     for (std::vector<std::string>::const_iterator it = cgi_extensions.begin(); 
          it != cgi_extensions.end(); ++it) {
-        std::cout << "Comparing '" << extension << "' with '" << *it << "'" << std::endl;
         if (*it == extension) {
-            std::cout << "✅CGI match found for extension: " << extension << std::endl;
             return true;
         }
     }
     
     std::cout << "❌No CGI extension match found" << std::endl;
     return false;
+}
+
+std::string CgiHandler::getCgiPath(HttpRequest *request) const {
+    std::string request_path = request->GetLocation();
+    const Location* matching_location = _client->_server->getServerConfig().findMatchingLocation(request_path);
+    
+    if (!matching_location) {
+        throw std::runtime_error("No matching location found for CGI path");
+    }
+    
+    std::vector<std::string> cgi_extensions = matching_location->get_cgiExt();
+    std::vector<std::string> cgi_paths = matching_location->get_cgiPath();
+    
+    size_t dot_pos = request_path.rfind('.');
+    if (dot_pos == std::string::npos) {
+        throw std::runtime_error("No file extension found in request path");
+    }
+    
+    std::string extension = request_path.substr(dot_pos);
+    
+    for (size_t i = 0; i < cgi_extensions.size(); ++i) {
+        if (cgi_extensions[i] == extension) {
+            return cgi_paths[i];
+        }
+    }
+    
+    throw std::runtime_error("No CGI path found for the given extension: " + extension);
 }
 
 bool CgiHandler::CanHandle(std::string method) {
@@ -87,16 +105,59 @@ void CgiHandler::ProccessRequest(HttpRequest *request, const ServerConfig &serve
     }
     
 }
-char ** CgiHandler::setGgiEnv(HttpRequest *request){
-    //TODO:set up env variables
-    return NULL;
+// this fucntion will provide exceve with environment variables
+char ** CgiHandler::setGgiEnv(HttpRequest *request) {
+    std::vector<std::string> env_vars;
+    env_vars.push_back("REQUEST_METHOD=" + request->GetMethod());
+    env_vars.push_back("SCRIPT_NAME=" + request->GetLocation());
+    env_vars.push_back("QUERY_STRING=name=ayoub&age=26&city=benguerir"); // Example query string, modify as needed TODO: get query string from request
+    env_vars.push_back("SERVER_NAME=webserv");
+    env_vars.push_back("SERVER_PORT=" + std::to_string(_client->_server->getServerConfig().get_port()));
+    env_vars.push_back("SERVER_PROTOCOL=" + request->GetHttpVersion());
+    env_vars.push_back("REMOTE_ADDR=" + _client->ipAddress);
+    env_vars.push_back("REMOTE_PORT=" + std::to_string(_client->port));
+    env_vars.push_back("CONTENT_TYPE=" + request->GetHeader("Content-Type"));
+    env_vars.push_back("CONTENT_LENGTH=" + std::to_string(request->GetBody().length()));
+    env_vars.push_back("HTTP_HOST=" + request->GetHeader("Host"));
+    env_vars.push_back("HTTP_USER_AGENT=" + request->GetHeader("User-Agent"));
+    env_vars.push_back("HTTP_ACCEPT=" + request->GetHeader("Accept"));
+    env_vars.push_back("HTTP_ACCEPT_LANGUAGE=" + request->GetHeader("Accept-Language"));
+    env_vars.push_back("HTTP_ACCEPT_ENCODING=" + request->GetHeader("Accept-Encoding"));
+    env_vars.push_back("HTTP_CONNECTION=" + request->GetHeader("Connection"));
+    env_vars.push_back("HTTP_COOKIE=" + request->GetHeader("Cookie"));
+    env_vars.push_back("HTTP_REFERER=" + request->GetHeader("Referer"));
+    env_vars.push_back("HTTP_UPGRADE_INSECURE_REQUESTS=" + request->GetHeader("Upgrade-Insecure-Requests"));
+    env_vars.push_back("HTTP_X_FORWARDED_FOR=" + request->GetHeader("X-Forwarded-For"));
+    env_vars.push_back("HTTP_X_FORWARDED_PROTO=" + request->GetHeader("X-Forwarded-Proto"));
+    env_vars.push_back("HTTP_X_FORWARDED_HOST=" + request->GetHeader("X-Forwarded-Host"));
+    env_vars.push_back("HTTP_X_FORWARDED_SERVER=" + request->GetHeader("X-Forwarded-Server"));
+    char **env = new char*[env_vars.size() + 1];
+    for (size_t i = 0; i < env_vars.size(); ++i) {
+        env[i] = strdup(env_vars[i].c_str());
+    }
+    env[env_vars.size()] = NULL; // Null-terminate the array
+    return env;
 }
+
 std::string CgiHandler::executeCgiScript(HttpRequest *request) {
     int pipe_out[2];
+    int pipe_in[2];
+    // Create pipes for communication between parent and child processes
+    if(pipe(pipe_in) == -1) {
+        throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
+    }
+    // Create pipes for communication between parent and child processes
     if(pipe(pipe_out) == -1) {
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
-    
+
+    if (request->GetMethod() == "POST") {
+        // Write the request body to the pipe
+        write(pipe_in[1], request->GetBody().c_str(), request->GetBody().length());
+        close(pipe_in[1]); // Close write end after writing
+    } else {
+        close(pipe_in[1]); // Close write end if not POST
+    }
     pid_t cgi_pid = fork();
     if (cgi_pid < 0) {
         close(pipe_out[0]);
@@ -111,22 +172,43 @@ std::string CgiHandler::executeCgiScript(HttpRequest *request) {
         dup2(pipe_out[1], STDERR_FILENO);
         close(pipe_out[1]);
         
-
+        char **env = setGgiEnv(request);
+        if (!env) {
+            std::cerr << "Error setting CGI environment variables" << std::endl;
+            exit(1);
+        }
         std::string request_path = request->GetLocation();
-        std::string script_name = "www" + request_path;
-        char *env[] =
-        {
-            "QUERYSRING=name=ayoub&age=26&city=benguerir",
-            "SOFTWARE=CGI/1.1",
-            "SERVERNAME=webserv",
-            0
-        };
-        char* python_path = strdup("/bin/python3");
-        char* script_path_cstr = strdup(script_name.c_str());
-        char* argv[] = {python_path, script_path_cstr, NULL};
+        std::string script_name = _client->_server->getServerConfig().get_root() + request_path;
         
-        execve("/bin/python3", argv, env);
-        perror("execve failed");
+        char* interpreter = strdup(getCgiPath(request).c_str());
+        if (!interpreter) {
+            std::cerr << "Error allocating memory for interpreter path" << std::endl;
+            exit(1);
+        }
+        char* script_path_cstr = strdup(script_name.c_str());
+        if (!script_path_cstr) {
+            std::cerr << "Error allocating memory for script path" << std::endl;
+            free(interpreter);
+            exit(1);
+        }
+        char* argv[] = {interpreter, script_path_cstr, NULL};
+        char** envp = env; // Use the environment variables set earlier
+        // if request->GetMethod() == "POST", we need to read from pipe_in
+        dup2(pipe_in[0], STDIN_FILENO); // Redirect stdin to read from pipe_in
+        close(pipe_in[0]); // Close read end after redirecting stdin
+        close(pipe_in[1]); // Close write end, we don't need it in child process
+        // Execute the CGI script
+        // Use execve to execute the CGI script
+        // The first argument is the interpreter, the second is the script path, and the third is the environment variables
+        execve(interpreter, argv, env);
+        // If execve fails
+        std::cerr << "Error executing CGI script: " << strerror(errno) << std::endl;
+        std::cout << "Script path: " << script_name << std::endl;
+
+        free(interpreter);
+        free(script_path_cstr);
+        close(pipe_out[1]);
+        // Exit child process with error code
         exit(1);
     }
     
@@ -158,9 +240,4 @@ std::string CgiHandler::executeCgiScript(HttpRequest *request) {
     return result;
 }
 
-bool CgiHandler::cgiExec(){
-    // setup env
-    // create pipe
-    // execute script
-    return (true);
-}
+// now for the execution I wanna separate it and handle POST and GET differently
