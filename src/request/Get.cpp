@@ -293,22 +293,28 @@ std::string Get::CheckIndexFile(const std::string &rel_path, const Location *cur
     if (!cur_location)
     {
         std::cout << "[ DEBUG ] : No matching location found, using server index file: " << indexFile << std::endl;
-        indexFile = rel_path + serverConfig.get_index();
-        if (IsFile(indexFile))
+        // this was updtated to use the server's index file as a vector of strings
+        if (serverConfig.get_index().empty())
         {
-            std::cout << "[ DEBUG ] : Index file found at: " << indexFile << std::endl;
-            return indexFile;
-        }
-        else
-        {
-            std::cout << "[ DEBUG ] : No index file found at: " << indexFile << std::endl;
+            std::cerr << "[ ERROR ] : No index file specified in server configuration." << std::endl;
             return "";
+        }
+        // Check if the server's index file exists
+        for (size_t i = 0; i < serverConfig.get_index().size(); i++)
+        {
+            std::cout << "[ DEBUG ] : Checking index file: " << serverConfig.get_index()[i] << std::endl;
+            indexFile = rel_path + serverConfig.get_index()[i];
+            if (IsFile(indexFile))
+            {
+                std::cout << "[ DEBUG ] : Index file found at: " << indexFile << std::endl;
+                return indexFile;
+            }
         }
     }
     else
     {
-        // i'm supposing that the index file are in vector of strings
-        std::cout << "[ DEBUG ] : Checking index file for current location: " << cur_location->get_index() << std::endl;
+        // i'm supposing that the index file are in vector of strings Done a ssi abdeslame
+        //std::cout << "[ DEBUG ] : Checking index file for current location: " << cur_location->get_index() << std::endl;
         for (size_t i = 0; i < cur_location->get_index().size(); i++)
         {
             indexFile = rel_path + cur_location->get_index()[i];

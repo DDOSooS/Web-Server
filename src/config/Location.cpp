@@ -6,7 +6,6 @@ Location::Location() {
     this->_path = "";
     this->_root = "";
     this->_autoindex = false;
-    this->_index = "";
     this->_alias = "";
     this->_client_max_body_size = 0;
     this->_cgi_ext.clear();
@@ -31,11 +30,11 @@ Location::Location(const Block &location) {
     this->_path = "";
     this->_root = "";
     this->_autoindex = false;
-    this->_index = "";
     this->_alias = "";
     this->_client_max_body_size = 0;
     this->_cgi_ext.clear();
     this->_cgi_path.clear();
+
     
     // Set path from block parameters
     if (!location.parameters.empty()) {
@@ -59,7 +58,7 @@ Location::Location(const Block &location) {
             }
         }
         else if (directive.name == "index" && !directive.parameters.empty()) {
-            this->_index = directive.parameters[0];
+            this->set_index(directive.parameters);
         }
         else if (directive.name == "allow_methods") {
             this->set_allowMethods(directive.parameters);
@@ -119,8 +118,21 @@ void Location::set_autoindex(bool new_auto_index){
         this->_autoindex = false;
 }
 
-void Location::set_index(std::string new_index){
-	this->_index =	new_index;
+void Location::set_index(std::vector<std::string>  new_index){
+	 if (new_index.empty()) {
+        std::cerr << "config error: set_index requires at least index file" << std::endl;
+        return;
+    }
+    
+    // Clear existing methods and add new ones
+    this->_index.clear();
+    for (size_t i = 0; i < new_index.size(); ++i) {
+        std::string index = new_index[i];
+        this->_index.push_back(index);
+    }
+    if (this->_index.empty()) {
+        std::cerr << "config error: set_index must contain at least one file" << std::endl;
+    }
 }
 
 void Location::set_allowMethods(const std::vector<std::string> &methods) {
@@ -233,7 +245,7 @@ bool 	Location::get_autoindex() const{
 	return this->_autoindex;
 }
 
-std::string Location::get_index() const{
+std::vector<std::string> Location::get_index() const{
 	return this->_index;
 }
 
@@ -266,8 +278,15 @@ void Location::print_location_config() const {
     std::cout << "Location Config:" << std::endl;
     std::cout << "  Path: " << this->_path << std::endl;
     std::cout << "  Root: " << this->_root << std::endl;
-    std::cout << "  Autoindex: " << (this->_autoindex ? "on" : "off") << std::endl;
-    std::cout << "  Index: " << this->_index << std::endl;
+    std::cout << "Index: [" <<  _index.size() << "] ";
+    for (size_t i = 0; i < this->_index.size(); ++i) {
+        if (i > 0) {
+            std::cout << " ";
+        }
+        std::cout << this->_index[i];
+    }
+    std::cout << std::endl;
+    std::cout << "Autoindex: " << (this->_autoindex ? "on" : "off") << std::endl;
     std::cout << "  Allow Methods: ";
     for (size_t i = 0; i < this->_allow_methods.size(); ++i) {
         const std::string &method = this->_allow_methods[i];

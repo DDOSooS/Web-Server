@@ -800,7 +800,7 @@ std::vector<ServerConfig> ConfigParser::create_servers() {
             }
             else if (directive.name == "index") {
                 if (!directive.parameters.empty()) {
-                    server.set_index(directive.parameters[0]);
+                   server.set_index(directive.parameters);
                 }
             }
             else if (directive.name == "autoindex") {

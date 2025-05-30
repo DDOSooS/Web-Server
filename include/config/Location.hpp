@@ -10,7 +10,7 @@ private:
     std::string                 _path;
     std::string                 _root;
     bool                        _autoindex;
-    std::string                 _index;
+    std::vector<std::string>    _index;
     std::vector<std::string>     _allow_methods; // GET POST DELETE PUT- HEAD-
     std::vector<std::string>    _return; // 301 /new-page
     std::string                 _alias;
@@ -29,7 +29,7 @@ public:
     void set_path(const std::string &new_path); // e.g. "/"
     void set_root_location(std::string new_root); // e.g. "/var/www/html"
     void set_autoindex(bool new_auto_index); // true for "on", false for "off
-    void set_index(std::string new_index); // e.g. "index.html"
+    void set_index(std::vector<std::string>  new_index); // e.g. "index.html"
     void set_allowMethods(const std::vector<std::string> &methods); // e.g. {"GET", "POST", "DELETE", "PUT", "HEAD"}
     void set_return(const std::vector<std::string> &return_values); // 301 /new-page
     void set_alias(std::string new_alias); // e.g. "/alias
@@ -40,7 +40,7 @@ public:
     std::string                 get_path() const;
     std::string                 get_root_location() const;
     bool                        get_autoindex() const;
-    std::string                 get_index() const;
+    std::vector<std::string>    get_index() const;
     std::vector<std::string>    get_allowMethods() const; // GET+ POST- DELETE- PUT- HEAD-
     std::vector<std::string>    get_return() const;
     std::string                 get_alias() const;

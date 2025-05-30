@@ -19,7 +19,7 @@ private:
     std::string                 _server_name;
     std::string                 _root;
     unsigned long               _client_max_body_size;
-    std::string                 _index;
+    std::vector<std::string>    _index;
     bool                        _autoindex;
     std::map<short, std::string> _error_pages;
     std::vector<Location>       _locations;
@@ -35,7 +35,7 @@ public:
     std::string                 get_server_name() const;
     std::string                 get_root() const;
     unsigned long               get_client_max_body_size() const;
-    std::string                 get_index() const;
+    std::vector<std::string>    get_index() const;
     bool                        get_autoindex() const;
     std::map<short, std::string> get_error_pages() const;
     std::vector<Location>       get_locations() const;
@@ -45,7 +45,7 @@ public:
     void set_server_name(std::string param);
     void set_root(std::string param);
     void set_client_max_body_size(std::string param);
-    void set_index(std::string param);
+    void set_index(std::vector<std::string> param);
     void set_autoindex(std::string param);
     void set_error_pages(std::string error_code, std::string error_page);
     void add_location(const Location& location);
