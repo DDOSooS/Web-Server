@@ -47,7 +47,7 @@ public:
     void set_client_max_body_size(std::string param);
     void set_index(std::vector<std::string> param);
     void set_autoindex(std::string param);
-    void set_error_pages(std::string error_code, std::string error_page);
+    void set_error_pages(const std::vector<std::string>& error_codes, const std::string& error_page);
     void add_location(const Location& location);
 
     void initializeDefaultErrorPages();

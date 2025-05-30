@@ -193,17 +193,23 @@ void ServerConfig::set_autoindex(std::string index){
 }
 
 
-void ServerConfig::set_error_pages(std::string error_code, std::string error_page) {
-    const char* cstr = error_code.c_str();
-    char* endptr;
-    int code = strtol(cstr, &endptr, 10);
-    
-    if (*endptr != '\0' || code < 100 || code > 599) {
-        std::cerr << "Error: Invalid error code: " << error_code << std::endl;
+void ServerConfig::set_error_pages(const std::vector<std::string>& error_codes, const std::string& error_page) {
+    if (error_codes.empty()) {
+        std::cerr << "Error: No error codes provided" << std::endl;
         return;
     }
+    for (size_t i = 0; i < error_codes.size(); ++i) {
+        const char* cstr = error_codes[i].c_str();
+        char* endptr;
+        int code = strtol(cstr, &endptr, 10);
+        
+        if (*endptr != '\0' || code < 100 || code > 599) {
+            std::cerr << "Error: Invalid error code: " << error_codes[i] << std::endl;
+            continue;
+        }
 
-    this->_error_pages[static_cast<short>(code)] = error_page;
+        this->_error_pages[static_cast<short>(code)] = error_page;
+    }
 }
 
 void ServerConfig::add_location(const Location& location) {
@@ -251,16 +257,12 @@ void ServerConfig::print_server_config() const {
     }
     std::cout << "  Autoindex: " << (this->_autoindex ? "on" : "off") << std::endl;
 
-    // Print error pages
-   for (size_t i = 100; i <= 599; ++i) {
-        std::map<short, std::string>::const_iterator it = this->_error_pages.find(static_cast<short>(i));
-        if (it == this->_error_pages.end()) {
-            continue; // Skip if no error page is set for this code
-        }
-        std::cout << "  Error Page " << i << ": ";
-        // If the error page is empty, print a message indicating no page is set
-        if (it != this->_error_pages.end() && !it->second.empty()) {
-            std::cout << "  Error Page " << i << ": " << it->second << std::endl;
+   // Print error pages
+    std::cout << "  Error Pages: " << this->_error_pages.size() << std::endl;
+    for (std::map<short, std::string>::const_iterator it = this->_error_pages.begin(); 
+        it != this->_error_pages.end(); ++it) {
+        if (!it->second.empty()) {  // Only print if error page is set
+            std::cout << "    Error_page: " << it->first << " --> " << it->second << std::endl;
         }
     }
     std::cout << "  Locations: " << this->_locations.size() << std::endl;
