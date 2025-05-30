@@ -105,6 +105,8 @@ void CgiHandler::ProccessRequest(HttpRequest *request, const ServerConfig &serve
     }
     
 }
+
+// @To check the ToString function exist in c++ 17
 // this fucntion will provide exceve with environment variables
 char ** CgiHandler::setGgiEnv(HttpRequest *request) {
     std::vector<std::string> env_vars;
@@ -112,12 +114,12 @@ char ** CgiHandler::setGgiEnv(HttpRequest *request) {
     env_vars.push_back("SCRIPT_NAME=" + request->GetLocation());
     env_vars.push_back("QUERY_STRING=name=ayoub&age=26&city=benguerir"); // Example query string, modify as needed TODO: get query string from request
     env_vars.push_back("SERVER_NAME=webserv");
-    env_vars.push_back("SERVER_PORT=" + std::to_string(_client->_server->getServerConfig().get_port()));
-    env_vars.push_back("SERVER_PROTOCOL=" + request->GetHttpVersion());
-    env_vars.push_back("REMOTE_ADDR=" + _client->ipAddress);
-    env_vars.push_back("REMOTE_PORT=" + std::to_string(_client->port));
-    env_vars.push_back("CONTENT_TYPE=" + request->GetHeader("Content-Type"));
-    env_vars.push_back("CONTENT_LENGTH=" + std::to_string(request->GetBody().length()));
+    // env_vars.push_back("SERVER_PORT=" + std::to_string(_client->_server->getServerConfig().get_port()));
+    // env_vars.push_back("SERVER_PROTOCOL=" + request->GetHttpVersion());
+    // env_vars.push_back("REMOTE_ADDR=" + _client->ipAddress);
+    // env_vars.push_back("REMOTE_PORT=" + std::to_string(_client->port));
+    // env_vars.push_back("CONTENT_TYPE=" + request->GetHeader("Content-Type"));
+    // env_vars.push_back("CONTENT_LENGTH=" + std::to_string(request->GetBody().length()));
     env_vars.push_back("HTTP_HOST=" + request->GetHeader("Host"));
     env_vars.push_back("HTTP_USER_AGENT=" + request->GetHeader("User-Agent"));
     env_vars.push_back("HTTP_ACCEPT=" + request->GetHeader("Accept"));
