@@ -815,7 +815,13 @@ std::vector<ServerConfig> ConfigParser::create_servers() {
             }
             else if (directive.name == "error_page") {
                 if (directive.parameters.size() >= 2) {
-                    server.set_error_pages(directive.parameters[0], directive.parameters[1]);
+                    // first parameter are the error codes, the last one is the page as in nginx
+                    std::vector<std::string> error_codes(directive.parameters.begin(), 
+                                                         directive.parameters.end() - 1);
+                    std::string error_page = directive.parameters.back();
+                    server.set_error_pages(error_codes, error_page);
+                } else {
+                    std::cerr << "Error: error_page directive requires at least two parameters" << std::endl;
                 }
             }
         }
