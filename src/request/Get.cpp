@@ -1,5 +1,5 @@
 #include "../../include/request/Get.hpp"
-#include "../../include/config/Location.hpp" // Include the header file for Location
+#include "../../include/config/Location.hpp" 
 
 Get::Get()
 {
@@ -27,15 +27,32 @@ bool Get::CanHandle(std::string method)
 }
 
 
-bool    Get::IsValidPath(const std::string &path)
+std::string Get::IsValidPath( std::string &path)
 {
     struct stat _statinfo;
-    std::cout << "PATH : (((" << path << ")))" << std::endl;
-
-    return (stat(path.c_str(), &_statinfo) == 0);
+    
+    if (stat(path.c_str(), &_statinfo) != 0)
+    {
+        if (path[path.length() - 1] == '/')
+        {
+            path = path.substr(0, path.length() - 1);
+            if (stat(path.c_str(), &_statinfo) != 0)
+            {
+                std::cerr << "[ ERROR ] : Path does not exist: " << path << std::endl;
+                return "";
+            }
+            else
+            {
+                std::cout << "[ INFO ] : Path is a directory: " << path << std::endl;
+                return path;
+            }
+        }
+    }
+    std::cout << "[ INFO ] : Path is a file: " << path << std::endl;
+    return path;
 }
 
-bool    Get::IsDir(const std::string &path)
+bool    Get::IsDir( std::string &path)
 {
     struct stat _statinfo;
 
@@ -44,7 +61,7 @@ bool    Get::IsDir(const std::string &path)
     return (S_ISDIR(_statinfo.st_mode));
 }
 
-bool    Get::IsFile(const std::string &path)
+bool    Get::IsFile( std::string &path)
 {
     struct stat _statinfo;
     
@@ -78,23 +95,20 @@ std::string Get::ListingDir(const std::string &path, std::string request_path, c
     struct dirent *entry;
     std::stringstream response;
     std::string path_;
-    
-    // Make sure the path starts with a slash
     std::string normalized_path = path;
+    
     if (normalized_path.empty() || normalized_path[0] != '/')
         normalized_path = "/" + normalized_path;
-    
     path_ = normalized_path;  // Use a relative path that exists in your project structure
-    std::cout << "Opening directory: " << path_ << std::endl;
-    
+    // std::cout << "Opening directory: " << path_ << std::endl;
     dir = opendir(path_.c_str());
-    if (dir == NULL) {
+    if (dir == NULL)
+    {
         std::cerr << "Failed to open directory: " << path_ << " - " << strerror(errno) << std::endl;
         return "";
     }
-    
     response << "<html>\n"
-    << "<head>\n<title>Index of " << path << "</title>\n"
+    << "<head>\n<title>Index of " << request_path << "</title>\n"
     << "<style>\n"
     << "    body { font-family: Arial, sans-serif; margin: 20px; }\n"
     << "    h1 { border-bottom: 1px solid #ccc; padding-bottom: 10px; }\n"
@@ -106,21 +120,19 @@ std::string Get::ListingDir(const std::string &path, std::string request_path, c
     << "</style>\n"
     << "</head>\n"
     << "<body>\n"
-    << "<h1>Index of " << path << "</h1>\n"
+    << "<h1>Index of " << request_path << "</h1>\n"
     << "<ul>\n";
     
     // Add parent directory link if not at root
     if (path != "/") {
         response << "<li><a href=\"";
         size_t lastSlash = path.rfind('/');
-        if (lastSlash != std::string::npos) {
+        if (lastSlash != std::string::npos)
             response << path.substr(0, lastSlash);
-        } else {
+        else
             response << "/";
-        }
         response << "\" class=\"folder\">..</a></li>\n";
-    }
-    
+    }    
     while ((entry = readdir(dir)) != NULL)
     {
         std::string rs_name;//ressource name
@@ -128,14 +140,15 @@ std::string Get::ListingDir(const std::string &path, std::string request_path, c
         rs_name = entry->d_name;
         if (rs_name == "." || rs_name == "..")
             continue;
-        
-        // Make sure path ends with a slash
+        // Making !!! sure path ends with a slash
         std::string href_path = path;
         if (request_path[request_path.length()-1] != '/')
             request_path += "/";
-        std::cout << "[ DEBUG ] : href_path : " << href_path << std::endl;
-        std::cout << "[ DEBUG ] : request_path : " << request_path << std::endl;
-        std::cout << "[ DEBUG ] : rs_name : " << rs_name << std::endl;
+        /*
+            std::cout << "[ DEBUG ] : request_path : " << request_path << std::endl;
+            std::cout << "[ DEBUG ] : rs_name : " << rs_name << std::endl;
+            std::cout << "[ DEBUG ] : href_path : " << href_path << std::endl;
+        */
         response << "<li> <a href=\"" << request_path << rs_name;
         if (entry->d_type == DT_DIR)
            response << "/\" class=\"folder\">"  << rs_name << "/";
@@ -158,9 +171,6 @@ std::string Get::ListingDir(const std::string &path, std::string request_path, c
     check if the location exist in the conf file -> (NO) check the / location ->(NO) -> 404 error page
                                                 |
                                                  -> (Yes) handle location as it is 
-    
-*/
-/*
     Nginx processes directives in this order of precedence:
     nginxlocation /example {
         # 1. RETURN - Highest priority (stops processing)
@@ -239,9 +249,11 @@ std::string    Get::GetRelativePath(const Location * cur_location,HttpRequest *r
     if (!cur_location->get_return().empty())
     {        
         this->setIsRedirected(true);
+        /*
         std::cout << "REDIRECTED TO : " << cur_location->get_return()[0] << std::endl;
         std::cout << "REDIRECTED TO : " << cur_location->get_return()[1] << std::endl;
         std::cout << "REQUEST LOCATION : " << request->GetLocation()  << std::endl;
+        */
         rel_path = cur_location->get_return()[1];
         return rel_path;
     }
@@ -274,6 +286,42 @@ std::string    Get::GetRelativePath(const Location * cur_location,HttpRequest *r
     return rel_path;
 }
 
+std::string Get::CheckIndexFile(const std::string &rel_path, const Location *cur_location, const ServerConfig &serverConfig)
+{
+    std::string indexFile;
+    
+    if (!cur_location)
+    {
+        std::cout << "[ DEBUG ] : No matching location found, using server index file: " << indexFile << std::endl;
+        indexFile = rel_path + serverConfig.get_index();
+        if (IsFile(indexFile))
+        {
+            std::cout << "[ DEBUG ] : Index file found at: " << indexFile << std::endl;
+            return indexFile;
+        }
+        else
+        {
+            std::cout << "[ DEBUG ] : No index file found at: " << indexFile << std::endl;
+            return "";
+        }
+    }
+    else
+    {
+        // i'm supposing that the index file are in vector of strings
+        std::cout << "[ DEBUG ] : Checking index file for current location: " << cur_location->get_index() << std::endl;
+        for (size_t i = 0; i < cur_location->get_index().size(); i++)
+        {
+            indexFile = rel_path + cur_location->get_index()[i];
+            std::cout << "[ DEBUG ] : Checking index file: " << indexFile << std::endl;
+            if (IsFile(indexFile))
+            {
+                std::cout << "[ DEBUG ] : Index file found at: " << indexFile << std::endl;
+                return indexFile;
+            }
+        }
+    }
+    return "";
+}
 // @Todo : before making any edit to this function, check the work flow of the processRequest function ~
 void    Get::ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig)
 {
@@ -294,7 +342,6 @@ void    Get::ProccessRequest(HttpRequest *request, const ServerConfig &serverCon
     }
     cur_location = request->GetClientDatat()->_server->getServerConfig().findMatchingLocation(request->GetLocation());
     rel_path = GetRelativePath(cur_location, request);
-<<<<<<< HEAD
     std::cout << "\n[---------[DEBUG] : Relative Path : " << rel_path << "--------------------]" << std::endl;
     if (this->getIsRedirected())
     {
@@ -311,17 +358,14 @@ void    Get::ProccessRequest(HttpRequest *request, const ServerConfig &serverCon
         request->GetClientDatat()->http_response->setHeader("Location", rel_path);
         return;
     }
-=======
-    std::cout << "RELATIVE PATH : " << rel_path << ":::::::::::::" << std::endl;
-    
->>>>>>> c8a9b8ffb67e7894bb765224e59ad6b177de561c
     if (rel_path.empty())
     {
         std::cerr << "[empty rel_path Not Found ]\n";
         throw HttpException(404, "404 Not Found", NOT_FOUND);
     }
     // Check if the relative path is valid
-    if (!IsValidPath(rel_path))
+    rel_path =  IsValidPath(rel_path);
+    if (rel_path.empty())
     {
         std::cerr << "[ Debug ] : file is not a Valid one \n";
         throw HttpException(404, "404 Not Found", NOT_FOUND);
@@ -334,11 +378,22 @@ void    Get::ProccessRequest(HttpRequest *request, const ServerConfig &serverCon
         request->GetClientDatat()->http_response->setStatusMessage("OK");
         request->GetClientDatat()->http_response->setContentType("text/html");
         request->GetClientDatat()->http_response->setChunked(false);
-        std::string indexFile = rel_path + request->GetClientDatat()->_server->getServerConfig().get_index();
-        std::cout << "INDEX FILE : " << indexFile << std::endl;
-        if (IsFile(indexFile))
+        /*
+            std::cout << "[Debug] : Index file check for current location : " << cur_location->get_index() << std::endl;
+            std::cout << "[Debug] : Checking error page for the server configuration :" << std::endl;
+            for (std::map<short, std::string>::iterator i = serverConfig.get_error_pages().begin(); i != serverConfig.get_error_pages().end(); ++i)
+            {
+                std::cout << "Error Code: " << i->first << ", Page: " << i->second << std::endl;
+            }
+        */
+        /* check if there is any valid index file from the list of index files !!!*/
+        std::string indexFile = CheckIndexFile(rel_path, cur_location, serverConfig);
+        if (!indexFile.empty())
         {
-            request->GetClientDatat()->http_response->setFilePath(rel_path + "index.html");
+            std::cout << "[Debug] : Index file found : " << indexFile << std::endl;
+            request->GetClientDatat()->http_response->setFilePath(indexFile);
+            request->GetClientDatat()->http_response->setContentType(determineContentType(indexFile));
+            request->GetClientDatat()->http_response->setBuffer("");
             return;
         }
         else

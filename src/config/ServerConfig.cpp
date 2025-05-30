@@ -200,25 +200,22 @@ void ServerConfig::add_location(const Location& location) {
 
 const Location *ServerConfig::findMatchingLocation(const std::string &path) const
 {
-   // look for the longest matching location
-    const Location *best_match = nullptr;
-    size_t best_length = 0;
-
-    for (size_t i = 0; i < this->_locations.size(); ++i) {
-        const Location &location = this->_locations[i];
-        // Check if the path starts with the location's path
-        const std::string &location_path = location.get_path();
-        if (path.find(location_path) == 0) {
-            // Check if this location is longer than the best match found so far
-            if (location_path.length() > best_length) {
-                best_length = location_path.length();
-                best_match = &location;
-            }
+    const Location *default_location = NULL;
+    
+    for (size_t i = 0; i < this->_locations.size(); i++)
+    {
+        if (!this->_locations[i].get_path().empty() && this->_locations[i].get_path() == path)
+            return &this->_locations[i];
+        // Check for default location "/"
+        if (this->_locations[i].get_path() == "/")
+        {
+            default_location = &this->_locations[i];
         }
     }
-
-    return best_match;
+    // If no specific location found, return the default location
+    return default_location;
 }
+
 // in C++98  no auto 
 void ServerConfig::print_server_config() const {
     std::cout << "Server Config:" << std::endl;
