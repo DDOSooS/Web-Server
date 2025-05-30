@@ -7,7 +7,6 @@ ServerConfig::ServerConfig() {
     this->_server_name = "";
     this->_root = "";
     this->_client_max_body_size = 0;
-    this->_index = "";
     this->_autoindex = false;
     
     // Initialize common error pages more elegantly
@@ -79,7 +78,7 @@ unsigned long					ServerConfig::get_client_max_body_size() const {
     return this->_client_max_body_size;
 }
 
-std::string						ServerConfig::get_index() const {
+std::vector<std::string>		ServerConfig::get_index() const {
     return this->_index;
 }
 
@@ -166,8 +165,22 @@ void ServerConfig::set_client_max_body_size(std::string body_size){
     this->_client_max_body_size = result;
 }
 
-void ServerConfig::set_index(std::string param){
-    this->_index = param;
+void ServerConfig::set_index(std::vector<std::string> param){
+    this->_index.clear();
+    for (size_t i = 0; i < param.size(); ++i) {
+        if (!param[i].empty()) {
+            this->_index.push_back(param[i]);
+        } else {
+            std::cerr << "config error: set_index [" << param[i] << "] cannot be empty" << std::endl;
+        }
+    }
+    if (this->_index.empty()) {
+        std::cerr << "config error: set_index requires at least one index file" << std::endl;
+        return;
+    }
+    // Ensure that the index files are unique
+    std::sort(this->_index.begin(), this->_index.end());
+    this->_index.erase(std::unique(this->_index.begin(), this->_index.end()), this->_index.end());
 }
 
 void ServerConfig::set_autoindex(std::string index){
@@ -224,7 +237,18 @@ void ServerConfig::print_server_config() const {
     std::cout << "  Server Name: " << this->_server_name << std::endl;
     std::cout << "  Root: " << this->_root << std::endl;
     std::cout << "  Client Max Body Size: " << this->_client_max_body_size << " bytes" << std::endl;
-    std::cout << "  Index: " << this->_index << std::endl;
+    std::cout << "  Index Files: ";
+    if (this->_index.empty()) {
+        std::cout << "None" << std::endl;
+    } else {
+        for (size_t i = 0; i < this->_index.size(); ++i) {
+            if (i > 0) {
+                std::cout << ", ";
+            }
+            std::cout << this->_index[i];
+        }
+        std::cout << std::endl;
+    }
     std::cout << "  Autoindex: " << (this->_autoindex ? "on" : "off") << std::endl;
 
     // Print error pages
