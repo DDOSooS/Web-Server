@@ -35,7 +35,6 @@ public:
     void cleanupEnvironment(char** env);
     
     // Helper methods for path and URL handling
-    std::string extractQueryString();
     std::string extractPathInfo(const std::string& url);
     std::string getDirectoryFromPath(const std::string& full_path);
     std::string getFilenameFromPath(const std::string& full_path);
@@ -52,6 +51,8 @@ public:
     
     // Security helpers  
     bool isPathTraversalSafe(const std::string& path);
+    template <typename T>
+    std::string to_string(const T& value);
 };
 
 #endif // CGIHANDLER_HPP
