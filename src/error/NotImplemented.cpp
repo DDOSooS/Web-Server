@@ -14,7 +14,7 @@ bool    NotImplemented::CanHandle(ERROR_TYPE type) const
     return NOT_IMPLEMENTED == type;
 }
 
-void    NotImplemented::ProcessError(Error &error)
+void    NotImplemented::ProcessError(Error &error, const ServerConfig & /* server Configuration*/)
 {
     std::cout << "================= (Start of Processing Not Implemented Error) ====================\n";
     std::cout << "Not Implemented Error: " << error.GetErroeMessage() << std::endl;

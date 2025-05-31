@@ -39,7 +39,8 @@ class HttpRequest
         std::string                                         _buffer;
         std::string                                         _body;
         std::map<std::string, std::string>                  _headers;
-        std::vector<std::pair<std::string, std::string> >    _query_string;
+        std::vector<std::pair<std::string, std::string> >   _query_string;
+        std::string                                         _query_string_str;
         enum RequestStatus                                  _status;
         bool                                                _is_crlf;
         RequestLineStatus                                   _is_rl; //request line
@@ -60,8 +61,10 @@ class HttpRequest
         std::string                                     GetMethod() const;
         std::string                                     GetLocation() const;
         ClientConnection *                              GetClientDatat() const;
-        enum RequestStatus                               GetStatus() const;
+        enum RequestStatus                              GetStatus() const;
+        std::string                                     GetQueryStringStr() const;
         
+        void                                            SetQueryStringStr(std::string);
         void                                            SetClientData(ClientConnection *);
         void                                            SetMethod(std::string);
         void                                            SetRequestLine(std::string);

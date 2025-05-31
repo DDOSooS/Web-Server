@@ -16,7 +16,7 @@ bool    MethodNotAllowed::CanHandle(ERROR_TYPE type) const
 
 MethodNotAllowed::~MethodNotAllowed() {}
 
-void    MethodNotAllowed::ProcessError(Error &error)
+void    MethodNotAllowed::ProcessError(Error &error, const ServerConfig & /* server Configuration*/)
 {
     std::cout << "================= (Start of Processing Method Not Allowed Error) ====================\n";
     std::cout << "Method Not Allowed Error: " << error.GetErroeMessage() << std::endl;

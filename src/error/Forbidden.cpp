@@ -11,7 +11,7 @@ bool Forbidden::CanHandle(ERROR_TYPE error_type) const
 }
 
 
-void    Forbidden::ProcessError(Error &error)
+void    Forbidden::ProcessError(Error &error, const ServerConfig & /* server Configuration*/)
 {
     std::cout << "================= (Start of Processing Forbidden Error) ====================\n";
 

@@ -13,7 +13,7 @@ bool    InternalServerError::CanHandle(ERROR_TYPE type) const
     return INTERNAL_SERVER_ERROR == type;
 }
 
-void    InternalServerError::ProcessError(Error &error)
+void    InternalServerError::ProcessError(Error &error, const ServerConfig & /* server Configuration*/)
 {
     std::cout << "================= (Start of Processing Internal Server Error) ====================\n";
     std::cout << "Internal Server Error: " << error.GetErroeMessage() << std::endl;

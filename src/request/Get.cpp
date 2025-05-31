@@ -313,7 +313,7 @@ std::string Get::CheckIndexFile(const std::string &rel_path, const Location *cur
     }
     else
     {
-        // i'm supposing that the index file are in vector of strings Done a ssi abdeslame
+        // i'm supposing that the index file are in vector of strings Done a ssi abdeslame mrhba si ayoube
         //std::cout << "[ DEBUG ] : Checking index file for current location: " << cur_location->get_index() << std::endl;
         for (size_t i = 0; i < cur_location->get_index().size(); i++)
         {
@@ -385,13 +385,15 @@ void    Get::ProccessRequest(HttpRequest *request, const ServerConfig &serverCon
         request->GetClientDatat()->http_response->setContentType("text/html");
         request->GetClientDatat()->http_response->setChunked(false);
         /*
-            std::cout << "[Debug] : Index file check for current location : " << cur_location->get_index() << std::endl;
-            std::cout << "[Debug] : Checking error page for the server configuration :" << std::endl;
-            for (std::map<short, std::string>::iterator i = serverConfig.get_error_pages().begin(); i != serverConfig.get_error_pages().end(); ++i)
-            {
-                std::cout << "Error Code: " << i->first << ", Page: " << i->second << std::endl;
-            }
         */
+        // std::cout << "[Debug] : Index file check for current location : " << cur_location->get_index() << std::endl;
+        std::cout << "[Debug] : Checking error page for the server configuration :" << std::endl;
+        
+        std::map<short, std::string> error_page = serverConfig.get_error_pages();
+        for (std::map<short, std::string>::iterator i =error_page.begin(); i != error_page.end(); i++)
+        {
+            std::cout << "Error Code: " << i->first << ", Page: " << i->second << std::endl;
+        }
         /* check if there is any valid index file from the list of index files !!!*/
         std::string indexFile = CheckIndexFile(rel_path, cur_location, serverConfig);
         if (!indexFile.empty())

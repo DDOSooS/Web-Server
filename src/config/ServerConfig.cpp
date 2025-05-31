@@ -19,7 +19,8 @@ void ServerConfig::initializeDefaultErrorPages() {
         500, 501, 502, 503, 504, 505
     }; 
     const size_t num_errors = sizeof(common_errors) / sizeof(common_errors[0]);
-    for (size_t i = 0; i < num_errors; ++i) {
+    for (size_t i = 0; i < num_errors; ++i)
+    {
         _error_pages[common_errors[i]] = "";
     }
 }
