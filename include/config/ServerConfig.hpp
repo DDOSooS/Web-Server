@@ -52,6 +52,7 @@ public:
 
     void initializeDefaultErrorPages();
     const Location* findMatchingLocation(const std::string& ) const;
+    const Location* findBestMatchingLocation(const std::string& path) const;
     void print_server_config() const;
 };
 
