@@ -23,6 +23,11 @@ CgiHandler::CgiHandler(ClientConnection* client) : _client(client) {}
 CgiHandler::~CgiHandler() {}
 
 bool CgiHandler::isCgiRequest(HttpRequest *request) const {
+    std::cout << "Querying String: " << request->GetQueryStringStr() << std::endl;
+    if (!request) {
+        std::cout << "❌Request is null" << std::endl;
+        return false;
+    }
     std::string request_path = request->GetLocation();
     if (request_path.empty()) {
         std::cout << "❌Empty request path" << std::endl;
@@ -158,19 +163,20 @@ char** CgiHandler::setGgiEnv(HttpRequest *request) {
     env_vars.push_back("SCRIPT_NAME=" + request->GetLocation());
     
     // Extract actual query string from request URL
-    std::string query_string = extractQueryString();
+    std::string query_string = request->GetQueryStringStr();
+    std::cout << "--------------------> Query string: " << query_string << std::endl;
     env_vars.push_back("QUERY_STRING=" + query_string);
     
     // Server information
     env_vars.push_back("SERVER_NAME=webserv");
-    env_vars.push_back("SERVER_PORT=" + std::to_string(_client->_server->getServerConfig().get_port()));
+    env_vars.push_back("SERVER_PORT=" + this->to_string(_client->_server->getServerConfig().get_port()));
     env_vars.push_back("SERVER_PROTOCOL=" + request->GetHttpVersion());
     env_vars.push_back("SERVER_SOFTWARE=webserv/1.0");
     env_vars.push_back("GATEWAY_INTERFACE=CGI/1.1");
     
     // Client information
     env_vars.push_back("REMOTE_ADDR=" + _client->ipAddress);
-    env_vars.push_back("REMOTE_PORT=" + std::to_string(_client->port));
+    env_vars.push_back("REMOTE_PORT=" + this->to_string(_client->port));
     
     // Script and document information
     std::string request_path = request->GetLocation();
@@ -196,7 +202,7 @@ char** CgiHandler::setGgiEnv(HttpRequest *request) {
         if (!content_type.empty()) {
             env_vars.push_back("CONTENT_TYPE=" + content_type);
         }
-        env_vars.push_back("CONTENT_LENGTH=" + std::to_string(request->GetBody().length()));
+        env_vars.push_back("CONTENT_LENGTH=" + this->to_string(request->GetBody().length()));
     }
     
     // HTTP headers (only add non-empty headers)
@@ -410,31 +416,6 @@ std::string CgiHandler::executeCgiScript(HttpRequest *request) {
     return result;
 }
 
-// Helper function to extract query string from URL
-std::string CgiHandler::extractQueryString() {
-     this->_client->http_request->GetQueryString();
-    // 
-    // Get query string from HttpRequest
-    std::cout << "Extracting query string from request" << std::endl;
-    if (!this->_client || !this->_client->http_request) {
-        std::cerr << "Client or HttpRequest is null" << std::endl;
-        return "";
-    }
-    std::vector<std::pair<std::string, std::string> > query_string = this->_client->http_request->GetQueryString();
-    if (query_string.empty()) {
-        return "";
-    }
-    std::ostringstream oss;
-    for (size_t i = 0; i < query_string.size(); ++i) {
-        std::cout << "Query string pair: " << query_string[i].first << "=" << query_string[i].second << std::endl;
-        // Append key-value pairs to the query string
-        if (i > 0) {
-            oss << "&";
-        }
-        oss << query_string[i].first << "=" << query_string[i].second;
-    }
-    return oss.str();
-}
 
 // Helper function to extract PATH_INFO
 std::string CgiHandler::extractPathInfo(const std::string& url) {
@@ -613,4 +594,11 @@ void CgiHandler::setCgiResponseHeaders(HttpRequest* request, const std::string& 
     request->GetClientDatat()->http_response->setStatusMessage(status_message);
     request->GetClientDatat()->http_response->setContentType(content_type);
     request->GetClientDatat()->http_response->setChunked(false);
+}
+// to_string to be c++ 98 compatible
+template <typename T>
+std::string CgiHandler::to_string(const T& value) {
+    std::ostringstream oss;
+    oss << value;
+    return oss.str();
 }
