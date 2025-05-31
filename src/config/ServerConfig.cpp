@@ -277,3 +277,23 @@ void ServerConfig::print_server_config() const {
     // Print end of server config
     std::cout << "End of Server Config" << std::endl;
 }
+
+// find best matching location based on longest prefix match as nginx does
+const Location* ServerConfig::findBestMatchingLocation(const std::string& path) const {
+    const Location* best_match = NULL;
+    size_t best_length = 0;
+
+    for (size_t i = 0; i < this->_locations.size(); ++i) {
+        const Location& loc = this->_locations[i];
+        const std::string& loc_path = loc.get_path();
+        
+        if (path.find(loc_path) == 0) { // path starts with loc_path
+            if (loc_path.length() > best_length) {
+                best_length = loc_path.length();
+                best_match = &loc;
+            }
+        }
+    }
+    
+    return best_match ? best_match : findMatchingLocation(path);
+}

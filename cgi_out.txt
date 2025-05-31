@@ -1,142 +1,119 @@
+Extracting query string from request
+Content-Type: text/html
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, OPTIONS
+Access-Control-Allow-Headers: Content-Type
+
+<!DOCTYPE html>
 <html>
 <head>
-<title>Hello CGI</title>
+    <title>CGI POST Test Results</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #c3e6cb;
+        }
+        .info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #007bff;
+        }
+        .method-badge {
+            background: #007bff;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background: #f5f5f5;
+            font-weight: bold;
+        }
+        .json-box {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+        }
+        .raw-data {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            border: 1px solid #e9ecef;
+        }
+    </style>
 </head>
 <body>
-<h1>Hello, CGI!</h1>
-<p>This is a simple CGI script.</p>
-<p>Environment Variables:</p>
-<ul>
-<li>Variable 1</li>
-<li>Variable 2</li>
-<li>Variable 3</li>
-<li>Variable 4</li>
-<li>Variable 5</li>
-<li>Variable 6</li>
-<li>Variable 7</li>
-<li>Variable 8</li>
-<li>Variable 9</li>
-<li>Variable 10</li>
-<li>Variable 11</li>
-<li>Variable 12</li>
-<li>Variable 13</li>
-<li>Variable 14</li>
-<li>Variable 15</li>
-<li>Variable 16</li>
-<li>Variable 17</li>
-<li>Variable 18</li>
-<li>Variable 19</li>
-<li>Variable 20</li>
-<li>Variable 21</li>
-<li>Variable 22</li>
-<li>Variable 23</li>
-<li>Variable 24</li>
-<li>Variable 25</li>
-<li>Variable 26</li>
-<li>Variable 27</li>
-<li>Variable 28</li>
-<li>Variable 29</li>
-<li>Variable 30</li>
-<li>Variable 31</li>
-<li>Variable 32</li>
-<li>Variable 33</li>
-<li>Variable 34</li>
-<li>Variable 35</li>
-<li>Variable 36</li>
-<li>Variable 37</li>
-<li>Variable 38</li>
-<li>Variable 39</li>
-<li>Variable 40</li>
-<li>Variable 41</li>
-<li>Variable 42</li>
-<li>Variable 43</li>
-<li>Variable 44</li>
-<li>Variable 45</li>
-<li>Variable 46</li>
-<li>Variable 47</li>
-<li>Variable 48</li>
-<li>Variable 49</li>
-<li>Variable 50</li>
-<li>Variable 51</li>
-<li>Variable 52</li>
-<li>Variable 53</li>
-<li>Variable 54</li>
-<li>Variable 55</li>
-<li>Variable 56</li>
-<li>Variable 57</li>
-<li>Variable 58</li>
-<li>Variable 59</li>
-<li>Variable 60</li>
-<li>Variable 61</li>
-<li>Variable 62</li>
-<li>Variable 63</li>
-<li>Variable 64</li>
-<li>Variable 65</li>
-<li>Variable 66</li>
-<li>Variable 67</li>
-<li>Variable 68</li>
-<li>Variable 69</li>
-<li>Variable 70</li>
-<li>Variable 71</li>
-<li>Variable 72</li>
-<li>Variable 73</li>
-<li>Variable 74</li>
-<li>Variable 75</li>
-<li>Variable 76</li>
-<li>Variable 77</li>
-<li>Variable 78</li>
-<li>Variable 79</li>
-<li>Variable 80</li>
-<li>Variable 81</li>
-<li>Variable 82</li>
-<li>Variable 83</li>
-<li>Variable 84</li>
-<li>Variable 85</li>
-<li>Variable 86</li>
-<li>Variable 87</li>
-<li>Variable 88</li>
-<li>Variable 89</li>
-<li>Variable 90</li>
-<li>Variable 91</li>
-<li>Variable 92</li>
-<li>Variable 93</li>
-<li>Variable 94</li>
-<li>Variable 95</li>
-<li>Variable 96</li>
-<li>Variable 97</li>
-<li>Variable 98</li>
-<li>Variable 99</li>
-<li>Variable 100</li>
-<li><strong>REQUEST_METHOD:</strong> GET</li>
-<li><strong>SCRIPT_NAME:</strong> /cgi-bin/hello.py</li>
-<li><strong>QUERY_STRING:</strong> name=ayoub&age=26&city=benguerir</li>
-<li><strong>SERVER_NAME:</strong> webserv</li>
-<li><strong>SERVER_PORT:</strong> 8080</li>
-<li><strong>SERVER_PROTOCOL:</strong> HTTP/1.1</li>
-<li><strong>REMOTE_ADDR:</strong> 127.0.0.1</li>
-<li><strong>REMOTE_PORT:</strong> 52063</li>
-<li><strong>CONTENT_TYPE:</strong> </li>
-<li><strong>CONTENT_LENGTH:</strong> 0</li>
-<li><strong>HTTP_HOST:</strong> 0.0.0.0:8080</li>
-<li><strong>HTTP_USER_AGENT:</strong> Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36</li>
-<li><strong>HTTP_ACCEPT:</strong> text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7</li>
-<li><strong>HTTP_ACCEPT_LANGUAGE:</strong> en-US,en;q=0.9</li>
-<li><strong>HTTP_ACCEPT_ENCODING:</strong> gzip, deflate</li>
-<li><strong>HTTP_CONNECTION:</strong> keep-alive</li>
-<li><strong>HTTP_COOKIE:</strong> </li>
-<li><strong>HTTP_REFERER:</strong> http://0.0.0.0:8080/</li>
-<li><strong>HTTP_UPGRADE_INSECURE_REQUESTS:</strong> 1</li>
-<li><strong>HTTP_X_FORWARDED_FOR:</strong> </li>
-<li><strong>HTTP_X_FORWARDED_PROTO:</strong> </li>
-<li><strong>HTTP_X_FORWARDED_HOST:</strong> </li>
-<li><strong>HTTP_X_FORWARDED_SERVER:</strong> </li>
-<li><strong>__CF_USER_TEXT_ENCODING:</strong> 0x1F5:0x0:0x0</li>
-<li><strong>SDKROOT:</strong> /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk</li>
-<li><strong>CPATH:</strong> /usr/local/include</li>
-<li><strong>LIBRARY_PATH:</strong> /usr/local/lib</li>
-<li><strong>MANPATH:</strong> /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/share/man:/Library/Developer/CommandLineTools/usr/share/man:/Library/Developer/CommandLineTools/Toolchains/XcodeDefault.xctoolchain/usr/share/man:</li>
-<li><strong>LC_CTYPE:</strong> UTF-8</li>
-</ul>
+    <div class="container">
+        <h1>🚀 CGI POST Test Results</h1>
+        
+        <div class="success">
+            <strong>✅ CGI Script Working Successfully!</strong><br>
+            Your POST data has been received and parsed.
+        </div>
+        
+        <div class="info">
+            <strong>Request Method:</strong> <span class="method-badge">GET</span><br>
+            <strong>Timestamp:</strong> 2025-05-31 11:44:12<br>
+            <strong>Python Version:</strong> 3.9.6<br>
+            <strong>Content Length:</strong> 0 bytes
+        </div>
+
+        <h2>📝 Form Data</h2>
+        <div class="info">
+            ℹ️ No form data received. Try sending POST data with -d parameter.
+        </div>
+
+        <h2>🔧 Environment Information</h2>
+        <table>
+            <tr><th>Variable</th><th>Value</th></tr>
+            <tr><td>REQUEST_METHOD</td><td>GET</td></tr>
+            <tr><td>CONTENT_TYPE</td><td>N/A</td></tr>
+            <tr><td>CONTENT_LENGTH</td><td>N/A</td></tr>
+            <tr><td>QUERY_STRING</td><td></td></tr>
+            <tr><td>HTTP_HOST</td><td>0.0.0.0:8080</td></tr>
+            <tr><td>HTTP_USER_AGENT</td><td>Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36</td></tr>
+            <tr><td>REMOTE_ADDR</td><td>127.0.0.1</td></tr>
+            <tr><td>SERVER_NAME</td><td>webserv</td></tr>
+        </table>
+        
+        <div style="margin-top: 30px; text-align: center; color: #6c757d; font-size: 14px;">
+            <em>Generated by test.py CGI script</em>
+        </div>
+    </div>
 </body>
 </html>
-
