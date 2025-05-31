@@ -92,6 +92,7 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line,const Server
         pos  = path.find("?");
         std::string query_string = path.substr(pos + 1);
         path = path.substr(0, pos);
+        this->_http_request.SetQueryStringStr(query_string);
         ParseQueryString(query_string);
     }
     _http_request.SetRequestLine(request_line);

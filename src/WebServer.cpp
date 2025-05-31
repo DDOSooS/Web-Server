@@ -294,7 +294,6 @@ void WebServer::handleClientRequest(int fd)
 
     // Set error chain handler
     ErrorHandler *errorHandler = new NotFound();
-
     errorHandler->SetNext(new BadRequest())
                 ->SetNext(new InternalServerError())
                 ->SetNext(new NotImplemented())
@@ -311,23 +310,20 @@ void WebServer::handleClientRequest(int fd)
         std::cerr << "HttpException: " << e.what() << std::endl;
 
         // Handle the exception using the error handler
-        std::cout << "Error Type: " << (int)(e.GetErrorType()) << std::endl;
-        std::cout << " Error code :" << e.GetCode() << std::endl;
+        // std::cout << "Error Type: " << (int)(e.GetErrorType()) << std::endl;
+        // std::cout << " Error code :" << e.GetCode() << std::endl;
 
-        try {
+        try
+        {
             Error error(client, e.GetCode(), e.GetMessage(), e.GetErrorType());
-            errorHandler->HanldeError(error);
+            errorHandler->HanldeError(error, this->getServerConfig());
             this->updatePollEvents(fd, POLLOUT);
         }
-        catch (std::exception &ex) {
+        catch (std::exception &ex)
+        {
             std::cerr << "Error while handling exception: " << ex.what() << std::endl;
             closeClientConnection(fd);
         }
-    }
-    catch (std::exception &e)
-    {
-        std::cerr << "Standard exception in handleClientRequest: " << e.what() << std::endl;
-        closeClientConnection(fd);
     }
     catch (...)
     {

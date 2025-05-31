@@ -14,7 +14,7 @@ bool    NotFound::CanHandle(ERROR_TYPE type) const
     return NOT_FOUND == type;
 }
 
-void    NotFound::ProcessError(Error &error)
+void    NotFound::ProcessError(Error &error, const ServerConfig & /* server Configuration*/)
 {
     std::cout << "================= (Start of Processing Not Found Error) ====================\n";
     std::cout << "Not Found Error: " << error.GetErroeMessage() << std::endl;

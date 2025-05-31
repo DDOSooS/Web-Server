@@ -12,7 +12,8 @@
 // Forward declaration
 class Location;
 
-class ServerConfig {
+class ServerConfig
+{
 private:
     uint16_t                    _port;
     std::string                   _host;

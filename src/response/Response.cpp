@@ -206,28 +206,25 @@ long getFileSize(std::string &file_name)
 
 std::string HttpResponse::toString() 
 {
-    std::cout << "HTTP RESPONSE TO STRING METHOD !!!!\n";
+    std::cout << "[INFO ] : [ --- HTTP RESPONSE TO STRING METHOD --- ]\n";
     std::stringstream ss;
+    std::map<std::string, std::string>::const_iterator it;
+
     ss << this->getStatusCode();
     std::string response = "HTTP/1.1 " + ss.str() + " " + this->_status_message + "\r\n";
 
-    std::map<std::string, std::string>::const_iterator it;
     for (it = this->_headers.begin(); it != this->_headers.end(); ++it)
         response += it->first + ": " + it->second + "\r\n";
-
     if (this->_is_chunked)
         response += "Transfer-Encoding: chunked\r\n";
     if (this->_keep_alive)
         response += "Connection: keep-alive\r\n";
-
-    // std::cout << "Content Type :|||||||||1111||||||||||||||||| " << this->_content_type << std::endl;
     if (!this->_file_path.empty())
         this->_content_type = determineContentType(this->_file_path);
     // std::cout << "Content Type :||||||||||||||||||||||||||| " << this->_content_type << std::endl;
     response += "Content-Type: " + (this->_content_type.empty() ? "text/plain" : this->_content_type) + "\r\n";
 
     std::string body;
-
     if (!this->_buffer.empty())
     {
         body = this->_buffer;
@@ -237,11 +234,10 @@ std::string HttpResponse::toString()
     }
     else if (!this->_file_path.empty())
     {
-        // Normalize the file path to ensure it starts with a slash
         std::string normalized_path = this->_file_path;
-        if (normalized_path.empty() || normalized_path[0] != '/')
-            normalized_path = "/" + normalized_path;
-            
+        // if (normalized_path.empty() || normalized_path[0] != '/')
+        //     normalized_path = "/" + normalized_path;
+    
         std::string file_name = normalized_path;
         // std::cout << "Attempting to open file: " << file_name << std::endl;
         std::ifstream file(file_name.c_str(), std::ios::binary);
@@ -250,7 +246,6 @@ std::string HttpResponse::toString()
             std::cerr << "Error opening file: " << file_name << std::endl;
             throw HttpException(404, "Not Found", NOT_FOUND);
         }
-
         std::ostringstream file_stream;
         file_stream << file.rdbuf();
         body = file_stream.str();
@@ -263,7 +258,6 @@ std::string HttpResponse::toString()
     // Final CRLF to end headers
     response += "\r\n";
     response += body;
-
     return response;
 }
 
@@ -281,7 +275,9 @@ void HttpResponse::sendResponse(int socket_fd)
             throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
         }
         std::cout << "Bytes sent: " << bytes_sent << " out of " << response.size() << " bytes" << std::endl;
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         std::cerr << "Exception in sendResponse: " << e.what() << std::endl;
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
@@ -299,7 +295,6 @@ void HttpResponse::sendChunkedResponse(int socket_fd)
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
 }
-
 
 HttpResponse::~HttpResponse()
 {}

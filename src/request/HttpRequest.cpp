@@ -51,6 +51,10 @@ std::string HttpRequest::GetRequestLine() const
     return _request_line;
 }
 
+std::string HttpRequest::GetQueryStringStr() const
+{
+    return _query_string_str;
+}
 
 std::string HttpRequest::GetHttpVersion() const
 {
@@ -90,6 +94,11 @@ void HttpRequest::SetRequestLine(std::string request_line)
 void HttpRequest::SetHttpVersion(std::string http_version)
 {
     _http_version = http_version;
+}
+
+void HttpRequest::SetQueryStringStr(std::string query_string_str)
+{
+    _query_string_str = query_string_str;
 }
 
 void HttpRequest::SetLocation(std::string location)
