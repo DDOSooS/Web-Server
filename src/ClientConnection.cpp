@@ -46,9 +46,11 @@ void ClientConnection::GenerateRequest(int fd)
     std::cout << "==================== (Buffer:) =====================\n " << buffer <<
         "\n==================================================================" << std::endl;
 
-    // Parse headers first
+    // Parse the raw request string
     HttpRequestBuilder build = HttpRequestBuilder();
     build.ParseRequest(rawRequest, this->_server->getServerConfig());
+
+
     // Check if we need to read more data (for POST requests with Content-Length)
     std::string contentLengthStr = build.GetHttpRequest().GetHeader("Content-Length");
     if (!contentLengthStr.empty()) {
@@ -99,35 +101,17 @@ void ClientConnection::GenerateRequest(int fd)
                 }
             }
         }
-        
-        // Clean up any existing request object
-        if (this->http_request)
-        {
-            delete this->http_request;
-        }
-        
-        this->http_request = new HttpRequest(build.GetHttpRequest());
-        this->http_request->SetClientData(this);
-        if(this->http_request != NULL)
-        {
-            if(!this->http_request->GetQueryStringStr().empty())
-            {
-                std::cout << "Query String: " << this->http_request->GetQueryStringStr() << std::endl;
-                exit(1); // Temporary exit for debugging
-            }
-            else{
-                std::cout << "No Query String found in the request." << std::endl;
-                exit(1); // Temporary exit for debugging
-            }
-            return;
-        }
-        else{
-            std::cout << "HttpRequestBuilder failed to build the request." << std::endl;
-            exit(1); // Temporary exit for debugging
-        }
-        
+    
+    // Clean up any existing request object
+    if (this->http_request)
+    {
+        delete this->http_request;
     }
-    // Calculate how much of the body we've already read
+    this->http_request = new HttpRequest(build.GetHttpRequest());
+    this->http_request->SetClientData(this);
+
+}
+// Calculate how much of the body we've already read
 
 //@todo: Consider logical work flow before !!!!! refactoring this function to handle errors more gracefully
 void    ClientConnection::ProcessRequest(int fd)

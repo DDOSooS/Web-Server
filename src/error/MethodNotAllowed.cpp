@@ -16,10 +16,17 @@ bool    MethodNotAllowed::CanHandle(ERROR_TYPE type) const
 
 MethodNotAllowed::~MethodNotAllowed() {}
 
-void    MethodNotAllowed::ProcessError(Error &error, const ServerConfig & /* server Configuration*/)
+void    MethodNotAllowed::ProcessError(Error &error, const ServerConfig & config)
 {
-    std::cout << "================= (Start of Processing Method Not Allowed Error) ====================\n";
+    std::cout << "================= [Start of Processing Method Not Allowed Error] ====================\n";
     std::cout << "Method Not Allowed Error: " << error.GetErroeMessage() << std::endl;
+
+    if (IsErrorPageDefined(config, error.GetCodeError()))
+    {
+        std::cout << "[INFO] [---ERRORS HANDLING --- Method Not Allowed Error Page is defined in the server configuration --- ]\n";
+        ErrorPageChecker(error, config);
+        return;
+    }
     std::stringstream iss;
 
     iss << "<html><head><title>405 Method Not Allowed</title></head>";

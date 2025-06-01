@@ -19,6 +19,7 @@ HttpRequest::HttpRequest(HttpRequest const &src)
     _is_crlf = src._is_crlf;
     _is_rl = src._is_rl;
     _are_header_parsed = src._are_header_parsed;
+    _query_string_str = src._query_string_str;
 }
 
 bool HttpRequest::FindHeader(std::string key, std::string value)
@@ -98,7 +99,7 @@ void HttpRequest::SetHttpVersion(std::string http_version)
 
 void HttpRequest::SetQueryStringStr(std::string query_string_str)
 {
-    _query_string_str = query_string_str;
+    this->_query_string_str = query_string_str;
 }
 
 void HttpRequest::SetLocation(std::string location)
@@ -183,6 +184,10 @@ void HttpRequest::ResetRequest()
     _is_crlf = false;
     _is_rl = REQ_PROCESSING;
     _are_header_parsed = false;
+    _query_string.clear();
+    _query_string_str = "";
+    _headers.clear();
+    
 }
 
 bool HttpRequest::IsValidRequest() const
