@@ -87,8 +87,8 @@ Access-Control-Allow-Headers: Content-Type
         </div>
         
         <div class="info">
-            <strong>Request Method:</strong> <span class="method-badge">POST</span><br>
-            <strong>Timestamp:</strong> 2025-05-31 14:07:27<br>
+            <strong>Request Method:</strong> <span class="method-badge">GET</span><br>
+            <strong>Timestamp:</strong> 2025-06-01 17:51:39<br>
             <strong>Python Version:</strong> 3.9.6<br>
             <strong>Content Length:</strong> 0 bytes
         </div>
@@ -101,9 +101,9 @@ Access-Control-Allow-Headers: Content-Type
         <h2>🔧 Environment Information</h2>
         <table>
             <tr><th>Variable</th><th>Value</th></tr>
-            <tr><td>REQUEST_METHOD</td><td>POST</td></tr>
+            <tr><td>REQUEST_METHOD</td><td>GET</td></tr>
             <tr><td>CONTENT_TYPE</td><td>N/A</td></tr>
-            <tr><td>CONTENT_LENGTH</td><td>0</td></tr>
+            <tr><td>CONTENT_LENGTH</td><td>N/A</td></tr>
             <tr><td>QUERY_STRING</td><td></td></tr>
             <tr><td>HTTP_HOST</td><td>localhost:8080</td></tr>
             <tr><td>HTTP_USER_AGENT</td><td>PostmanRuntime/7.44.0</td></tr>

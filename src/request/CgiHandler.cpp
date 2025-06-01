@@ -23,11 +23,11 @@ CgiHandler::CgiHandler(ClientConnection* client) : _client(client) {}
 CgiHandler::~CgiHandler() {}
 
 bool CgiHandler::isCgiRequest(HttpRequest *request) const {
-    std::cout << "Querying String: " << request->GetQueryStringStr() << std::endl;
     if (!request) {
         std::cout << "❌Request is null" << std::endl;
         return false;
     }
+    std::cout << "Querying String: " << this->_client->http_request->GetQueryStringStr() << std::endl;
     std::string request_path = request->GetLocation();
     if (request_path.empty()) {
         std::cout << "❌Empty request path" << std::endl;
