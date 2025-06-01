@@ -38,6 +38,7 @@ void HttpRequestBuilder::ParseQueryString(std::string &query_string)
     std::pair<std::string, std::string>     pair;
     std::string                             query;
 
+    // this->_http_request.SetQueryStringStr(query_string);
     while (std::getline(iss, query, '&'))
     {
         size_t pos =  query.find("=");

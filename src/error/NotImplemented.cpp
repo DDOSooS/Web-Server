@@ -14,10 +14,17 @@ bool    NotImplemented::CanHandle(ERROR_TYPE type) const
     return NOT_IMPLEMENTED == type;
 }
 
-void    NotImplemented::ProcessError(Error &error, const ServerConfig & /* server Configuration*/)
+void    NotImplemented::ProcessError(Error &error, const ServerConfig & config)
 {
-    std::cout << "================= (Start of Processing Not Implemented Error) ====================\n";
+    std::cout << "================= [Start of Processing Not Implemented Error] ====================\n";
     std::cout << "Not Implemented Error: " << error.GetErroeMessage() << std::endl;
+
+    if (IsErrorPageDefined(config, error.GetCodeError()))
+    {
+        std::cout << "[INFO] [---ERRORS HANDLING --- Not Implemented Error Page is defined in the server configuration --- ]\n";
+        ErrorPageChecker(error, config);
+        return;
+    }
     std::stringstream iss;
 
     iss << "<html><head><title>501 Not Implemented</title></head>";
