@@ -49,7 +49,6 @@ void ClientConnection::GenerateRequest(int fd)
     // Parse headers first
     HttpRequestBuilder build = HttpRequestBuilder();
     build.ParseRequest(rawRequest, this->_server->getServerConfig());
-    
     // Check if we need to read more data (for POST requests with Content-Length)
     std::string contentLengthStr = build.GetHttpRequest().GetHeader("Content-Length");
     if (!contentLengthStr.empty()) {
@@ -60,7 +59,6 @@ void ClientConnection::GenerateRequest(int fd)
         size_t bodyStart = rawRequest.find("\r\n\r\n");
         if (bodyStart != std::string::npos) {
             bodyStart += 4; // Move past \r\n\r\n
-            // Calculate how much of the body we've already read
             size_t bodyBytesRead = rawRequest.length() - bodyStart;
             std::cout << "Already read " << bodyBytesRead << " bytes of body" << std::endl;
             
@@ -75,49 +73,67 @@ void ClientConnection::GenerateRequest(int fd)
                 
                 while (totalBodyBytesRead < remainingBytes) {
                     ssize_t chunkRead = recv(fd, bodyBuffer + totalBodyBytesRead, 
-                                            remainingBytes - totalBodyBytesRead, 0);
-                    if (chunkRead <= 0) {
-                        delete[] bodyBuffer;
-                        std::cerr << "Error reading request body: " 
-                                    << (chunkRead == 0 ? "Connection closed" : strerror(errno))
-                                    << std::endl;
-                        throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
+                        remainingBytes - totalBodyBytesRead, 0);
+                        if (chunkRead <= 0) {
+                            delete[] bodyBuffer;
+                            std::cerr << "Error reading request body: " 
+                            << (chunkRead == 0 ? "Connection closed" : strerror(errno))
+                            << std::endl;
+                            throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
+                        }
+                        totalBodyBytesRead += chunkRead;
+                        std::cout << "Read " << chunkRead << " bytes, total: " 
+                        << totalBodyBytesRead << "/" << remainingBytes << std::endl;
                     }
-                    totalBodyBytesRead += chunkRead;
-                    std::cout << "Read " << chunkRead << " bytes, total: " 
-                                << totalBodyBytesRead << "/" << remainingBytes << std::endl;
+                    
+                    // Null-terminate the body buffer
+                    bodyBuffer[totalBodyBytesRead] = '\0';
+                    
+                    // Append the body to the raw request
+                    std::string fullBody(bodyBuffer, totalBodyBytesRead);
+                    delete[] bodyBuffer;
+                    
+                    // Set the full body in the request
+                    build.SetBody(rawRequest.substr(bodyStart) + fullBody);
+                    std::cout << "Full body size: " << build.GetHttpRequest().GetBody().size() << " bytes" << std::endl;
                 }
-                
-                // Null-terminate the body buffer
-                bodyBuffer[totalBodyBytesRead] = '\0';
-                
-                // Append the body to the raw request
-                std::string fullBody(bodyBuffer, totalBodyBytesRead);
-                delete[] bodyBuffer;
-                
-                // Set the full body in the request
-                build.SetBody(rawRequest.substr(bodyStart) + fullBody);
-                std::cout << "Full body size: " << build.GetHttpRequest().GetBody().size() << " bytes" << std::endl;
             }
         }
+        
+        // Clean up any existing request object
+        if (this->http_request)
+        {
+            delete this->http_request;
+        }
+        
+        this->http_request = new HttpRequest(build.GetHttpRequest());
+        this->http_request->SetClientData(this);
+        if(this->http_request != NULL)
+        {
+            if(!this->http_request->GetQueryStringStr().empty())
+            {
+                std::cout << "Query String: " << this->http_request->GetQueryStringStr() << std::endl;
+                exit(1); // Temporary exit for debugging
+            }
+            else{
+                std::cout << "No Query String found in the request." << std::endl;
+                exit(1); // Temporary exit for debugging
+            }
+            return;
+        }
+        else{
+            std::cout << "HttpRequestBuilder failed to build the request." << std::endl;
+            exit(1); // Temporary exit for debugging
+        }
+        
     }
-    
-    // Clean up any existing request object
-    if (this->http_request)
-    {
-        delete this->http_request;
-    }
-    
-    this->http_request = new HttpRequest(build.GetHttpRequest());
-    this->http_request->SetClientData(this);
-
-}
+    // Calculate how much of the body we've already read
 
 //@todo: Consider logical work flow before !!!!! refactoring this function to handle errors more gracefully
 void    ClientConnection::ProcessRequest(int fd)
 {
     RequestHandler     *chain_handler;
-
+    
     chain_handler = new CgiHandler(this);
     (chain_handler->SetNext(new Get()))->SetNext(new Post());
     if (http_request == NULL)
