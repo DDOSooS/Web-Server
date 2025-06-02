@@ -22,10 +22,7 @@ class Get : public RequestHandler
         bool            IsFile( std::string &path);
         std::string     ListingDir(const std::string &path, std::string /* request Path*/, const Location * /* location*/,const ServerConfig & /*config file*/);
         std::string     determineContentType(const std::string& path);
-        bool            getIsRedirected() const;
         bool            check_auto_indexing(const Location * /* location*/, const ServerConfig & /*config file*/);
         std::string     CheckIndexFile(const std::string &rel_path, const Location *cur_location, const ServerConfig &serverConfig);
-        void            setIsRedirected(bool );
-        std::string     GetRelativePath(const Location * cur_location,HttpRequest *request);
         ~Get();
 };

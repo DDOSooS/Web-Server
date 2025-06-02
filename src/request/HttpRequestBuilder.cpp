@@ -78,7 +78,7 @@ std::string HttpRequestBuilder::UrlDecode(const std::string &req_line)
 
 void HttpRequestBuilder::ParseRequestLine(std::string &request_line,const ServerConfig &serverConfig)
 {
-    std::cout << "PARSING REQ LINE !!!!!!!!!!!!!!\n";
+    std::cout << "[INFO] : PARSING REQ LINE !!!!!!!!!!!!!!\n";
     // decode the request line
     std::string         decoded_request_line = UrlDecode(request_line);
     std::istringstream  iss(decoded_request_line);
@@ -94,7 +94,7 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line,const Server
         std::string query_string = path.substr(pos + 1);
         path = path.substr(0, pos);
         this->_http_request.SetQueryStringStr(query_string);
-        std::cout << "<><><><><><><><><><<><><><><><><><><> Query String : " << this->_http_request.GetQueryStringStr() << "\n";
+        // std::cout << "<><><><><><><><><><<><><><><><><><><> Query String : " << this->_http_request.GetQueryStringStr() << "\n";
         ParseQueryString(query_string);
     }
     _http_request.SetRequestLine(request_line);
@@ -279,13 +279,11 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
             throw HttpException(404, "Not Found", NOT_FOUND);
         else if (_http_request.GetIsRl() == REQ_NOT_IMPLEMENTED)
             throw HttpException(501, "Not Implemented", NOT_IMPLEMENTED);
-
         return;
     }
 
-
     // Parse body if present
-    //@todo Ilyas: check if the body is too large to be processed and being parsed at once does will affect the performance of 
+    //@todo Ilyas: check if the body is too large to be processed and being parsed at once does will affect the performance of !!!!
     // the server
     std::string body;
     std::string bodyLine;

@@ -11,16 +11,6 @@ Get::~Get()
 
 }
 
-void Get::setIsRedirected(bool is_redirected)
-{
-    this->_is_redirected = is_redirected;
-}
-
-bool Get::getIsRedirected() const
-{
-    return this->_is_redirected;
-}
-
 bool Get::CanHandle(std::string method)
 {
     return method == "GET";
@@ -206,86 +196,6 @@ std::string Get::determineContentType(const std::string& path)
     return "text/plain";
 }
 
-std::string    Get::GetRelativePath(const Location * cur_location,HttpRequest *request)
-{
-    std::string rel_path;
-
-    // in case of no location found, 
-    if (!cur_location)
-    {
-        rel_path = request->GetClientDatat()->_server->getServerConfig().get_root() + request->GetLocation();
-        if (rel_path[rel_path.length() - 1] != '/')
-            rel_path += '/';
-        std::cout << "[ WARNING ] : No matching location found, using server root: " << rel_path << std::endl;
-        return rel_path;
-    }
-
-    // in case the location is just a default
-    /*
-    std::cout << "[ DEBUG ] : LOCATION INFOT\n";
-    std::cout << "PATH : " << cur_location->get_path() << std::endl;
-    std::cout << "ROOT LOCATION : " << cur_location->get_root_location() << std::endl;
-    std::cout << "ALIAS : " << cur_location->get_alias() << std::endl;
-    std::cout << "RETURN : " << cur_location->get_return().size() << std::endl;
-    std::cout << "AUTO INDEX : " << (cur_location->get_autoindex() ? "ON" : "OFF") << std::endl;
-    std::cout << "INDEX : " << cur_location->get_index() << std::endl;
-    std::cout << "ALLOW METHODS : ";
-    for (size_t i = 0; i < cur_location->get_allowMethods().size(); i++)
-    {
-        if (i > 0)
-        std::cout << ", ";
-        std::cout <<  cur_location->get_allowMethods()[i];
-    }
-    for (size_t i = 0; i < cur_location->get_return().size(); i++)
-    {
-        if (i > 0)
-        std::cout << ", ";
-        std::cout << "return Redirection  : " << cur_location->get_return()[i];
-    }
-    std::cout << std::endl;
-    std::cout << "CLIENT MAX BODY SIZE : " << cur_location->get_clientMaxBodySize() << std::endl;
-    std::cout << "[====================================================]\n";
-    */
-    if (!cur_location->get_return().empty())
-    {        
-        this->setIsRedirected(true);
-        /*
-        std::cout << "REDIRECTED TO : " << cur_location->get_return()[0] << std::endl;
-        std::cout << "REDIRECTED TO : " << cur_location->get_return()[1] << std::endl;
-        std::cout << "REQUEST LOCATION : " << request->GetLocation()  << std::endl;
-        */
-        rel_path = cur_location->get_return()[1];
-        return rel_path;
-    }
-    else if (!cur_location->get_alias().empty())
-    {
-        std::cout << "[ DEBUG ] : Using alias : " << cur_location->get_alias() << std::endl;
-        rel_path = cur_location->get_alias() + request->GetLocation();
-    }
-    else if (!cur_location->get_root_location().empty())
-    {
-        std::cout << "[ DEBUG ] : Using root location : " << cur_location->get_root_location() << std::endl;
-        rel_path = cur_location->get_root_location() + request->GetLocation();
-    }
-    else if (rel_path.empty())
-    {
-        std::cerr << "[ WARNING ] : No alias or root location specified, using server root." << std::endl;
-        // If no alias or root location is specified, we use the Server's root path
-        std::cout << "[ Server Root Path :" << request->GetClientDatat()->_server->getServerConfig().get_root() << " ]\n";
-        rel_path = request->GetClientDatat()->_server->getServerConfig().get_root() + request->GetLocation();
-    }
-    if (rel_path[rel_path.length() - 1] != '/')
-    {
-        rel_path += '/';
-    }
-    else
-    {
-        std::cout << "[ DEBUG ] : Relative Path already ends with a slash : !!!!!!!!!!!" << rel_path << std::endl;
-    }
-    std::cout << "[------------ FInal rel_path :" << rel_path << " ----------------------]\n";
-    return rel_path;
-}
-
 std::string Get::CheckIndexFile(const std::string &rel_path, const Location *cur_location, const ServerConfig &serverConfig)
 {
     std::string indexFile;
@@ -329,12 +239,11 @@ std::string Get::CheckIndexFile(const std::string &rel_path, const Location *cur
     return "";
 }
 // @Todo : before making any edit to this function, check the work flow of the processRequest function ~
-void    Get::ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig)
+void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConfig)
 {
-    std::cout << "PROCCESSING GET REQUEST !!!!!!!!!\n";
-
-    std::string     rel_path;
+    std::string rel_path;
     const Location *cur_location;
+    std::cout << "[DEBUG ]: --- PROCCESSING GET REQUEST ---\n";
     
     if (!request)
     {
@@ -346,24 +255,9 @@ void    Get::ProccessRequest(HttpRequest *request, const ServerConfig &serverCon
         std::cerr << "Error: Null client data pointer\n";
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
-    cur_location = request->GetClientDatat()->_server->getServerConfig().findMatchingLocation(request->GetLocation());
-    rel_path = GetRelativePath(cur_location, request);
-    std::cout << "\n[---------[DEBUG] : Relative Path : " << rel_path << "--------------------]" << std::endl;
-    if (this->getIsRedirected())
-    {
-        std::stringstream ss;
-        int               status_code;
-
-        ss << cur_location->get_return()[0];
-        ss >> status_code;
-        std::cout << "[REDIRECTED TO : " << rel_path  << " ]"<< std::endl;
-        request->GetClientDatat()->http_response->setStatusCode(status_code);
-        request->GetClientDatat()->http_response->setStatusMessage("Moved Permanently");
-        request->GetClientDatat()->http_response->setBuffer(" ");
-        request->GetClientDatat()->http_response->setChunked(false);
-        request->GetClientDatat()->http_response->setHeader("Location", rel_path);
-        return;
-    }
+    // Get the current location from the server configuration
+    cur_location = serverConfig.findBestMatchingLocation(request->GetLocation());
+    rel_path = request->GetRelativePath(cur_location);
     if (rel_path.empty())
     {
         std::cerr << "[empty rel_path Not Found ]\n";
@@ -385,15 +279,14 @@ void    Get::ProccessRequest(HttpRequest *request, const ServerConfig &serverCon
         request->GetClientDatat()->http_response->setContentType("text/html");
         request->GetClientDatat()->http_response->setChunked(false);
         /*
-        */
         // std::cout << "[Debug] : Index file check for current location : " << cur_location->get_index() << std::endl;
         std::cout << "[Debug] : Checking error page for the server configuration :" << std::endl;
-        
         std::map<short, std::string> error_page = serverConfig.get_error_pages();
         for (std::map<short, std::string>::iterator i =error_page.begin(); i != error_page.end(); i++)
         {
             std::cout << "Error Code: " << i->first << ", Page: " << i->second << std::endl;
         }
+        */
         /* check if there is any valid index file from the list of index files !!!*/
         std::string indexFile = CheckIndexFile(rel_path, cur_location, serverConfig);
         if (!indexFile.empty())
