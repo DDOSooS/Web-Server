@@ -542,17 +542,14 @@ void CgiHandler::setCgiResponseHeaders(HttpRequest* request, const std::string& 
     std::istringstream header_stream(headers);
     std::string line;
     
-    // Default values
     int status_code = 200;
     std::string status_message = "OK";
     std::string content_type = "text/html";
     
     while (std::getline(header_stream, line)) {
-        // Remove carriage return if present
-        if (!line.empty() && line.back() == '\r') {
-            line.pop_back();
+        if (!line.empty() && line[line.length() - 1] == '\r') {
+            line.erase(line.length() - 1);
         }
-        
         // Skip empty lines
         if (line.empty()) continue;
         
