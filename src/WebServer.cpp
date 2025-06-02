@@ -106,7 +106,13 @@ int WebServer::run()
 {
     bool running = true;
     std::cout << "Server '" << m_config.get_server_name() << "' is running on port: " << m_config.get_port() << std::endl;
-
+    // Set error chain handler
+    ErrorHandler *errorHandler = new NotFound();
+    errorHandler->SetNext(new BadRequest())
+                ->SetNext(new InternalServerError())
+                ->SetNext(new NotImplemented())
+                ->SetNext(new MethodNotAllowed())
+                ->SetNext(new Forbidden());
     while (running)
     {
         // Wait for events with poll
@@ -164,8 +170,13 @@ int WebServer::run()
                 std::cout << "START OF SENDING HTTP RESPONSE TO THE CLIENT\n";
                 try {
                     handleClientResponse(fd);
-                } catch (const std::exception& e) {
+                }
+                catch (const HttpException & e)
+                {
                     std::cerr << "Unhandled exception in handleClientResponse: " << e.what() << std::endl;
+                    // Handle the exception using the error handler
+                    Error error(clients[fd], e.GetCode(), e.GetMessage(), e.GetErrorType());
+                    errorHandler->HanldeError(error, this->getServerConfig());
                     closeClientConnection(fd);
                 }
             }
@@ -343,6 +354,7 @@ void WebServer::handleClientResponse(int fd)
         return;
     }
 
+
     ClientConnection &client = clients[fd];
 /*
     if (client.http_response)
@@ -407,44 +419,37 @@ void WebServer::handleClientResponse(int fd)
     // Check if we have data to send
     if (client.http_response->checkAvailablePacket())
     {
-        std::cout << "No data to send for client fd: " << fd << std::endl;
-        try
-        {            
-            if (client.http_response->isChunked() )
+        std::cout << "No data to send for client fd: " << fd << std::endl;        
+        if (client.http_response->isChunked() )
+        {
+            client.http_response->sendChunkedResponse(fd);
+            return ;
+        }
+        else
+        {
+            if (client.http_response->isFile())
+            {
+                client.http_response->sendResponse(fd);
+            }
+            else
             {
                 client.http_response->sendChunkedResponse(fd);
+            }
+
+            this->updatePollEvents(fd, POLLIN);
+            // Reset request state for next request
+            if (client.http_response->isKeepAlive())
+            {
+                std::cout << "after Resesting the request !!!\n";
+                client.http_response->clear();
+                client.http_request->ResetRequest();
                 return ;
             }
             else
             {
-                if (client.http_response->isFile())
-                {
-                    client.http_response->sendResponse(fd);
-                }
-                else
-                {
-                    client.http_response->sendChunkedResponse(fd);
-                }
-
-                this->updatePollEvents(fd, POLLIN);
-                // Reset request state for next request
-                if (client.http_response->isKeepAlive())
-                {
-                    std::cout << "after Resesting the request !!!\n";
-                    client.http_response->clear();
-                    client.http_request->ResetRequest();
-                    return ;
-                }
-                else
-                {
-                    closeClientConnection(fd);
-                    return;
-                }
+                closeClientConnection(fd);
+                return;
             }
-        }
-        catch(HttpException & e)
-        {
-            std::cerr << e.what() << '\n';
         }
     }
 }

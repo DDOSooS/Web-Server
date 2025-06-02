@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 #include <cstring>  // for strerror
 #include <cerrno>   // for errno
+#include <iostream>
 
 HttpResponse::HttpResponse(int status_code, std::map<std::string, std::string> headers, std::string content_type, bool is_chunked, bool keep_alive)
     : _status_code(status_code), _content_type(content_type), _is_chunked(is_chunked), _keep_alive(keep_alive)
@@ -212,7 +213,6 @@ std::string HttpResponse::toString()
 
     ss << this->getStatusCode();
     std::string response = "HTTP/1.1 " + ss.str() + " " + this->_status_message + "\r\n";
-
     for (it = this->_headers.begin(); it != this->_headers.end(); ++it)
         response += it->first + ": " + it->second + "\r\n";
     if (this->_is_chunked)
@@ -221,7 +221,6 @@ std::string HttpResponse::toString()
         response += "Connection: keep-alive\r\n";
     if (!this->_file_path.empty())
         this->_content_type = determineContentType(this->_file_path);
-    // std::cout << "Content Type :||||||||||||||||||||||||||| " << this->_content_type << std::endl;
     response += "Content-Type: " + (this->_content_type.empty() ? "text/plain" : this->_content_type) + "\r\n";
 
     std::string body;
@@ -235,11 +234,7 @@ std::string HttpResponse::toString()
     else if (!this->_file_path.empty())
     {
         std::string normalized_path = this->_file_path;
-        // if (normalized_path.empty() || normalized_path[0] != '/')
-        //     normalized_path = "/" + normalized_path;
-    
         std::string file_name = normalized_path;
-        // std::cout << "Attempting to open file: " << file_name << std::endl;
         std::ifstream file(file_name.c_str(), std::ios::binary);
         if (!file)
         {
@@ -263,24 +258,18 @@ std::string HttpResponse::toString()
 
 void HttpResponse::sendResponse(int socket_fd)
 {
-    std::cout << "Start of Sending A response !!\n";
-    try {
-        std::string response = this->toString();
-        
-        // std::cout <<"=============response !!!!!!!!!!!!!!!!!!!!========================\n" << response << "=====================================" <<  response.size() <<"====\n";
-        ssize_t bytes_sent = send(socket_fd, response.c_str(), response.size(), 0);
-        if (bytes_sent < 0)
-        {
-            std::cerr << "Error sending response: " << strerror(errno) << std::endl;
-            throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
-        }
-        std::cout << "Bytes sent: " << bytes_sent << " out of " << response.size() << " bytes" << std::endl;
-    }
-    catch (const std::exception& e)
+    std::cout << "[Debug : ] ---Start of Sending A response--- !!\n";
+
+    std::string response = this->toString();
+    
+    ssize_t bytes_sent = send(socket_fd, response.c_str(), response.size(), 0);
+    if (bytes_sent < 0)
     {
-        std::cerr << "Exception in sendResponse: " << e.what() << std::endl;
+        std::cerr << "Error sending response: " << strerror(errno) << std::endl;
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
+    std::cout << "Bytes sent: " << bytes_sent << " out of " << response.size() << " bytes" << std::endl;
+
 }
 
 void HttpResponse::sendChunkedResponse(int socket_fd)

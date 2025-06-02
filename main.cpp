@@ -1,5 +1,13 @@
 #include "./include/WebServer.hpp"
 #include "./include/config/ConfigParser.hpp"
+#include "./include/error/ErrorHandler.hpp"
+#include "./include/error/BadRequest.hpp"
+#include "./include/error/NotFound.hpp"
+#include "./include/error/InternalServerError.hpp"
+#include "./include/error/MethodNotAllowed.hpp"
+#include "./include/error/NotImplemented.hpp"
+#include "./include/error/Forbidden.hpp"
+
 
 int main(int argc, char *argv[]) {
     bool test_mode = false;
@@ -54,6 +62,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Create and initialize a single server
+
     WebServer server;
     if (server.init(configs[0]) == -1) {
         std::cerr << "Server initialization failed: " << configs[0].get_server_name() << std::endl;

@@ -6,6 +6,8 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
+#include "../config/Location.hpp"
+#include "../config/ServerConfig.hpp"
 
 class ClientConnection;
 enum RequestStatus
@@ -45,6 +47,8 @@ class HttpRequest
         bool                                                _is_crlf;
         RequestLineStatus                                   _is_rl; //request line
         bool                                                _are_header_parsed;
+        bool                                                _is_redirected; // Flag to indicate if the request is redirected or not
+
 
     public:
         HttpRequest();
@@ -63,7 +67,10 @@ class HttpRequest
         ClientConnection *                              GetClientDatat() const;
         enum RequestStatus                              GetStatus() const;
         std::string                                     GetQueryStringStr() const;
-        
+        bool                                            IsRedirected() const;
+        std::string                                     GetRelativePath(const Location * cur_location) const ;
+
+        void                                            SetIsRedirected(bool);
         void                                            SetQueryStringStr(std::string);
         void                                            SetClientData(ClientConnection *);
         void                                            SetMethod(std::string);
@@ -79,6 +86,9 @@ class HttpRequest
         void                                            SetStatus(enum RequestStatus );
         void                                            SetQueryString(std::vector<std::pair<std::string, std::string> > );
         void                                            ResetRequest();
+        std::string                                     GetRelativePath(const Location * cur_location);
         bool                                            IsValidRequest() const;
+        void                                            handleRedirect(const Location * cur_location , std::string &rel_path);
+        std::string                                     GetRedirectionMessage(int status_code) const;
         ~HttpRequest();
 };

@@ -39,7 +39,6 @@ void    BadRequest::ProcessError(Error &error, const ServerConfig & config)
         std::map<std::string, std::string> emptyHeaders;
         error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), emptyHeaders, "text/html", false, false);
     }
-
     // Set the response buffer
     error.GetClientData().http_response->setBuffer(response);
     error.GetClientData().http_response->setStatusCode(error.GetCodeError());

@@ -21,6 +21,6 @@ class HttpException : public std::runtime_error
         ~HttpException() throw();
 };
 
-// Include these after the class declaration to avoid circular dependency
-#include "./HttpRequest.hpp"
+// // Include these after the class declaration to avoid circular dependency
+// #include "./HttpRequest.hpp"
 
