@@ -420,7 +420,7 @@ void WebServer::handleClientResponse(int fd)
     if (client.http_response->checkAvailablePacket())
     {
         std::cout << "No data to send for client fd: " << fd << std::endl;        
-        if (client.http_response->isChunked() )
+        if (client.http_response->isChunked())
         {
             client.http_response->sendChunkedResponse(fd);
             return ;
@@ -429,10 +429,15 @@ void WebServer::handleClientResponse(int fd)
         {
             if (client.http_response->isFile())
             {
+                    std::cout << "Debug sendfile response11\n";
+                // exit(0);
                 client.http_response->sendResponse(fd);
+                
             }
             else
             {
+                std::cout << "Debug sendfile response22\n";
+                // exit(0);
                 client.http_response->sendChunkedResponse(fd);
             }
 

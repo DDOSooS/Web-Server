@@ -25,6 +25,7 @@ class HttpResponse
         bool                                                _is_chunked;
         bool                                                _keep_alive;
         size_t                                              _byte_sent;
+        size_t                                              _byte_to_send;
 
     public:
         HttpResponse(int , std::map<std::string, std::string>, std::string, bool, bool);
@@ -38,7 +39,10 @@ class HttpResponse
         void                                                setBuffer(std::string buffer);
         void                                                setContentType(std::string content_type);
         void                                                setByteSent(size_t byte_sent);
+        void                                                setByteToSend(size_t byte_to_send);
 
+
+        size_t                                              getByteToSend() const;
         int                                                 getStatusCode() const;
         std::string                                         getStatusMessage() const;
         std::string                                         getHeader(std::string key) const;

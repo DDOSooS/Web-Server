@@ -91,4 +91,5 @@ class HttpRequest
         void                                            handleRedirect(const Location * cur_location , std::string &rel_path);
         std::string                                     GetRedirectionMessage(int status_code) const;
         ~HttpRequest();
-};
+    };
+size_t                                          GetFileSize(std::string &file) ; // Returns the size of the file in bytes, if applicable

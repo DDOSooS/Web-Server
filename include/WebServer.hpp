@@ -45,7 +45,6 @@ class  WebServer
         void handleClientRequest(int fd);
         void handleClientResponse(int fd);
         // void processHttpRequest(int fd);
-
     private:
         static const int                    DEFAULT_MAX_CONNECTIONS = 1024;
         ServerConfig                        m_config; // this is a variable that will hold the server configuration
