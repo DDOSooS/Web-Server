@@ -5,9 +5,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-// Remove this line - you don't need it since you're including RequestHandler.hpp
-// class RequestHandler;
-
 class Get : public RequestHandler
 {
     private:

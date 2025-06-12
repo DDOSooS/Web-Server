@@ -75,7 +75,6 @@ bool Get::check_auto_indexing(const Location *cur_location, const ServerConfig &
 std::string Get::ListingDir(const std::string &path, std::string request_path, const Location *cur_location,const ServerConfig &serverConfig)
 {
     //To Check the auto indexing Option  Conf File
-
     if (!check_auto_indexing(cur_location, serverConfig))
     {
         std::cerr << "[ WARNING ] : Auto indexing is disabled for this location." << std::endl;
@@ -238,6 +237,7 @@ std::string Get::CheckIndexFile(const std::string &rel_path, const Location *cur
     }
     return "";
 }
+
 // @Todo : before making any edit to this function, check the work flow of the processRequest function ~
 void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConfig)
 {
@@ -291,6 +291,19 @@ void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConf
         std::string indexFile = CheckIndexFile(rel_path, cur_location, serverConfig);
         if (!indexFile.empty())
         {
+            // I'm supponsing that the default max size of file to be sent at once is 1MB 
+            // checking if file  size is less than 1MB or not to shoose the right way to send the file
+            request->GetClientDatat()->http_response->setByteToSend(GetFileSize(indexFile));
+            if (request->GetClientDatat()->http_response->getByteToSend() > 1000000 )
+            {
+                // std::cout << "[Debug] : File size is greater than 1MB, sending as chunked response." << std::endl;
+                request->GetClientDatat()->http_response->setChunked(true);
+            }
+            else
+            {
+                // std::cout << "[Debug] : File size is less than 1MB, sending as normal response." << std::endl;
+                request->GetClientDatat()->http_response->setChunked(false);
+            }
             std::cout << "[Debug] : Index file found : " << indexFile << std::endl;
             request->GetClientDatat()->http_response->setFilePath(indexFile);
             request->GetClientDatat()->http_response->setContentType(determineContentType(indexFile));
@@ -308,6 +321,16 @@ void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConf
     }
     else
     {
+        if (GetFileSize(rel_path) > 1000000)
+        {
+            std::cout << "[Debug] : File size is greater than 1MB, sending as chunked response." << std::endl;
+            request->GetClientDatat()->http_response->setChunked(true);
+        }
+        else
+        {
+            std::cout << "[Debug] : File size is less than 1MB, sending as normal response." << std::endl;
+            request->GetClientDatat()->http_response->setChunked(false);
+        }
         request->GetClientDatat()->http_response->setFilePath(rel_path);
         return;
     }

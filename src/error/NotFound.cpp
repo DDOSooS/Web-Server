@@ -25,7 +25,7 @@ void    NotFound::ProcessError(Error &error, const ServerConfig & config)
         ErrorPageChecker(error, config);
         return;
     }
-    
+    // std::cout << "[INFO] [---ERRORS HANDLING ---!!!!! Not Found Error Page is NOT defined in the server configuration --- ]\n";
     std::stringstream iss;
 
     iss << "<html><head><title>404 Not Found</title></head>";
@@ -39,6 +39,7 @@ void    NotFound::ProcessError(Error &error, const ServerConfig & config)
         std::map<std::string, std::string> emptyHeaders;
         error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), emptyHeaders, "text/html", false, false);
     }
+    std::cout << "[Rsponse] : " << response << std::endl;
     error.GetClientData().http_response->setBuffer(response);
     error.GetClientData().http_response->setStatusCode(error.GetCodeError());
     if (!error.GetClientData().http_response->getContentType().empty())

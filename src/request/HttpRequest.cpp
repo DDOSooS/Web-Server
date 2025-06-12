@@ -89,6 +89,20 @@ void HttpRequest::SetStatus(enum RequestStatus status)
     _status = status;
 }
 
+
+// counting a file size
+size_t  GetFileSize(std::string &file) 
+{
+    struct stat _stat_info;
+
+    if (stat(file.c_str(), &_stat_info) != 0)
+    {
+        std::cerr << "[ ERROR ] : File does not exist: " << file << std::endl;
+        return 0;
+    }
+    return _stat_info.st_size;
+}
+
 void HttpRequest::SetRequestLine(std::string request_line)
 {
     _request_line = request_line;
