@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Server Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 10px;
+        }
+        p {
+            margin-bottom: 20px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Web Server Test Page</h1>
+    
+    <div class="success">
+        <strong>Success!</strong> If you're seeing this page, your web server is working correctly.
+    </div>
+    
+    <p>
+        This is a simple test page that confirms your HTTP server is functioning as expected.
+        You can replace this with your own content once you've verified everything is working properly.
+    </p>
+    
+    <p>
+        Server time: <span id="server-time">Unknown</span>
+    </p>
+    
+    <script>
+        // Just display the current time on the client side
+        document.getElementById('server-time').textContent = new Date().toLocaleString();
+    </script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Old Page</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
+</head>
+<body>
+    <header>
+        <h1>Welcome to the Old Page</h1>
+    </header>
+    <main>
+        <p>This is the old page content. It will be replaced by the new page.</p>
+    </main>
+    <footer>
+        <p>&copy; 2023 Old Page</p>
+    </footer>
+    <script>
+        // Redirect to the new page after 5 seconds
+        setTimeout(() => {
+            window.location.href = 'new/index.html';
+        }, 5000);
+    </script>
+</body>
+</html>
