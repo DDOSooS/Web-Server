@@ -71,7 +71,6 @@ void Post::ProccessRequest(HttpRequest *request, const ServerConfig &serverConfi
         return;
     }
     
-    // Route to appropriate handler based on content type - ONLY REQUIRED TYPES
     if (contentType.find("application/x-www-form-urlencoded") != std::string::npos) {
         handleUrlEncodedForm(request);
     } else if (contentType.find("multipart/form-data") != std::string::npos) {
@@ -82,7 +81,6 @@ void Post::ProccessRequest(HttpRequest *request, const ServerConfig &serverConfi
             setErrorResponse(request, 400, "Invalid multipart boundary");
         }
     } else {
-        // For 42 project, we only need to handle forms and file uploads
         setErrorResponse(request, 415, "Unsupported Media Type - Only form data and file uploads are supported");
     }
 }
@@ -273,7 +271,6 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
         }
     }
     
-    // Fallback to Content-Type if we couldn't get the extension from filename
     if (file_extension == ".bin") {
         if (content_type.find("application/pdf") != std::string::npos) {
             file_extension = ".pdf";
@@ -286,7 +283,6 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
         } else if (content_type.find("application/zip") != std::string::npos) {
             file_extension = ".zip";
         } else if (content_type.find("application/octet-stream") != std::string::npos) {
-            // Try to guess from original filename if available
             if (!original_filename.empty()) {
                 size_t ext_pos = original_filename.rfind(".");
                 if (ext_pos != std::string::npos) {
@@ -296,25 +292,19 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
         }
     }
     
-    // Move file to uploads directory
     std::string uploads_dir = getUploadsDirectory();
     std::string unique_filename;
     if (!original_filename.empty()) {
-        // Use the original filename as part of the unique name
         unique_filename = generateUniqueFilename(original_filename);
     } else {
-        // Fallback to generic name with detected extension
         unique_filename = generateUniqueFilename("upload" + file_extension);
     }
     std::string dest_path = uploads_dir + "/" + unique_filename;
     
-    // For multipart/form-data, we need to extract the actual file content from the temporary file
-    // by skipping the headers and boundaries
     off_t content_offset = 0;
     size_t content_length = file_stat.st_size;
     
     if (content_type.find("multipart/form-data") != std::string::npos) {
-        // Re-open the file to find the actual content boundaries
         int header_fd = open(file_path.c_str(), O_RDONLY);
         if (header_fd < 0) {
             std::cerr << "Failed to open source file for header analysis: " << strerror(errno) << std::endl;
@@ -322,8 +312,7 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
             return;
         }
         
-        // Read enough of the file to find the headers
-        char header_buffer[32768]; // 32KB should be enough for most multipart headers
+        char header_buffer[32768]; // 32KB 
         ssize_t header_bytes_read = read(header_fd, header_buffer, sizeof(header_buffer) - 1);
         close(header_fd);
         
@@ -378,7 +367,6 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
         }
     }
     
-    // Open source file for reading
     int source_fd = open(file_path.c_str(), O_RDONLY);
     if (source_fd < 0) {
         std::cerr << "Failed to open source file: " << strerror(errno) << std::endl;
@@ -386,7 +374,6 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
         return;
     }
     
-    // Seek to the start of the actual file content if needed
     if (content_offset > 0) {
         if (lseek(source_fd, content_offset, SEEK_SET) != content_offset) {
             std::cerr << "Failed to seek to content start: " << strerror(errno) << std::endl;
@@ -707,11 +694,9 @@ std::string Post::htmlEscape(const std::string &input) {
 std::vector<Post::FormPart> Post::parseMultipartForm(const std::string &body, const std::string &boundary) {
     std::vector<FormPart> parts;
     
-    // Prepare the boundary strings
     std::string startBoundary = "--" + boundary;
     std::string endBoundary = "--" + boundary + "--";
     
-    // Find all boundary positions
     std::vector<size_t> boundaryPositions;
     size_t pos = 0;
     while ((pos = body.find(startBoundary, pos)) != std::string::npos) {
@@ -719,55 +704,43 @@ std::vector<Post::FormPart> Post::parseMultipartForm(const std::string &body, co
         pos += startBoundary.length();
     }
     
-    // Process each part between boundaries
     for (size_t i = 0; i < boundaryPositions.size(); ++i) {
         size_t currentPos = boundaryPositions[i] + startBoundary.length();
         
-        // Skip the CRLF after boundary
         if (currentPos + 1 < body.length() && body[currentPos] == '\r' && body[currentPos + 1] == '\n') {
             currentPos += 2;
         } else {
-            // Malformed boundary, skip this part
             continue;
         }
         
-        // Find the end of this part (next boundary or end of body)
         size_t nextBoundaryPos = (i + 1 < boundaryPositions.size()) ? 
                                 boundaryPositions[i + 1] : 
                                 body.find(endBoundary, currentPos);
         
         if (nextBoundaryPos == std::string::npos) {
-            // No more boundaries found, use end of body
             nextBoundaryPos = body.length();
         }
         
-        // Extract the part content
         std::string partContent = body.substr(currentPos, nextBoundaryPos - currentPos);
         
-        // Parse the part headers and content
         size_t headerEndPos = partContent.find("\r\n\r\n");
         if (headerEndPos == std::string::npos) {
-            // Malformed part, no header/body separator
             continue;
         }
         
         std::string headers = partContent.substr(0, headerEndPos);
         std::string partBody = partContent.substr(headerEndPos + 4); // Skip \r\n\r\n
         
-        // Remove trailing \r\n if present (before the next boundary)
         if (partBody.length() >= 2 && 
             partBody[partBody.length() - 2] == '\r' && 
             partBody[partBody.length() - 1] == '\n') {
             partBody = partBody.substr(0, partBody.length() - 2);
         }
         
-        // Parse headers
         FormPart part;
         
-        // Look for Content-Disposition header
         size_t contentDispPos = headers.find("Content-Disposition:");
         if (contentDispPos != std::string::npos) {
-            // Extract name
             size_t namePos = headers.find("name=\"", contentDispPos);
             if (namePos != std::string::npos) {
                 namePos += 6; // Skip "name=""
@@ -777,7 +750,6 @@ std::vector<Post::FormPart> Post::parseMultipartForm(const std::string &body, co
                 }
             }
             
-            // Extract filename if present (indicates a file upload)
             size_t filenamePos = headers.find("filename=\"", contentDispPos);
             if (filenamePos != std::string::npos) {
                 filenamePos += 10; // Skip "filename=""
@@ -789,14 +761,11 @@ std::vector<Post::FormPart> Post::parseMultipartForm(const std::string &body, co
             }
         }
         
-        // Look for Content-Type header
         size_t contentTypePos = headers.find("Content-Type:");
         if (contentTypePos != std::string::npos) {
             contentTypePos += 13; // Skip "Content-Type:"
-            // Find the end of the line
             size_t contentTypeEndPos = headers.find("\r\n", contentTypePos);
             if (contentTypeEndPos != std::string::npos) {
-                // Trim leading spaces
                 while (contentTypePos < contentTypeEndPos && isspace(headers[contentTypePos])) {
                     contentTypePos++;
                 }
@@ -804,10 +773,8 @@ std::vector<Post::FormPart> Post::parseMultipartForm(const std::string &body, co
             }
         }
         
-        // Store the body content
         part.body = partBody;
         
-        // Add the part to our result
         parts.push_back(part);
     }
     

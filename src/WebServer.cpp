@@ -678,10 +678,10 @@ void WebServer::processHttpRequest(int fd)
 
 void WebServer::sendErrorResponse(int fd, int code, const std::string &message)
 {
-    std::string body = "<html><body><h1>" + std::to_string(code) + " " + message + "</h1></body></html>";
-    std::string response = "HTTP/1.1 " + std::to_string(code) + " " + message + "\r\n";
+    std::string body = "<html><body><h1>" + std::stringstream(code) + " " + message + "</h1></body></html>";
+    std::string response = "HTTP/1.1 " + std::stringstream(code) + " " + message + "\r\n";
     response += "Content-Type: text/html\r\n";
-    response += "Content-Length: " + std::to_string(body.size()) + "\r\n";
+    response += "Content-Length: " + std::stringstream(body.size()) + "\r\n";
     response += "Connection: close\r\n"; // Always close on errors
     response += "\r\n";
     response += body;
