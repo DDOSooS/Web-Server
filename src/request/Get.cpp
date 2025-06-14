@@ -1,4 +1,5 @@
 #include "../../include/request/Get.hpp"
+#include "../../include/request/HttpRequest.hpp"
 #include "../../include/config/Location.hpp" 
 
 Get::Get()

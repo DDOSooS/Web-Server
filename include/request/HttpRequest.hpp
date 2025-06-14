@@ -48,6 +48,7 @@ class HttpRequest
         RequestLineStatus                                   _is_rl; //request line
         bool                                                _are_header_parsed;
         bool                                                _is_redirected; // Flag to indicate if the request is redirected or not
+        bool                                                _processed; // Flag to indicate if the request has been processed
 
 
     public:
@@ -68,9 +69,11 @@ class HttpRequest
         enum RequestStatus                              GetStatus() const;
         std::string                                     GetQueryStringStr() const;
         bool                                            IsRedirected() const;
+        bool                                            IsProcessed() const;
         std::string                                     GetRelativePath(const Location * cur_location) const ;
 
         void                                            SetIsRedirected(bool);
+        void                                            SetProcessed(bool);
         void                                            SetQueryStringStr(std::string);
         void                                            SetClientData(ClientConnection *);
         void                                            SetMethod(std::string);
@@ -91,5 +94,6 @@ class HttpRequest
         void                                            handleRedirect(const Location * cur_location , std::string &rel_path);
         std::string                                     GetRedirectionMessage(int status_code) const;
         ~HttpRequest();
-    };
-size_t                                          GetFileSize(std::string &file) ; // Returns the size of the file in bytes, if applicable
+};
+
+size_t                                          GetFileSize(std::string &file) ; 

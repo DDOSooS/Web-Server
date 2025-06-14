@@ -30,6 +30,13 @@ void    RequestHandler::HandleRequest(HttpRequest *request, const ServerConfig &
         std::cerr << "Error: Null request in RequestHandler" << std::endl;
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
+    
+    // Check if this request has already been processed
+    if (request->IsProcessed())
+    {
+        std::cout << "[DEBUG] Request already processed, skipping handler chain" << std::endl;
+        return;
+    }
     /* check for redirection */
     std::string rel_path;
     // std::cout << "RequestHandler::HandleRequest=================" << std::endl;

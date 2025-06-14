@@ -22,6 +22,7 @@ HttpRequest::HttpRequest(HttpRequest const &src)
     _are_header_parsed = src._are_header_parsed;
     _query_string_str = src._query_string_str;
     _is_redirected = src._is_redirected;
+    _processed = src._processed;
 }
 
 bool HttpRequest::FindHeader(std::string key, std::string value)
@@ -128,11 +129,21 @@ bool HttpRequest::IsRedirected() const
     return _is_redirected;
 }
 
+bool HttpRequest::IsProcessed() const
+{
+    return _processed;
+}
+
 
 
 void HttpRequest::SetIsRedirected(bool is_redirected)
 {
     _is_redirected = is_redirected;
+}
+
+void HttpRequest::SetProcessed(bool processed)
+{
+    _processed = processed;
 }
 
 ClientConnection *  HttpRequest::GetClientDatat() const
@@ -216,6 +227,7 @@ void HttpRequest::ResetRequest()
     _query_string_str = "";
     _headers.clear();
     _is_redirected = false;
+    _processed = false;
 }
 
 bool HttpRequest::IsValidRequest() const

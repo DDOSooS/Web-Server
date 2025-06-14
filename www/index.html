@@ -20,18 +20,104 @@
 
     </ul>
     
-    <h3>POST Request Test:</h3>
-    <form action="/cgi-bin/hello.py" method="POST">
-        <label>Name: <input type="text" name="name" value="Alice"></label><br>
-        <label>Email: <input type="email" name="email" value="alice@example.com"></label><br>
-        <label>Message: <textarea name="message">Hello from POST!</textarea></label><br>
-        <input type="submit" value="Submit POST Request">
-    </form>
+    <h2>Direct POST Tests </h2>
     
-    <form action="/cgi-bin/info.php" method="POST">
-        <label>Username: <input type="text" name="username" value="testuser"></label><br>
-        <label>Password: <input type="password" name="password" value="testpass"></label><br>
-        <input type="submit" value="Submit to PHP">
+    <h3>URL-Encoded Form Test:</h3>
+    <form action="/post-test" method="POST">
+        <label>First Name: <input type="text" name="firstname" value="John"></label><br>
+        <label>Last Name: <input type="text" name="lastname" value="Doe"></label><br>
+        <label>Age: <input type="text" name="age" value="25"></label><br>
+        <label>Comments: <textarea name="comments">This is a test comment...</textarea></label><br>
+        <input type="submit" value="Submit Form Data">
     </form>
+
+    <h3>File Upload Test:</h3>
+    <form action="/upload" method="POST" enctype="multipart/form-data">
+        <label>Upload File: <input type="file" name="upload_file"></label><br>
+        <label>Description: <input type="text" name="description" value="Test file upload"></label><br>
+        <input type="submit" value="Upload File">
+    </form>
+
+    <h3>Text Test:</h3>
+    <form onsubmit="submitText(event)">
+        <label>Text Data: <textarea id="text-data">This is plain text data for testing.</textarea></label><br>
+        <input type="submit" value="Submit Text">
+    </form>
+
+    <h2>DELETE Tests</h2>
+    
+    <h3>Delete File:</h3>
+    <form onsubmit="deleteFile(event)">
+        <label>Filename: <input type="text" name="filename" placeholder="test.txt"></label><br>
+        <input type="submit" value="Delete File">
+    </form>
+
+    <h3>Quick Delete Actions:</h3>
+    <button onclick="confirmDelete('/delete?file=test.txt')">Delete test.txt</button>
+    <button onclick="confirmDelete('/delete?path=uploads/temp')">Delete temp directory</button>
+
+    <script>
+        function submitJSON(event) {
+            event.preventDefault();
+            const jsonData = document.getElementById('json-data').value;
+            
+            fetch('/api/data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: jsonData
+            })
+            .then(response => response.text())
+            .then(html => {
+                const newWindow = window.open();
+                newWindow.document.write(html);
+            })
+            .catch(error => alert('Error: ' + error));
+        }
+
+        function submitText(event) {
+            event.preventDefault();
+            const textData = document.getElementById('text-data').value;
+            
+            fetch('/text-data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain'
+                },
+                body: textData
+            })
+            .then(response => response.text())
+            .then(html => {
+                const newWindow = window.open();
+                newWindow.document.write(html);
+            })
+            .catch(error => alert('Error: ' + error));
+        }
+
+        function deleteFile(event) {
+            event.preventDefault();
+            const filename = event.target.filename.value;
+            if (!filename) {
+                alert('Please enter a filename');
+                return;
+            }
+            confirmDelete('/delete?file=' + encodeURIComponent(filename));
+        }
+
+        function confirmDelete(url) {
+            if (confirm('Are you sure you want to delete this item?')) {
+                fetch(url, {
+                    method: 'DELETE'
+                })
+                .then(response => response.text())
+                .then(html => {
+                    const newWindow = window.open();
+                    newWindow.document.write(html);
+                })
+                .catch(error => alert('Delete failed: ' + error));
+            }
+        }
+    </script>
 </body>
 </html>

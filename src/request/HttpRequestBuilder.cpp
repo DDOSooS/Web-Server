@@ -242,7 +242,30 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
         throw HttpException(400, "Bad Request", BAD_REQUEST);
     }
     std::cout << "Crlf Test is BEING PASSED WELL!!!\n";
-    std::istringstream iss(rawRequest);
+    
+    // Find the separation between headers and body
+    size_t bodyStart = rawRequest.find("\r\n\r\n");
+    if (bodyStart == std::string::npos) {
+        bodyStart = rawRequest.find("\n\n");
+        if (bodyStart != std::string::npos) {
+            bodyStart += 2;
+        }
+    } else {
+        bodyStart += 4;
+    }
+    
+    std::string headersPart;
+    std::string bodyPart;
+    
+    if (bodyStart != std::string::npos) {
+        headersPart = rawRequest.substr(0, bodyStart - 4); // Remove the \r\n\r\n
+        bodyPart = rawRequest.substr(bodyStart);
+    } else {
+        headersPart = rawRequest;
+        bodyPart = "";
+    }
+    
+    std::istringstream iss(headersPart);
     std::string line;
 
     // Parse request line
@@ -282,23 +305,34 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
         return;
     }
 
-    // Parse body if present
-    //@todo Ilyas: check if the body is too large to be processed and being parsed at once does will affect the performance of !!!!
-    // the server
-    std::string body;
-    std::string bodyLine;
-    
-    // Skip to the blank line that separates headers from body
-    while (std::getline(iss, bodyLine) && !bodyLine.empty() && bodyLine != "\r") {}
-    
-    // Read the rest as body
-    while (std::getline(iss, bodyLine)) {
-        body += bodyLine;
-        body += "\n";
-    }
-    
-    if (!body.empty()) {
-        ParseRequestBody(body);
+    // Parse body if present - FIXED SECTION
+    if (!bodyPart.empty()) {
+        std::cout << "Content-Length header found: " << _http_request.GetHeader("Content-Length") << " bytes" << std::endl;
+        std::cout << "Actual body size: " << bodyPart.size() << " bytes" << std::endl;
+        std::cout << "Body content: " << bodyPart << std::endl;
+        
+        // Check if we have a Content-Length header
+        std::string contentLength = _http_request.GetHeader("Content-Length");
+        if (!contentLength.empty()) {
+            size_t expectedLength;
+            std::stringstream ss(contentLength);
+            ss >> expectedLength;
+            
+            // Check if we have the complete body
+            if (bodyPart.size() >= expectedLength) {
+                // Take only the expected amount
+                bodyPart = bodyPart.substr(0, expectedLength);
+                std::cout << "Already read " << bodyPart.size() << " bytes of body" << std::endl;
+            } else {
+                std::cout << "Body incomplete: got " << bodyPart.size() << " bytes, expected " << expectedLength << std::endl;
+            }
+        }
+        
+        // Set the body
+        ParseRequestBody(bodyPart);
+        std::cout << "Body set in request object: " << _http_request.GetBody().size() << " bytes" << std::endl;
+    } else {
+        std::cout << "No body found in request" << std::endl;
     }
 }
 
