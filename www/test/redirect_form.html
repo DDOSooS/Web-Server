@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Redirect Test Form</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        form {
+            background-color: #f5f5f5;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .test-section {
+            margin-top: 30px;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Redirect Test Form</h1>
+    
+    <div class="test-section">
+        <h2>Test 307 Temporary Redirect</h2>
+        <p>This form will be redirected with a 307 status code, which should preserve the POST method and body.</p>
+        <form action="/test/redirect307" method="post">
+            <label for="name307">Name:</label>
+            <input type="text" id="name307" name="name" value="Test User">
+            
+            <label for="message307">Message:</label>
+            <textarea id="message307" name="message" rows="4">This is a test message for 307 redirect</textarea>
+            
+            <button type="submit">Submit (307 Redirect)</button>
+        </form>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 308 Permanent Redirect</h2>
+        <p>This form will be redirected with a 308 status code, which should preserve the POST method and body.</p>
+        <form action="/test/redirect308" method="post">
+            <label for="name308">Name:</label>
+            <input type="text" id="name308" name="name" value="Test User">
+            
+            <label for="message308">Message:</label>
+            <textarea id="message308" name="message" rows="4">This is a test message for 308 redirect</textarea>
+            
+            <button type="submit">Submit (308 Redirect)</button>
+        </form>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 302 Found Redirect</h2>
+        <p>This form will be redirected with a 302 status code, which typically changes the method to GET and discards the body.</p>
+        <form action="/test/redirect302" method="post">
+            <label for="name302">Name:</label>
+            <input type="text" id="name302" name="name" value="Test User">
+            
+            <label for="message302">Message:</label>
+            <textarea id="message302" name="message" rows="4">This is a test message for 302 redirect</textarea>
+            
+            <button type="submit">Submit (302 Redirect)</button>
+        </form>
+    </div>
+</body>
+</html>

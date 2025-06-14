@@ -1,6 +1,0 @@
-5\r\n
-Hello\r\n
-5\r\n
-World\r\n
-0\r\n
-\r\n

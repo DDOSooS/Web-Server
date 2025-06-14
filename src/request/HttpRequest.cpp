@@ -349,23 +349,91 @@ std::string  HttpRequest::GetRedirectionMessage(int status_code) const
     return message;
 }
 
-void HttpRequest::handleRedirect(const Location *cur_location,  std::string &rel_path)
+void HttpRequest::handleRedirect(const Location *cur_location, std::string &rel_path)
 {
     std::stringstream ss;
-    int               status_code;
+    int status_code;
 
     ss << cur_location->get_return()[0];
     ss >> status_code;
-    std::cout << "[REDIRECTED TO : " << rel_path  << " ]"<< std::endl;
+    std::cout << "[REDIRECTED TO : " << rel_path << " ]" << std::endl;
+    
+    // Set basic response properties
     this->GetClientDatat()->http_response->setStatusCode(status_code);
     this->GetClientDatat()->http_response->setStatusMessage(GetRedirectionMessage(status_code));
     this->GetClientDatat()->http_response->setChunked(false);
     this->GetClientDatat()->http_response->setHeader("Location", rel_path);
-    // in case of redirection doesn't contain a body, we set an empty buffer
-    if (this->GetBody().empty())
+    
+    // For 307 (Temporary Redirect) and 308 (Permanent Redirect), we must preserve the method and body
+    // For other redirect codes (301, 302, 303), the method may change to GET and body is typically discarded
+    if (status_code == 307 || status_code == 308)
+    {
+        std::cout << "[ INFO ] : Handling " << status_code << " redirect with method preservation" << std::endl;
+        
+        // Preserve the original method
+        this->GetClientDatat()->http_response->setHeader("X-Original-Method", this->GetMethod());
+        
+        // Handle the body based on its size and content type
+        if (!this->GetBody().empty())
+        {
+            // Get content type and content length
+            std::string content_type = this->GetHeader("Content-Type");
+            size_t body_size = this->GetBody().size();
+            
+            // Set content type if available
+            if (!content_type.empty())
+            {
+                this->GetClientDatat()->http_response->setHeader("Content-Type", content_type);
+                std::cout << "[ INFO ] : Setting Content-Type: " << content_type << std::endl;
+            }
+            
+            // Set content length
+            this->GetClientDatat()->http_response->setHeader("Content-Length", std::to_string(body_size));
+            
+            // Check if body is too large for efficient handling
+            const size_t MAX_BODY_SIZE_FOR_REDIRECT = 1024 * 1024; // 1MB threshold
+            if (body_size > MAX_BODY_SIZE_FOR_REDIRECT)
+            {
+                std::cout << "[ WARNING ] : Large body size (" << body_size << " bytes) in " 
+                          << status_code << " redirection" << std::endl;
+                
+                // For very large bodies, we have several options:
+                // 1. Include the full body (may impact performance)
+                this->GetClientDatat()->http_response->setBuffer(this->GetBody());
+                
+                // 2. Alternative: Set a header indicating large content and provide a summary
+                this->GetClientDatat()->http_response->setHeader("X-Large-Content", "true");
+                
+                // 3. For form data, we could preserve just the field names
+                if (content_type.find("multipart/form-data") != std::string::npos || 
+                    content_type.find("application/x-www-form-urlencoded") != std::string::npos)
+                {
+                    this->GetClientDatat()->http_response->setHeader("X-Form-Data-Size", std::to_string(body_size));
+                }
+            }
+            else
+            {
+                // For smaller bodies, include the complete original body
+                this->GetClientDatat()->http_response->setBuffer(this->GetBody());
+                std::cout << "[ INFO ] : Including original body in redirect response (" 
+                          << body_size << " bytes)" << std::endl;
+            }
+        }
+        else
+        {
+            // Empty body case
+            this->GetClientDatat()->http_response->setBuffer(" ");
+            std::cout << "[ INFO ] : Empty body in redirect" << std::endl;
+        }
+    }
+    else
+    {
+        // For other redirects (301, 302, 303), the method typically changes to GET
+        // and the body is not preserved
+        std::cout << "[ INFO ] : Standard redirect " << status_code 
+                  << ", not preserving body" << std::endl;
         this->GetClientDatat()->http_response->setBuffer(" ");
-    // else
-        // just if thr redirection statud code is 307 308 !!!!!
-        // @To do by ILyas check if the body size is too large, if so , you need to handle it for performance considerations !!!!!!!!!1
-    return ;
+    }
+    
+    return;
 }
