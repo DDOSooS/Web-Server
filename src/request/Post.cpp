@@ -242,10 +242,10 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
     
     // First check if we can extract the original filename from the request
     if (content_type.find("multipart/form-data") != std::string::npos) {
-        // Try to read the first few KB of the file to extract the filename
+        // Try to read the first few KB of the file to extract the filename and locate the actual file content
         int source_fd = open(file_path.c_str(), O_RDONLY);
         if (source_fd >= 0) {
-            char buffer[8192]; // Read first 8KB to find Content-Disposition header
+            char buffer[16384]; // Read first 16KB to find Content-Disposition header and content start
             ssize_t bytes_read = read(source_fd, buffer, sizeof(buffer) - 1);
             if (bytes_read > 0) {
                 buffer[bytes_read] = '\0';
@@ -308,7 +308,77 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
     }
     std::string dest_path = uploads_dir + "/" + unique_filename;
     
-    // Use copy instead of rename to handle cross-device moves
+    // For multipart/form-data, we need to extract the actual file content from the temporary file
+    // by skipping the headers and boundaries
+    off_t content_offset = 0;
+    size_t content_length = file_stat.st_size;
+    
+    if (content_type.find("multipart/form-data") != std::string::npos) {
+        // Re-open the file to find the actual content boundaries
+        int header_fd = open(file_path.c_str(), O_RDONLY);
+        if (header_fd < 0) {
+            std::cerr << "Failed to open source file for header analysis: " << strerror(errno) << std::endl;
+            setErrorResponse(request, 500, "Failed to process uploaded file");
+            return;
+        }
+        
+        // Read enough of the file to find the headers
+        char header_buffer[32768]; // 32KB should be enough for most multipart headers
+        ssize_t header_bytes_read = read(header_fd, header_buffer, sizeof(header_buffer) - 1);
+        close(header_fd);
+        
+        if (header_bytes_read > 0) {
+            header_buffer[header_bytes_read] = '\0';
+            std::string header_data(header_buffer, header_bytes_read);
+            
+            // Find the double CRLF that separates headers from content
+            size_t content_start = header_data.find("\r\n\r\n");
+            if (content_start != std::string::npos) {
+                // Skip the double CRLF
+                content_offset = content_start + 4;
+                
+                // Find the boundary string
+                size_t boundary_pos = content_type.find("boundary=");
+                if (boundary_pos != std::string::npos) {
+                    boundary_pos += 9; // Skip "boundary="
+                    std::string boundary;
+                    if (content_type[boundary_pos] == '"') {
+                        // Quoted boundary
+                        boundary_pos++;
+                        size_t boundary_end = content_type.find('"', boundary_pos);
+                        if (boundary_end != std::string::npos) {
+                            boundary = content_type.substr(boundary_pos, boundary_end - boundary_pos);
+                        }
+                    } else {
+                        // Unquoted boundary
+                        size_t boundary_end = content_type.find(';', boundary_pos);
+                        if (boundary_end == std::string::npos) {
+                            boundary_end = content_type.length();
+                        }
+                        boundary = content_type.substr(boundary_pos, boundary_end - boundary_pos);
+                    }
+                    
+                    if (!boundary.empty()) {
+                        std::string end_boundary = "\r\n--" + boundary + "--";
+                        size_t end_pos = header_data.find(end_boundary);
+                        if (end_pos != std::string::npos) {
+                            // Adjust content length to exclude the end boundary
+                            content_length = end_pos - content_offset;
+                        } else {
+                            // If we can't find the end boundary in our buffer, we'll need to
+                            // subtract an estimate for the end boundary from the total file size
+                            content_length = file_stat.st_size - content_offset - (end_boundary.length() + 10);
+                        }
+                    }
+                }
+                
+                std::cout << "Multipart form data: content starts at offset " << content_offset 
+                          << ", estimated content length: " << content_length << std::endl;
+            }
+        }
+    }
+    
+    // Open source file for reading
     int source_fd = open(file_path.c_str(), O_RDONLY);
     if (source_fd < 0) {
         std::cerr << "Failed to open source file: " << strerror(errno) << std::endl;
@@ -316,7 +386,19 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
         return;
     }
     
-    std::cout << "Copying file from " << file_path << " to " << dest_path << " with extension " << file_extension << std::endl;
+    // Seek to the start of the actual file content if needed
+    if (content_offset > 0) {
+        if (lseek(source_fd, content_offset, SEEK_SET) != content_offset) {
+            std::cerr << "Failed to seek to content start: " << strerror(errno) << std::endl;
+            close(source_fd);
+            setErrorResponse(request, 500, "Failed to process uploaded file");
+            return;
+        }
+    }
+    
+    std::cout << "Copying file from " << file_path << " to " << dest_path 
+              << " with extension " << file_extension 
+              << " (offset: " << content_offset << ", length: " << content_length << ")" << std::endl;
     
     int dest_fd = open(dest_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (dest_fd < 0) {
@@ -331,22 +413,24 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
     char buffer[8192];
     ssize_t bytes_read, bytes_written;
     size_t total_written = 0;
+    size_t remaining_content = content_length;
     bool copy_success = true;
     
-    while ((bytes_read = read(source_fd, buffer, sizeof(buffer))) > 0) {
+    while (remaining_content > 0 && (bytes_read = read(source_fd, buffer, std::min(sizeof(buffer), remaining_content))) > 0) {
         char* ptr = buffer;
-        size_t remaining = bytes_read;
+        size_t remaining_chunk = bytes_read;
         
-        while (remaining > 0) {
-            bytes_written = write(dest_fd, ptr, remaining);
+        while (remaining_chunk > 0) {
+            bytes_written = write(dest_fd, ptr, remaining_chunk);
             if (bytes_written <= 0) {
                 std::cerr << "Write error: " << strerror(errno) << std::endl;
                 copy_success = false;
                 break;
             }
             ptr += bytes_written;
-            remaining -= bytes_written;
+            remaining_chunk -= bytes_written;
             total_written += bytes_written;
+            remaining_content -= bytes_written;
         }
         
         if (!copy_success) break;
