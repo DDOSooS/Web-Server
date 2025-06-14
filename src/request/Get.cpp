@@ -75,6 +75,7 @@ bool Get::check_auto_indexing(const Location *cur_location, const ServerConfig &
 
 std::string Get::ListingDir(const std::string &path, std::string request_path, const Location *cur_location,const ServerConfig &serverConfig)
 {
+    std::cout << "[DEBUG] REL PATH :" << path << std::endl;
     //To Check the auto indexing Option  Conf File
     if (!check_auto_indexing(cur_location, serverConfig))
     {
@@ -90,7 +91,7 @@ std::string Get::ListingDir(const std::string &path, std::string request_path, c
     if (normalized_path.empty() || normalized_path[0] != '/')
         normalized_path = "/" + normalized_path;
     path_ = normalized_path;  // Use a relative path that exists in your project structure
-    // std::cout << "Opening directory: " << path_ << std::endl;
+    std::cout << "Opening directory: " << path_ << std::endl;
     dir = opendir(path_.c_str());
     if (dir == NULL)
     {

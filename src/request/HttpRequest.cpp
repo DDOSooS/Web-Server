@@ -365,6 +365,7 @@ void HttpRequest::handleRedirect(const Location *cur_location,  std::string &rel
     if (this->GetBody().empty())
         this->GetClientDatat()->http_response->setBuffer(" ");
     // else
+        // just if thr redirection statud code is 307 308 !!!!!
         // @To do by ILyas check if the body size is too large, if so , you need to handle it for performance considerations !!!!!!!!!1
     return ;
 }
