@@ -145,6 +145,11 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line,const Server
     // check if the method is valid
         check for location -> default locatoin -> error page 404
 
+        std::cout << "PATH (( " << path << "  ))\n";  
+        if (cur_location)
+            std::cout << "CURRENT LOCATION EXIST !!!!!!!!!!!!!---" << cur_location->get_path() << "==" << cur_location->get_allowMethods().size() << "===" << cur_location->get_root_location() << std::endl;
+        else
+            std::cout << "CURRENT LOCATION DOESN'T EXIST !!!!!!!!!!!!!\n";
     */
     // need to intergate the conf file congiguration!!!
     std::vector<std::string> valid_methods;
