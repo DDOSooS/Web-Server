@@ -76,6 +76,23 @@ std::string HttpRequestBuilder::UrlDecode(const std::string &req_line)
     return decoded;
 }
 
+void    HttpRequestBuilder::TrimPath(std::string &path)
+{
+    for (size_t i = 0; i < path.size(); ++i)
+    {
+        if (path[i] == '/' && i < path.size() - 1 && path[i + 1] == '/')
+        {
+            path.erase(i, 1);
+            --i;
+        }
+    }
+    if (path.empty() || path[0] != '/')
+    {
+        path = "/" + path;
+        return;
+    }
+}
+
 void HttpRequestBuilder::ParseRequestLine(std::string &request_line,const ServerConfig &serverConfig)
 {
     std::cout << "[INFO] : PARSING REQ LINE !!!!!!!!!!!!!!\n";
@@ -85,6 +102,7 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line,const Server
     std::string         method, path, http_version;
 
     iss >> method >> path >> http_version;
+    TrimPath(path);
     // check if the request line is a query string ?
     if (path.find("?") != std::string::npos)
     {
@@ -127,11 +145,6 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line,const Server
     // check if the method is valid
         check for location -> default locatoin -> error page 404
 
-        std::cout << "PATH (( " << path << "  ))\n";  
-        if (cur_location)
-            std::cout << "CURRENT LOCATION EXIST !!!!!!!!!!!!!---" << cur_location->get_path() << "==" << cur_location->get_allowMethods().size() << "===" << cur_location->get_root_location() << std::endl;
-        else
-            std::cout << "CURRENT LOCATION DOESN'T EXIST !!!!!!!!!!!!!\n";
     */
     // need to intergate the conf file congiguration!!!
     std::vector<std::string> valid_methods;
@@ -163,27 +176,7 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line,const Server
     _http_request.SetStatus(PARSER);
 }
 
-/*
-void HttpRequestBuilder::ParseRequsetHeaders(std::istringstream &iss)
-{
-    std::string line;
 
-    std::getline(iss, line);
-    while (std::getline(iss, line) && line != "\r\n")
-    {
-        std::string key, value;
-        size_t pos = line.find(":");
-        if (pos != std::string::npos)
-        {
-            key = line.substr(0, pos);
-            value = line.substr(pos + 1);
-            // Remove leading whitespace from value
-            value.erase(0, value.find_first_not_of(" \t"));
-            _http_request.SetHeader(key, value);
-        }
-    }
-}
-*/
 
 void HttpRequestBuilder::ParseRequsetHeaders(std::istringstream &iss)
 {
@@ -204,21 +197,7 @@ void HttpRequestBuilder::ParseRequsetHeaders(std::istringstream &iss)
         key = line.substr(0, pos);
         value = line.substr(pos + 1);
         value.erase(0, value.find_first_not_of(" \t"));
-        /*
-            if (key.empty() || value.empty())
-            {
-                
-            throw HttpException(400, "Empty Header Key/Value", ERROR_TYPE::BAD_REQUEST);
-            }
-            Check for invalid characters in key
-            if (key.find_first_of("()<>@,;:\\/[]?={} \t") != std::string::npos) {
-                throw HttpException(400, "Invalid Header Key: " + key, ERROR_TYPE::BAD_REQUEST);
-            }
-            
-            if (_http_request.GetHeader(key).empty()){
-                throw HttpException(400, "Duplicate Header: " + key, ERROR_TYPE::BAD_REQUEST);
-            }
-        */
+
         _http_request.SetHeader(key, value);
     }
 }
@@ -245,22 +224,29 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
     
     // Find the separation between headers and body
     size_t bodyStart = rawRequest.find("\r\n\r\n");
-    if (bodyStart == std::string::npos) {
+    if (bodyStart == std::string::npos)
+    {
         bodyStart = rawRequest.find("\n\n");
-        if (bodyStart != std::string::npos) {
+        if (bodyStart != std::string::npos)
+        {
             bodyStart += 2;
         }
-    } else {
+    }
+    else
+    {
         bodyStart += 4;
     }
     
     std::string headersPart;
     std::string bodyPart;
     
-    if (bodyStart != std::string::npos) {
-        headersPart = rawRequest.substr(0, bodyStart - 4); // Remove the \r\n\r\n
+    if (bodyStart != std::string::npos)
+    {
+        headersPart = rawRequest.substr(0, bodyStart - 4);
         bodyPart = rawRequest.substr(bodyStart);
-    } else {
+    }
+    else
+    {
         headersPart = rawRequest;
         bodyPart = "";
     }
@@ -275,7 +261,6 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
     {
         //throw an exception or handle error
         std::cerr << "Invalid request line===========================================\n" << std::endl;
-        // exit(1);
         if (_http_request.GetIsRl() == REQ_HTTP_VERSION_ERROR)
         {
             // std::cout << "HTTP VERSION ERROR>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n";
@@ -307,31 +292,36 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
 
     // Parse body if present - FIXED SECTION
     if (!bodyPart.empty()) {
+        
         std::cout << "Content-Length header found: " << _http_request.GetHeader("Content-Length") << " bytes" << std::endl;
         std::cout << "Actual body size: " << bodyPart.size() << " bytes" << std::endl;
         std::cout << "Body content: " << bodyPart << std::endl;
-        
         // Check if we have a Content-Length header
         std::string contentLength = _http_request.GetHeader("Content-Length");
-        if (!contentLength.empty()) {
+        if (!contentLength.empty())
+        {
             size_t expectedLength;
             std::stringstream ss(contentLength);
             ss >> expectedLength;
             
             // Check if we have the complete body
-            if (bodyPart.size() >= expectedLength) {
+            if (bodyPart.size() >= expectedLength)
+            {
                 // Take only the expected amount
                 bodyPart = bodyPart.substr(0, expectedLength);
                 std::cout << "Already read " << bodyPart.size() << " bytes of body" << std::endl;
-            } else {
+            }
+            else
+            {
                 std::cout << "Body incomplete: got " << bodyPart.size() << " bytes, expected " << expectedLength << std::endl;
             }
         }
-        
         // Set the body
         ParseRequestBody(bodyPart);
         std::cout << "Body set in request object: " << _http_request.GetBody().size() << " bytes" << std::endl;
-    } else {
+    }
+    else
+    {
         std::cout << "No body found in request" << std::endl;
     }
 }
