@@ -296,6 +296,7 @@ void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConf
             request->GetClientDatat()->http_response->setByteToSend(GetFileSize(indexFile));
             if (request->GetClientDatat()->http_response->getByteToSend() > 1000000 )
             {
+
                 // std::cout << "[Debug] : File size is greater than 1MB, sending as chunked response." << std::endl;
                 request->GetClientDatat()->http_response->setChunked(true);
             }
@@ -321,7 +322,11 @@ void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConf
     }
     else
     {
-        if (GetFileSize(rel_path) > 1000000)
+        request->GetClientDatat()->http_response->setByteToSend(GetFileSize(rel_path));
+        std::cout << "[Debug] : File size to send: " << request->GetClientDatat()->http_response->getByteToSend() << " bytes." << std::endl;
+        // exit(11);
+
+        if (request->GetClientDatat()->http_response->getByteToSend() > 1000000)
         {
             std::cout << "[Debug] : File size is greater than 1MB, sending as chunked response." << std::endl;
             request->GetClientDatat()->http_response->setChunked(true);

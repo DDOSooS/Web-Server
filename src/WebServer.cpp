@@ -136,11 +136,17 @@ int WebServer::run()
 
             if (pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL))
             {
+                    std::cerr << "Poll event flags: ";
+                    if (pollfds[i].revents & POLLERR) std::cerr << "POLLERR ";
+                    if (pollfds[i].revents & POLLHUP) std::cerr << "POLLHUP ";
+                    if (pollfds[i].revents & POLLNVAL) std::cerr << "POLLNVAL ";
+                    std::cerr << std::endl;
                 if (fd == m_socket) {
                     std::cerr << "Error on listening socket!" << std::endl;
                     running = false;
                     break;
                 } else {
+                    std::cerr << "Error on client socket " << fd << ", closing connection." << std::endl;
                     closeClientConnection(fd);
                 }
                 continue;
@@ -177,6 +183,7 @@ int WebServer::run()
                     // Handle the exception using the error handler
                     Error error(clients[fd], e.GetCode(), e.GetMessage(), e.GetErrorType());
                     errorHandler->HanldeError(error, this->getServerConfig());
+                    std::cout  << "[DEBUG] : CLOSING CLIENT CONNECITON HAPPENED HERE\n";
                     closeClientConnection(fd);
                 }
             }
@@ -353,8 +360,6 @@ void WebServer::handleClientResponse(int fd)
         std::cerr << "Client with fd " << fd << " not found in clients map" << std::endl;
         return;
     }
-
-
     ClientConnection &client = clients[fd];
 /*
     if (client.http_response)
@@ -372,7 +377,8 @@ void WebServer::handleClientResponse(int fd)
     {
         std::cerr << "Warning: client.http_response is null for fd " << fd << std::endl;
         
-        try {
+        try
+        {
             // Create a default response for error handling
             std::map<std::string, std::string> headers;
             headers["Content-Type"] = "text/html";
@@ -384,7 +390,6 @@ void WebServer::handleClientResponse(int fd)
                 closeClientConnection(fd);
                 return;
             }
-            
             client.http_response->setBuffer("<html><body><h1>500 Internal Server Error</h1><p>Invalid response state</p></body></html>");
             
             // Send this error response
@@ -399,14 +404,12 @@ void WebServer::handleClientResponse(int fd)
             std::cerr << "Exception creating error response: " << e.what() << std::endl;
         } catch (...) {
             std::cerr << "Unknown exception creating error response" << std::endl;
-        }
-        
+        }        
         // Always close the connection when there's an error
         closeClientConnection(fd);
         return;
     }
     */
-    
     // Check if we have data to send
     if (client.http_response == NULL)
     {
@@ -415,24 +418,55 @@ void WebServer::handleClientResponse(int fd)
         // exit(0);
         return;
     }
-
     // Check if we have data to send
     if (client.http_response->checkAvailablePacket())
     {
-        std::cout << "No data to send for client fd: " << fd << std::endl;        
-        if (client.http_response->isChunked())
-        {
-            client.http_response->sendChunkedResponse(fd);
-            return ;
-        }
+        std::cout << "\n\ndata to send for client fd: " << fd << std::endl;        
+         if (client.http_response->isChunked())
+            {
+                std::cout << "[Debug] sending chunked response\n";
+                try {
+                    client.http_response->sendChunkedResponse(fd);
+                    
+                    std::cout << "----------- [Chunked response Detail] -------------\n";
+                    std::cout << "File bytes sent: " << client.http_response->getByteSent() << "\n";
+                    std::cout << "File bytes to send: " << client.http_response->getByteToSend() << "\n";
+                    if (client.http_response->getByteSent() >= client.http_response->getByteToSend())
+                    {
+                        client.http_response->sendChunkedResponse(fd);
+                        std::cout << "Chunked response sent completely\n";
+                        
+                        if (client.http_response->isKeepAlive())
+                        {
+                            std::cout << "Resetting request for keep-alive\n";
+                            client.http_response->clear();
+                            client.http_request->ResetRequest();
+                            this->updatePollEvents(fd, POLLIN);
+                        }
+                        else
+                        {
+                            std::cout << "Closing connection after chunked response\n";
+                            closeClientConnection(fd);
+                        }
+                    }
+                    // else
+                    // {
+                    //     // More chunks to send
+                    //     this->updatePollEvents(fd, POLLOUT);
+                    // }
+                }
+                catch (const HttpException& e) {
+                    std::cerr << "Error in chunked response: " << e.what() << std::endl;
+                    closeClientConnection(fd);
+                }
+            }
         else
         {
             if (client.http_response->isFile())
             {
-                    std::cout << "Debug sendfile response11\n";
+                std::cout << "Debug sendfile response11\n";
                 // exit(0);
-                client.http_response->sendResponse(fd);
-                
+                client.http_response->sendResponse(fd);                
             }
             else
             {
@@ -440,7 +474,6 @@ void WebServer::handleClientResponse(int fd)
                 // exit(0);
                 client.http_response->sendChunkedResponse(fd);
             }
-
             this->updatePollEvents(fd, POLLIN);
             // Reset request state for next request
             if (client.http_response->isKeepAlive())
@@ -452,6 +485,7 @@ void WebServer::handleClientResponse(int fd)
             }
             else
             {
+                std::cout << "----Closing connection after response\n";
                 closeClientConnection(fd);
                 return;
             }
