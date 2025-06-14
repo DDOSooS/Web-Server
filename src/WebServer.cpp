@@ -136,17 +136,11 @@ int WebServer::run()
 
             if (pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL))
             {
-                    std::cerr << "Poll event flags: ";
-                    if (pollfds[i].revents & POLLERR) std::cerr << "POLLERR ";
-                    if (pollfds[i].revents & POLLHUP) std::cerr << "POLLHUP ";
-                    if (pollfds[i].revents & POLLNVAL) std::cerr << "POLLNVAL ";
-                    std::cerr << std::endl;
                 if (fd == m_socket) {
                     std::cerr << "Error on listening socket!" << std::endl;
                     running = false;
                     break;
                 } else {
-                    std::cerr << "Error on client socket " << fd << ", closing connection." << std::endl;
                     closeClientConnection(fd);
                 }
                 continue;

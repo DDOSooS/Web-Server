@@ -71,7 +71,7 @@ void ErrorHandler::ErrorPageChecker(Error &error, const ServerConfig &config)
     if (error_pages.find(error.GetCodeError()) == error_pages.end())
     {
         std::cerr << " [ ERROR ] : Error page not defined for error code: " << error.GetCodeError() << std::endl;
-        // exit(1);
+        exit(1);
     }
     else
     {

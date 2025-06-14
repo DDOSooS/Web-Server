@@ -1,24 +1,15 @@
-#include "../../include/request/Post.hpp"
-#include "../../include/request/HttpRequest.hpp"
-#include "../../include/ClientConnection.hpp" // This should contain ClientData
-#include "../../include/response/HttpResponse.hpp"  // And this should contain HttpResponse
-
+#include "../include/request/Post.hpp"
+#include <iostream>
+#include <sstream>
 #include <ctime>
-#include <cstdlib>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <cstring>
 #include <iomanip>
 #include <algorithm>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+#include <cerrno>
 #include <fcntl.h>
-#include <limits>
-#include <limits.h>
-#include <errno.h>
-#include <sstream>
-#include <iostream>
-#include <cstring> 
-
-// @To check (@ILYAS) body size limit + adding error handling for large bodies ;
+#include <set>
 
 Post::Post() {}
 Post::~Post() {}
@@ -28,43 +19,508 @@ bool Post::CanHandle(std::string method) {
 }
 
 void Post::ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig) {
-    std::string contentType = request->GetHeader("Content-Type");
-    std::string transferEncoding = request->GetHeader("Transfer-Encoding");
     std::string body = request->GetBody();
-
-    std::cout << "POST request to: " << request->GetLocation() << std::endl;
+    std::string contentType = request->GetHeader("Content-Type");
+    std::string contentLength = request->GetHeader("Content-Length");
+    
+    // Check body size limit
+    if (!contentLength.empty()) {
+        size_t bodySize = 0;
+        std::stringstream ss(contentLength);
+        ss >> bodySize;
+        
+        if (serverConfig.get_client_max_body_size() > 0 && 
+            bodySize > serverConfig.get_client_max_body_size()) {
+            setErrorResponse(request, 413, "Request Entity Too Large");
+            return;
+        }
+    }
+    
+    std::string location = request->GetLocation();
+    
+    std::cout << "POST request to: " << location << std::endl;
     std::cout << "Content-Type: " << contentType << std::endl;
-    std::cout << "Transfer-Encoding: " << transferEncoding << std::endl;
     std::cout << "Body size: " << body.size() << " bytes" << std::endl;
-
-    if (transferEncoding.find("chunked") != std::string::npos) {
-        handleChunkedTransfer(request);
+    
+    // Handle streaming upload files
+    if (body.find("__STREAMING_UPLOAD_FILE:") != std::string::npos) {
+        std::string marker = "__STREAMING_UPLOAD_FILE:";
+        size_t marker_pos = body.find(marker);
+        std::string file_path = body.substr(marker_pos + marker.length());
+        
+        // Check if this is a duplicate processing attempt
+        static std::set<std::string> processed_files;
+        if (processed_files.find(file_path) != processed_files.end()) {
+            std::cout << "File already processed, skipping duplicate processing: " << file_path << std::endl;
+            std::stringstream ss;
+            ss << "File uploaded successfully: " << file_path;
+            setSuccessResponse(request, ss.str());
+            return;
+        }
+        
+        // Process the upload
+        handleStreamingUpload(request, file_path);
+        
+        // Mark this file as processed to prevent duplicate processing
+        processed_files.insert(file_path);
         return;
     }
-
+    
     if (body.empty()) {
-        request->GetClientDatat()->http_response->setStatusCode(400);
-        request->GetClientDatat()->http_response->setStatusMessage("Bad Request");
-        request->GetClientDatat()->http_response->setContentType("text/plain");
-        request->GetClientDatat()->http_response->setBuffer("Empty request body");
+        setErrorResponse(request, 400, "Empty request body");
         return;
     }
-
+    
+    // Route to appropriate handler based on content type - ONLY REQUIRED TYPES
     if (contentType.find("application/x-www-form-urlencoded") != std::string::npos) {
-        handleUrlEncodedForm(request, contentType);
+        handleUrlEncodedForm(request);
     } else if (contentType.find("multipart/form-data") != std::string::npos) {
         std::string boundary = extractBoundary(contentType);
         if (!boundary.empty()) {
-            handleMultipartForm(request, contentType, boundary);
+            handleMultipartForm(request, boundary);
         } else {
-            request->GetClientDatat()->http_response->setStatusCode(400);
-            request->GetClientDatat()->http_response->setStatusMessage("Bad Request");
-            request->GetClientDatat()->http_response->setContentType("text/plain");
-            request->GetClientDatat()->http_response->setBuffer("Invalid multipart boundary");
+            setErrorResponse(request, 400, "Invalid multipart boundary");
         }
     } else {
-        handleRawData(request, contentType);
+        // For 42 project, we only need to handle forms and file uploads
+        setErrorResponse(request, 415, "Unsupported Media Type - Only form data and file uploads are supported");
     }
+}
+
+void Post::handleUrlEncodedForm(HttpRequest *request) {
+    std::string body = request->GetBody();
+    std::map<std::string, std::string> formData = parseUrlEncodedForm(body);
+    
+    std::stringstream response;
+    response << "<!DOCTYPE html><html><head><title>Form Submitted</title></head><body>";
+    response << "<h1>Form Data Received</h1><ul>";
+    
+    for (std::map<std::string, std::string>::const_iterator it = formData.begin(); 
+         it != formData.end(); ++it) {
+        response << "<li><strong>" << htmlEscape(it->first) << ":</strong> " 
+                << htmlEscape(it->second) << "</li>";
+    }
+    
+    response << "</ul><p><a href=\"/\">Back to Home</a></p></body></html>";
+    setSuccessResponse(request, response.str());
+}
+
+void Post::handleMultipartForm(HttpRequest *request, const std::string &boundary) {
+    std::string body = request->GetBody();
+    std::cout << "handleMultipartForm called with boundary: " << boundary << std::endl;
+    std::cout << "Body size for parsing: " << body.size() << " bytes" << std::endl;
+    
+    std::vector<FormPart> parts = parseMultipartForm(body, boundary);
+    
+    if (parts.empty()) {
+        setErrorResponse(request, 400, "No valid parts found in multipart form data");
+        return;
+    }
+    
+    std::stringstream response;
+    response << "<!DOCTYPE html><html><head><title>Upload Result</title></head><body>";
+    response << "<h1>Upload Successful</h1><ul>";
+    
+    bool uploadSuccess = false;
+    
+    for (std::vector<FormPart>::iterator it = parts.begin(); it != parts.end(); ++it) {
+        std::cout << "Processing part: name='" << it->name << "', filename='" << it->filename 
+                 << "', isFile=" << (it->isFile ? "true" : "false") 
+                 << ", body size=" << it->body.size() << std::endl;
+        
+        if (it->isFile && !it->filename.empty()) {
+            std::string uniqueFilename = generateUniqueFilename(it->filename);
+            std::cout << "Saving file: " << it->filename << " as " << uniqueFilename 
+                     << " (" << it->body.size() << " bytes)" << std::endl;
+            
+            if (saveFileInChunks(it->body, uniqueFilename)) {
+                std::cout << "✅ File saved successfully: " << uniqueFilename << std::endl;
+                response << "<li>File <strong>" << htmlEscape(it->filename) 
+                        << "</strong> uploaded successfully (" 
+                        << formatFileSize(it->body.size()) << ")</li>";
+                uploadSuccess = true;
+            } else {
+                std::cout << "❌ Failed to save file: " << uniqueFilename << std::endl;
+                response << "<li>Failed to save file <strong>" 
+                        << htmlEscape(it->filename) << "</strong></li>";
+            }
+        } else if (!it->name.empty()) {
+            response << "<li><strong>" << htmlEscape(it->name) << ":</strong> " 
+                    << htmlEscape(it->body) << "</li>";
+            uploadSuccess = true;
+        }
+    }
+    
+    response << "</ul><p><a href=\"/\">Back to Home</a></p></body></html>";
+    
+    if (uploadSuccess) {
+        std::cout << "Sending success response" << std::endl;
+        setSuccessResponse(request, response.str());
+    } else {
+        setErrorResponse(request, 500, "Failed to process uploaded files");
+    }
+}
+
+void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_path) {
+    std::cout << "Handling streaming upload from: " << file_path << std::endl;
+    
+    // Check if this upload has already been processed
+    std::string alreadyProcessed = request->GetHeader("X-Upload-Processed");
+    if (alreadyProcessed == "true") {
+        std::cout << "Upload already processed, skipping duplicate processing" << std::endl;
+        setSuccessResponse(request, "File uploaded successfully");
+        return;
+    }
+    
+    // Check if temp file exists
+    struct stat file_stat;
+    if (stat(file_path.c_str(), &file_stat) == -1) {
+        std::cerr << "Upload file not found: " << file_path << " (errno: " << errno << ")" << std::endl;
+        setErrorResponse(request, 500, "Upload file not found or inaccessible");
+        return;
+    }
+    
+    // Verify file size against Content-Length
+    std::string contentLength = request->GetHeader("Content-Length");
+    if (!contentLength.empty()) {
+        size_t expectedSize = 0;
+        std::stringstream ss(contentLength);
+        ss >> expectedSize;
+        
+        std::cout << "Verifying file size: expected " << expectedSize 
+                 << " bytes, actual " << file_stat.st_size << " bytes" << std::endl;
+        
+        // For multipart uploads, the actual file size will be smaller than Content-Length
+        // due to headers and boundaries, so we allow some flexibility
+        size_t minAcceptableSize = expectedSize * 0.85; // Allow up to 15% overhead for multipart
+        
+        if (file_stat.st_size < minAcceptableSize) {
+            std::cerr << "File size mismatch: expected at least " << minAcceptableSize 
+                     << " bytes, got " << file_stat.st_size << " bytes" << std::endl;
+            std::cerr << "Upload appears to be incomplete. Waiting for more data..." << std::endl;
+            
+            // Wait for up to 30 seconds for the file to grow
+            int wait_attempts = 30;
+            bool file_grew = false;
+            
+            while (wait_attempts > 0) {
+                sleep(1); // Wait 1 second
+                struct stat new_stat;
+                if (stat(file_path.c_str(), &new_stat) == 0) {
+                    if (new_stat.st_size > file_stat.st_size) {
+                        std::cout << "File grew to " << new_stat.st_size << " bytes" << std::endl;
+                        file_stat = new_stat;
+                        file_grew = true;
+                        if (file_stat.st_size >= minAcceptableSize) {
+                            std::cout << "File reached acceptable size" << std::endl;
+                            break; // File is now large enough
+                        }
+                    } else if (file_grew) {
+                        // If file grew before but has stopped growing, wait a bit longer
+                        // but reduce the number of remaining attempts
+                        wait_attempts -= 3;
+                    }
+                }
+                wait_attempts--;
+            }
+            
+            // Final check after waiting
+            if (file_stat.st_size < minAcceptableSize) {
+                std::cerr << "Upload incomplete after waiting. Expected at least " << minAcceptableSize 
+                         << " bytes, got only " << file_stat.st_size << " bytes (" 
+                         << (file_stat.st_size * 100 / expectedSize) << "%)" << std::endl;
+                setErrorResponse(request, 400, "Upload file is incomplete or corrupted after waiting");
+                return;
+            }
+        }
+    }
+    
+    // Extract original filename and extension from multipart form data
+    std::string content_type = request->GetHeader("Content-Type");
+    std::string file_extension = ".bin"; // Default extension
+    std::string original_filename;
+    
+    // First check if we can extract the original filename from the request
+    if (content_type.find("multipart/form-data") != std::string::npos) {
+        // Try to read the first few KB of the file to extract the filename
+        int source_fd = open(file_path.c_str(), O_RDONLY);
+        if (source_fd >= 0) {
+            char buffer[8192]; // Read first 8KB to find Content-Disposition header
+            ssize_t bytes_read = read(source_fd, buffer, sizeof(buffer) - 1);
+            if (bytes_read > 0) {
+                buffer[bytes_read] = '\0';
+                std::string header_data(buffer);
+                
+                // Look for Content-Disposition header with filename
+                size_t filename_pos = header_data.find("filename=\"");
+                if (filename_pos != std::string::npos) {
+                    filename_pos += 10; // Skip "filename=\""
+                    size_t filename_end = header_data.find("\"", filename_pos);
+                    if (filename_end != std::string::npos) {
+                        original_filename = header_data.substr(filename_pos, filename_end - filename_pos);
+                        std::cout << "Original filename detected: " << original_filename << std::endl;
+                        
+                        // Extract extension from original filename
+                        size_t ext_pos = original_filename.rfind(".");
+                        if (ext_pos != std::string::npos) {
+                            file_extension = original_filename.substr(ext_pos);
+                            std::cout << "Using file extension: " << file_extension << std::endl;
+                        }
+                    }
+                }
+            }
+            close(source_fd); // Make sure to close the file descriptor
+        }
+    }
+    
+    // Fallback to Content-Type if we couldn't get the extension from filename
+    if (file_extension == ".bin") {
+        if (content_type.find("application/pdf") != std::string::npos) {
+            file_extension = ".pdf";
+        } else if (content_type.find("image/jpeg") != std::string::npos) {
+            file_extension = ".jpg";
+        } else if (content_type.find("image/png") != std::string::npos) {
+            file_extension = ".png";
+        } else if (content_type.find("text/plain") != std::string::npos) {
+            file_extension = ".txt";
+        } else if (content_type.find("application/zip") != std::string::npos) {
+            file_extension = ".zip";
+        } else if (content_type.find("application/octet-stream") != std::string::npos) {
+            // Try to guess from original filename if available
+            if (!original_filename.empty()) {
+                size_t ext_pos = original_filename.rfind(".");
+                if (ext_pos != std::string::npos) {
+                    file_extension = original_filename.substr(ext_pos);
+                }
+            }
+        }
+    }
+    
+    // Move file to uploads directory
+    std::string uploads_dir = getUploadsDirectory();
+    std::string unique_filename;
+    if (!original_filename.empty()) {
+        // Use the original filename as part of the unique name
+        unique_filename = generateUniqueFilename(original_filename);
+    } else {
+        // Fallback to generic name with detected extension
+        unique_filename = generateUniqueFilename("upload" + file_extension);
+    }
+    std::string dest_path = uploads_dir + "/" + unique_filename;
+    
+    // Use copy instead of rename to handle cross-device moves
+    int source_fd = open(file_path.c_str(), O_RDONLY);
+    if (source_fd < 0) {
+        std::cerr << "Failed to open source file: " << strerror(errno) << std::endl;
+        setErrorResponse(request, 500, "Failed to process uploaded file");
+        return;
+    }
+    
+    std::cout << "Copying file from " << file_path << " to " << dest_path << " with extension " << file_extension << std::endl;
+    
+    int dest_fd = open(dest_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (dest_fd < 0) {
+        std::cerr << "Failed to create destination file: " << dest_path 
+                 << " (errno: " << errno << ")" << std::endl;
+        close(source_fd);
+        setErrorResponse(request, 500, "Failed to save upload");
+        return;
+    }
+    
+    // Copy file contents
+    char buffer[8192];
+    ssize_t bytes_read, bytes_written;
+    size_t total_written = 0;
+    bool copy_success = true;
+    
+    while ((bytes_read = read(source_fd, buffer, sizeof(buffer))) > 0) {
+        char* ptr = buffer;
+        size_t remaining = bytes_read;
+        
+        while (remaining > 0) {
+            bytes_written = write(dest_fd, ptr, remaining);
+            if (bytes_written <= 0) {
+                std::cerr << "Write error: " << strerror(errno) << std::endl;
+                copy_success = false;
+                break;
+            }
+            ptr += bytes_written;
+            remaining -= bytes_written;
+            total_written += bytes_written;
+        }
+        
+        if (!copy_success) break;
+    }
+    
+    close(source_fd);
+    close(dest_fd);
+    
+    // Delete the temporary file
+    unlink(file_path.c_str());
+    
+    if (copy_success && bytes_read >= 0) {
+        std::cout << "Large file upload successful: " << dest_path 
+                  << " (" << total_written << " bytes)" << std::endl;
+        
+        // Mark this upload as processed to prevent duplicate processing
+        request->SetHeader("X-Upload-Processed", "true");
+        
+        // Create success response
+        std::stringstream response;
+        response << "<!DOCTYPE html><html><head><title>Upload Success</title>";
+        response << "<style>body{font-family:system-ui,sans-serif;max-width:800px;margin:0 auto;padding:20px;line-height:1.6}";
+        response << "h1{color:#2c3e50}strong{color:#3498db}.success{color:#27ae60;font-weight:bold}";
+        response << "a{display:inline-block;margin-top:20px;background:#3498db;color:white;padding:10px 15px;text-decoration:none;border-radius:4px}</style>";
+        response << "</head><body>";
+        response << "<h1><span class='success'>✅</span> File Upload Successful!</h1>";
+        response << "<p><strong>File Type:</strong> " << content_type << "</p>";
+        response << "<p><strong>File Size:</strong> " << formatFileSize(total_written) << "</p>";
+        response << "<p><strong>Saved As:</strong> " << unique_filename << "</p>";
+        response << "<p><strong>Upload Method:</strong> Memory-efficient streaming</p>";
+        response << "<p><a href=\"/\">← Back to Home</a></p>";
+        response << "</body></html>";
+        
+        setSuccessResponse(request, response.str());
+    } else {
+        std::cerr << "Failed to copy file: " << strerror(errno) << std::endl;
+        setErrorResponse(request, 500, "Failed to save upload: " + std::string(strerror(errno)));
+    }
+}
+
+std::string Post::formatFileSize(size_t bytes) {
+    const char* suffixes[] = {"B", "KB", "MB", "GB", "TB"};
+    int suffixIndex = 0;
+    double size = static_cast<double>(bytes);
+    
+    while (size >= 1024.0 && suffixIndex < 4) {
+        size /= 1024.0;
+        suffixIndex++;
+    }
+    
+    std::stringstream ss;
+    ss.precision(2);
+    ss << std::fixed << size << " " << suffixes[suffixIndex];
+    if (suffixIndex > 0) {
+        ss << " (" << bytes << " bytes)";
+    }
+    return ss.str();
+}
+
+bool Post::saveFileInChunks(const std::string &content, const std::string &filename) {
+    std::string uploadsDir = getUploadsDirectory();
+    std::string fullPath = uploadsDir + "/" + filename;
+    
+    std::cout << "Attempting to save file to: " << fullPath << std::endl;
+    
+    // Use low-level file operations for better control
+    int fd = open(fullPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd < 0) {
+        std::cerr << "Failed to open file for writing: " << fullPath 
+                 << " (errno: " << errno << ")" << std::endl;
+        return false;
+    }
+    
+    size_t totalSize = content.size();
+    size_t bytesWritten = 0;
+    size_t chunkSize = CHUNK_SIZE;
+    
+    std::cout << "Writing " << totalSize << " bytes in chunks of " << chunkSize << std::endl;
+    
+    while (bytesWritten < totalSize) {
+        size_t remainingBytes = totalSize - bytesWritten;
+        size_t currentChunkSize = (remainingBytes < chunkSize) ? remainingBytes : chunkSize;
+        
+        ssize_t written = write(fd, content.c_str() + bytesWritten, currentChunkSize);
+        
+        if (written < 0) {
+            std::cerr << "Error writing to file at position " << bytesWritten 
+                     << " (errno: " << errno << ")" << std::endl;
+            close(fd);
+            return false;
+        }
+        
+        bytesWritten += written;
+    }
+    
+    close(fd);
+    
+    // Verify file was written correctly
+    struct stat st;
+    if (stat(fullPath.c_str(), &st) == 0) {
+        if (static_cast<size_t>(st.st_size) == totalSize) {
+            std::cout << "Successfully wrote " << totalSize << " bytes to " << fullPath << std::endl;
+            return true;
+        } else {
+            std::cerr << "File size mismatch: expected " << totalSize 
+                     << " bytes, got " << st.st_size << " bytes" << std::endl;
+        }
+    } else {
+        std::cerr << "Failed to stat file after writing: " << fullPath 
+                 << " (errno: " << errno << ")" << std::endl;
+    }
+    
+    return false;
+}
+
+std::string Post::generateUniqueFilename(const std::string &originalName) {
+    std::time_t now = std::time(NULL);
+    char timestamp[20];
+    std::strftime(timestamp, sizeof(timestamp), "%Y%m%d_%H%M%S", std::localtime(&now));
+    
+    // Extract base filename without path
+    std::string baseName = originalName;
+    size_t lastSlash = originalName.find_last_of("/\\");
+    if (lastSlash != std::string::npos) {
+        baseName = originalName.substr(lastSlash + 1);
+    }
+    
+    // Remove potentially problematic characters
+    std::string sanitizedName = baseName;
+    for (size_t i = 0; i < sanitizedName.length(); i++) {
+        char c = sanitizedName[i];
+        if (c == ' ' || c == '(' || c == ')' || c == '[' || c == ']' || c == '{' || c == '}') {
+            sanitizedName[i] = '_';
+        }
+    }
+    
+    std::stringstream ss;
+    ss << timestamp << "_" << (rand() % 10000);
+    
+    // If we have a valid filename, add it to make the file more recognizable
+    if (!sanitizedName.empty()) {
+        ss << "_" << sanitizedName;
+    }
+    
+    return ss.str();
+}
+
+std::string Post::getUploadsDirectory() {
+    static std::string uploadsDir;
+    if (uploadsDir.empty()) {
+        char cwd[1024];
+        if (getcwd(cwd, sizeof(cwd)) != NULL) {
+            uploadsDir = std::string(cwd) + "/uploads";
+        } else {
+            uploadsDir = "uploads";
+        }
+        
+        std::cout << "Uploads directory: " << uploadsDir << std::endl;
+        
+        // Create directory if it doesn't exist
+        struct stat st;
+        if (stat(uploadsDir.c_str(), &st) == -1) {
+            std::cout << "Creating uploads directory: " << uploadsDir << std::endl;
+            if (mkdir(uploadsDir.c_str(), 0755) != 0) {
+                std::cerr << "Failed to create uploads directory: " << uploadsDir 
+                         << " (errno: " << errno << ")" << std::endl;
+            } else {
+                std::cout << "Successfully created uploads directory" << std::endl;
+            }
+        } else {
+            std::cout << "Uploads directory already exists" << std::endl;
+        }
+    }
+    return uploadsDir;
 }
 
 std::string Post::extractBoundary(const std::string &contentType) {
@@ -72,34 +528,31 @@ std::string Post::extractBoundary(const std::string &contentType) {
     if (boundaryPos == std::string::npos) {
         return "";
     }
+    
     std::string boundary = contentType.substr(boundaryPos + 9);
+    
+    // Handle quoted boundary
     if (!boundary.empty() && boundary[0] == '"') {
-        boundary = boundary.substr(1, boundary.find('"', 1) - 1);
+        size_t endQuote = boundary.find('"', 1);
+        if (endQuote != std::string::npos) {
+            boundary = boundary.substr(1, endQuote - 1);
+        }
+    } else {
+        // Handle unquoted boundary (might contain semicolons or other delimiters)
+        size_t delimPos = boundary.find_first_of(" ;,");
+        if (delimPos != std::string::npos) {
+            boundary = boundary.substr(0, delimPos);
+        }
     }
+    
     return boundary;
-}
-
-void Post::handleUrlEncodedForm(HttpRequest *request, const std::string &contentType) {
-    (void)contentType; // Silence unused parameter warning
-    std::string body = request->GetBody();
-    std::map<std::string, std::string> formData = parseUrlEncodedForm(body);
-    std::stringstream responseContent;
-    responseContent << "<html><head><title>Form Submission Result</title></head><body>";
-    responseContent << "<h1>Form Data Received</h1><ul>";
-    for (std::map<std::string, std::string>::const_iterator it = formData.begin(); it != formData.end(); ++it) {
-        responseContent << "<li><strong>" << it->first << ":</strong> " << it->second << "</li>";
-    }
-    responseContent << "</ul></body></html>";
-    request->GetClientDatat()->http_response->setStatusCode(200);
-    request->GetClientDatat()->http_response->setStatusMessage("OK");
-    request->GetClientDatat()->http_response->setContentType("text/html");
-    request->GetClientDatat()->http_response->setBuffer(responseContent.str());
 }
 
 std::map<std::string, std::string> Post::parseUrlEncodedForm(const std::string &body) {
     std::map<std::string, std::string> result;
     std::istringstream stream(body);
     std::string pair;
+    
     while (std::getline(stream, pair, '&')) {
         size_t pos = pair.find('=');
         if (pos != std::string::npos) {
@@ -131,329 +584,148 @@ std::string Post::urlDecode(const std::string &encoded) {
     return result;
 }
 
-void Post::handleMultipartForm(HttpRequest *request, const std::string &contentType, const std::string &boundary) {
-    (void)contentType;
-    std::string body = request->GetBody();
-    std::string contentLength = request->GetHeader("Content-Length");
-    size_t fileSize = 0;
-
-    if (!contentLength.empty()) {
-        std::stringstream ss(contentLength);
-        ss >> fileSize;
-    }
-
-    bool isLargeFile = fileSize > MAX_MEMORY_CHUNK;
-
-    if (isLargeFile) {
-        std::cout << "Large file detected " << fileSize << " bytes. Using chunked processing." << std::endl;
-    }
-
-    std::vector<FormPart> parts = parseMultipartForm(body, boundary);
-    std::stringstream responseContent;
-    responseContent << "<html><head><title>Form Submission Result</title></head><body>";
-    responseContent << "<h1>Multipart Form Data Received</h1><ul>";
-
-    for (std::vector<FormPart>::iterator it = parts.begin(); it != parts.end(); ++it) {
-        if (isLargeFile && !it->filename.empty()) {
-            it->isFile = true;
-            it->uploadId = initializeFileUpload(it->filename);
-            processChunkedFormPart(*it, request, false);
-        } else {
-            processFormPart(*it, request);
-        }
-
-        if (!it->filename.empty()) {
-            responseContent << "<li><strong>File:</strong> " << it->name << " (" << it->filename << ") - "
-                           << (isLargeFile ? fileSize : it->body.size()) << " bytes";
-            if (isLargeFile) {
-                responseContent << " (processed in chunks)";
-            }
-            responseContent << "</li>";
-        } else {
-            responseContent << "<li><strong>" << it->name << ":</strong> " << it->body << "</li>";
-        }
-    }
-
-    if (isLargeFile) {
-        for (std::vector<FormPart>::const_iterator it2 = parts.begin(); it2 != parts.end(); ++it2) {
-            if (it2->isFile && !it2->uploadId.empty()) {
-                finalizeFileUpload(it2->uploadId);
-            }
-        }
-    }
-
-    responseContent << "</ul></body></html>";
+void Post::setSuccessResponse(HttpRequest *request, const std::string &message) {
     request->GetClientDatat()->http_response->setStatusCode(200);
     request->GetClientDatat()->http_response->setStatusMessage("OK");
     request->GetClientDatat()->http_response->setContentType("text/html");
-    request->GetClientDatat()->http_response->setBuffer(responseContent.str());
+    request->GetClientDatat()->http_response->setBuffer(message);
+}
+
+void Post::setErrorResponse(HttpRequest *request, int statusCode, const std::string &message) {
+    std::stringstream response;
+    response << "<!DOCTYPE html><html><head><title>Error " << statusCode << "</title></head><body>";
+    response << "<h1>Error " << statusCode << "</h1>";
+    response << "<p>" << htmlEscape(message) << "</p>";
+    response << "<p><a href=\"/\">Back to Home</a></p>";
+    response << "</body></html>";
+    
+    request->GetClientDatat()->http_response->setStatusCode(statusCode);
+    request->GetClientDatat()->http_response->setStatusMessage(message);
+    request->GetClientDatat()->http_response->setContentType("text/html");
+    request->GetClientDatat()->http_response->setBuffer(response.str());
+}
+
+std::string Post::htmlEscape(const std::string &input) {
+    std::string result;
+    for (std::string::const_iterator it = input.begin(); it != input.end(); ++it) {
+        switch (*it) {
+            case '<': result += "&lt;"; break;
+            case '>': result += "&gt;"; break;
+            case '&': result += "&amp;"; break;
+            case '"': result += "&quot;"; break;
+            case '\'': result += "&#39;"; break;
+            default: result += *it; break;
+        }
+    }
+    return result;
 }
 
 std::vector<Post::FormPart> Post::parseMultipartForm(const std::string &body, const std::string &boundary) {
     std::vector<FormPart> parts;
+    
+    // Prepare the boundary strings
     std::string startBoundary = "--" + boundary;
     std::string endBoundary = "--" + boundary + "--";
-    size_t pos = body.find(startBoundary);
-    while (pos != std::string::npos) {
-        size_t boundaryEnd = body.find("\r\n", pos);
-        if (boundaryEnd == std::string::npos) break;
-        if (body.substr(pos, boundaryEnd - pos) == endBoundary) {
-            break;
+    
+    // Find all boundary positions
+    std::vector<size_t> boundaryPositions;
+    size_t pos = 0;
+    while ((pos = body.find(startBoundary, pos)) != std::string::npos) {
+        boundaryPositions.push_back(pos);
+        pos += startBoundary.length();
+    }
+    
+    // Process each part between boundaries
+    for (size_t i = 0; i < boundaryPositions.size(); ++i) {
+        size_t currentPos = boundaryPositions[i] + startBoundary.length();
+        
+        // Skip the CRLF after boundary
+        if (currentPos + 1 < body.length() && body[currentPos] == '\r' && body[currentPos + 1] == '\n') {
+            currentPos += 2;
+        } else {
+            // Malformed boundary, skip this part
+            continue;
         }
-        size_t nextBoundary = body.find(startBoundary, boundaryEnd);
-        if (nextBoundary == std::string::npos) {
-            nextBoundary = body.find(endBoundary, boundaryEnd);
-            if (nextBoundary == std::string::npos) break;
+        
+        // Find the end of this part (next boundary or end of body)
+        size_t nextBoundaryPos = (i + 1 < boundaryPositions.size()) ? 
+                                boundaryPositions[i + 1] : 
+                                body.find(endBoundary, currentPos);
+        
+        if (nextBoundaryPos == std::string::npos) {
+            // No more boundaries found, use end of body
+            nextBoundaryPos = body.length();
         }
-        std::string partContent = body.substr(boundaryEnd + 2, nextBoundary - boundaryEnd - 4);
+        
+        // Extract the part content
+        std::string partContent = body.substr(currentPos, nextBoundaryPos - currentPos);
+        
+        // Parse the part headers and content
+        size_t headerEndPos = partContent.find("\r\n\r\n");
+        if (headerEndPos == std::string::npos) {
+            // Malformed part, no header/body separator
+            continue;
+        }
+        
+        std::string headers = partContent.substr(0, headerEndPos);
+        std::string partBody = partContent.substr(headerEndPos + 4); // Skip \r\n\r\n
+        
+        // Remove trailing \r\n if present (before the next boundary)
+        if (partBody.length() >= 2 && 
+            partBody[partBody.length() - 2] == '\r' && 
+            partBody[partBody.length() - 1] == '\n') {
+            partBody = partBody.substr(0, partBody.length() - 2);
+        }
+        
+        // Parse headers
         FormPart part;
-        part.isFile = false;
-        size_t headersEnd = partContent.find("\r\n\r\n");
-        if (headersEnd != std::string::npos) {
-            std::string headersStr = partContent.substr(0, headersEnd);
-            std::istringstream headerStream(headersStr);
-            std::string headerLine;
-            while (std::getline(headerStream, headerLine)) {
-                if (headerLine.empty() || headerLine == "\r") continue;
-                size_t colonPos = headerLine.find(':');
-                if (colonPos != std::string::npos) {
-                    std::string key = headerLine.substr(0, colonPos);
-                    std::string value = headerLine.substr(colonPos + 1);
-                    value.erase(0, value.find_first_not_of(" \t"));
-                    value.erase(value.find_last_not_of("\r\n \t") + 1);
-                    part.headers[key] = value;
-                    if (key == "Content-Disposition") {
-                        size_t namePos = value.find("name=\"");
-                        if (namePos != std::string::npos) {
-                            size_t nameStart = namePos + 6;
-                            size_t nameEnd = value.find('"', nameStart);
-                            if (nameEnd != std::string::npos) {
-                                part.name = value.substr(nameStart, nameEnd - nameStart);
-                            }
-                        }
-                        size_t filenamePos = value.find("filename=\"");
-                        if (filenamePos != std::string::npos) {
-                            size_t filenameStart = filenamePos + 10;
-                            size_t filenameEnd = value.find('"', filenameStart);
-                            if (filenameEnd != std::string::npos) {
-                                part.filename = value.substr(filenameStart, filenameEnd - filenameStart);
-                                part.isFile = true;
-                            }
-                        }
-                    }
+        
+        // Look for Content-Disposition header
+        size_t contentDispPos = headers.find("Content-Disposition:");
+        if (contentDispPos != std::string::npos) {
+            // Extract name
+            size_t namePos = headers.find("name=\"", contentDispPos);
+            if (namePos != std::string::npos) {
+                namePos += 6; // Skip "name=""
+                size_t nameEndPos = headers.find("\"", namePos);
+                if (nameEndPos != std::string::npos) {
+                    part.name = headers.substr(namePos, nameEndPos - namePos);
                 }
             }
-            part.body = partContent.substr(headersEnd + 4);
-        } else {
-            part.body = partContent;
-        }
-        parts.push_back(part);
-        pos = nextBoundary;
-    }
-    return parts;
-}
-
-void Post::processFormPart(const FormPart &part, HttpRequest *request) {
-    (void)request;
-    if (!part.filename.empty()) {
-        std::string uniqueFilename = generateUniqueFilename(part.filename);
-        bool success = saveUploadedFile(part.body, uniqueFilename);
-        if (!success) {
-            std::cerr << "Failed to save uploaded file: " << uniqueFilename << std::endl;
-        } else {
-            std::cout << "Successfully saved file: " << uniqueFilename << std::endl;
-        }
-    }
-}
-
-void Post::processChunkedFormPart(const FormPart &part, HttpRequest *request, bool isFinalChunk) {
-    (void)request;
-    if (!part.isFile || part.filename.empty() || part.uploadId.empty()) {
-        return;
-    }
-    bool success = writeFileChunk(part.uploadId, part.body);
-    if (!success) {
-        std::cerr << "Failed to write chunk for file: " << part.filename << std::endl;
-    } else {
-        std::cout << "Successfully wrote chunk for file: " << part.filename
-                  << " (" << part.body.size() << " bytes)" << std::endl;
-    }
-    if (isFinalChunk) {
-        finalizeFileUpload(part.uploadId);
-    }
-}
-
-void Post::handleChunkedTransfer(HttpRequest *request) {
-    std::string contentType = request->GetHeader("Content-Type");
-    std::string body = request->GetBody();
-    if (contentType.find("multipart/form-data") != std::string::npos) {
-        std::string boundary = extractBoundary(contentType);
-        if (!boundary.empty()) {
-            handleMultipartForm(request, contentType, boundary);
-        } else {
-            request->GetClientDatat()->http_response->setStatusCode(400);
-            request->GetClientDatat()->http_response->setStatusMessage("Bad Request");
-            request->GetClientDatat()->http_response->setContentType("text/plain");
-            request->GetClientDatat()->http_response->setBuffer("Invalid multipart boundary");
-        }
-    } else {
-        handleRawData(request, contentType);
-    }
-}
-
-std::string Post::getUploadsDirectory() {
-    static std::string uploadsDir;
-    if (uploadsDir.empty()) {
-        char cwd[PATH_MAX];
-        if (getcwd(cwd, sizeof(cwd)) != NULL) {
-            uploadsDir = std::string(cwd) + "/uploads";
-        } else {
-            uploadsDir = "uploads";
-        }
-        struct stat st;
-        std::memset(&st, 0, sizeof(st));
-        if (stat(uploadsDir.c_str(), &st) == -1) {
-            if (mkdir(uploadsDir.c_str(), 0755) != 0) {
-                std::cerr << "[ERROR] Failed to create uploads directory: " << uploadsDir
-                          << " (errno: " << errno << ")" << std::endl;
+            
+            // Extract filename if present (indicates a file upload)
+            size_t filenamePos = headers.find("filename=\"", contentDispPos);
+            if (filenamePos != std::string::npos) {
+                filenamePos += 10; // Skip "filename=""
+                size_t filenameEndPos = headers.find("\"", filenamePos);
+                if (filenameEndPos != std::string::npos) {
+                    part.filename = headers.substr(filenamePos, filenameEndPos - filenamePos);
+                    part.isFile = true;
+                }
             }
         }
-    }
-    return uploadsDir;
-}
-
-std::string Post::initializeFileUpload(const std::string &originalFilename) {
-    std::stringstream ss;
-    ss << std::time(NULL) << "_" << rand();
-    std::string uploadId = ss.str();
-
-    FileUpload upload;
-    upload.filename = originalFilename;
-    upload.bytesReceived = 0;
-    upload.complete = false;
-    std::string uniqueFilename = generateUniqueFilename(originalFilename);
-    std::string uploadsDir = getUploadsDirectory();
-    upload.tempPath = uploadsDir + "/temp_" + uniqueFilename;
-    upload.finalPath = uploadsDir + "/" + uniqueFilename;
-
-    upload.fileStream = new std::ofstream();
-    upload.fileStream->open(upload.tempPath.c_str(), std::ios::binary);
-
-    if (!upload.fileStream->is_open()) {
-        std::cerr << "[ERROR] Failed to open file for writing: " << upload.tempPath
-                  << " (errno: " << errno << ")" << std::endl;
-        delete upload.fileStream;
-        upload.fileStream = NULL;
-        return "";
-    }
-
-    // In C++98, we can't use std::make_pair with a temporary object
-    // So we'll just use operator[] directly
-    activeUploads[uploadId] = upload;
-
-    return uploadId;
-}
-
-bool Post::writeFileChunk(const std::string &uploadId, const std::string &chunk) {
-    std::map<std::string, FileUpload>::iterator it = activeUploads.find(uploadId);
-    if (it == activeUploads.end()) {
-        std::cerr << "[ERROR] Upload ID not found: " << uploadId << std::endl;
-        return false;
-    }
-    FileUpload &upload = it->second;
-    if (upload.complete || !upload.fileStream) {
-        std::cerr << "Upload already complete or stream not available: " << uploadId << std::endl;
-        return false;
-    }
-    upload.fileStream->write(chunk.c_str(), chunk.size());
-    if (!upload.fileStream->good()) {
-        std::cerr << "Failed to write chunk to file: " << upload.tempPath << std::endl;
-        return false;
-    }
-    upload.bytesReceived += chunk.size();
-    return true;
-}
-
-bool Post::finalizeFileUpload(const std::string &uploadId) {
-    std::map<std::string, FileUpload>::iterator it = activeUploads.find(uploadId);
-    if (it == activeUploads.end()) {
-        std::cerr << "[ERROR] Upload ID not found for finalization: " << uploadId << std::endl;
-        return false;
-    }
-    FileUpload &upload = it->second;
-
-    if (upload.fileStream && upload.fileStream->is_open()) {
-        upload.fileStream->close();
-    }
-    
-    struct stat st;
-    std::memset(&st, 0, sizeof(st));
-    if (stat(upload.tempPath.c_str(), &st) == -1) {
-        std::cerr << "[ERROR] Temp file does not exist: " << upload.tempPath
-                  << " (errno: " << errno << ")" << std::endl;
-        return false;
-    }
-    if (rename(upload.tempPath.c_str(), upload.finalPath.c_str()) != 0) {
-        std::cerr << "[ERROR] Failed to move file from " << upload.tempPath
-                  << " to " << upload.finalPath
-                  << " (errno: " << errno << ")" << std::endl;
-        return false;
-    }
-    upload.complete = true;
-    std::cout << "[INFO] Successfully finalized file upload: " << upload.filename
-              << " to " << upload.finalPath << std::endl;
-    
-    activeUploads.erase(it);
-    return true;
-}
-
-std::string Post::generateUniqueFilename(const std::string &originalName) {
-    std::time_t now = std::time(NULL);
-    char buf[20];
-    std::strftime(buf, sizeof(buf), "%Y%m%d_%H%M%S", std::localtime(&now));
-    
-    std::stringstream ss;
-    ss << buf << "_" << rand() % 10000 << "_" << originalName;
-    return ss.str();
-}
-
-bool Post::saveUploadedFile(const std::string &content, const std::string &filename) {
-    std::string uploadsDir = getUploadsDirectory();
-    std::string filePath = uploadsDir + "/" + filename;
-    
-    std::ofstream file(filePath.c_str(), std::ios::binary);
-    if (!file.is_open()) {
-        std::cerr << "[ERROR] Failed to open file for writing: " << filePath
-                  << " (errno: " << errno << ")" << std::endl;
-        return false;
-    }
-    file.write(content.c_str(), content.size());
-    file.close();
-    return true;
-}
-
-void Post::handleRawData(HttpRequest *request, const std::string &contentType) {
-    std::string body = request->GetBody();
-    std::stringstream responseContent;
-    responseContent << "<html><head><title>Raw Data Received</title></head><body>";
-    responseContent << "<h1>Raw Data Received</h1>";
-    responseContent << "<p><strong>Content-Type:</strong> " << contentType << "</p>";
-    responseContent << "<p><strong>Size:</strong> " << body.size() << " bytes</p>";
-    if (contentType.find("text/") != std::string::npos ||
-        contentType.find("application/json") != std::string::npos ||
-        contentType.find("application/xml") != std::string::npos) {
-        responseContent << "<h2>Content Preview:</h2>";
-        responseContent << "<pre>";
-        if (body.size() > 1000) {
-            responseContent << body.substr(0, 1000) << "...";
-        } else {
-            responseContent << body;
+        
+        // Look for Content-Type header
+        size_t contentTypePos = headers.find("Content-Type:");
+        if (contentTypePos != std::string::npos) {
+            contentTypePos += 13; // Skip "Content-Type:"
+            // Find the end of the line
+            size_t contentTypeEndPos = headers.find("\r\n", contentTypePos);
+            if (contentTypeEndPos != std::string::npos) {
+                // Trim leading spaces
+                while (contentTypePos < contentTypeEndPos && isspace(headers[contentTypePos])) {
+                    contentTypePos++;
+                }
+                part.contentType = headers.substr(contentTypePos, contentTypeEndPos - contentTypePos);
+            }
         }
-        responseContent << "</pre>";
+        
+        // Store the body content
+        part.body = partBody;
+        
+        // Add the part to our result
+        parts.push_back(part);
     }
-    responseContent << "</body></html>";
-    request->GetClientDatat()->http_response->setStatusCode(200);
-    request->GetClientDatat()->http_response->setStatusMessage("OK");
-    request->GetClientDatat()->http_response->setContentType("text/html");
-    request->GetClientDatat()->http_response->setBuffer(responseContent.str());
+    
+    return parts;
 }
