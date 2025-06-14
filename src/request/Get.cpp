@@ -100,14 +100,17 @@ std::string Get::ListingDir(const std::string &path, std::string request_path, c
     }
     response << "<html>\n"
     << "<head>\n<title>Index of " << request_path << "</title>\n"
+    << "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css\" integrity=\"sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==\" crossorigin=\"anonymous\" referrerpolicy=\"no-referrer\" />"
     << "<style>\n"
+    << "   * { box-sizing: border-box;  color: rgb(0, 0, 0);}\n"
     << "    body { font-family: Arial, sans-serif; margin: 20px; }\n"
     << "    h1 { border-bottom: 1px solid #ccc; padding-bottom: 10px; }\n"
     << "    ul { list-style-type: none; padding: 0; }\n"
     << "    li { margin: 5px 0; }\n"
     << "    li a { text-decoration: none; }\n"
     << "    li a:hover { text-decoration: underline; }\n"
-    << "    .folder { font-weight: bold; }\n"
+    << "    .folder { font-weight: bold; font-size : 18px }\n"
+    
     << "</style>\n"
     << "</head>\n"
     << "<body>\n"
@@ -115,15 +118,16 @@ std::string Get::ListingDir(const std::string &path, std::string request_path, c
     << "<ul>\n";
     
     // Add parent directory link if not at root
-    if (path != "/") {
-        response << "<li><a href=\"";
-        size_t lastSlash = path.rfind('/');
-        if (lastSlash != std::string::npos)
-            response << path.substr(0, lastSlash);
-        else
-            response << "/";
-        response << "\" class=\"folder\">..</a></li>\n";
-    }    
+    if (request_path != "/")
+    {
+        if (request_path[request_path.length() - 1] == '/')
+            request_path.erase(request_path.length() - 1);
+
+        std::string parent_path = request_path.substr(0, request_path.find_last_of('/'));
+        if (parent_path.empty())
+            parent_path = "/";
+        response << "<li><a href=\"" << parent_path << "\"> <i class=\"fa-solid fa-arrow-left\" style=\"margin-right: 20px; font-wieght : 700; color : rgb(235, 219, 52);\"></i>Parent Directory</a></li>\n";
+    }
     while ((entry = readdir(dir)) != NULL)
     {
         std::string rs_name;//ressource name
@@ -142,9 +146,9 @@ std::string Get::ListingDir(const std::string &path, std::string request_path, c
         */
         response << "<li> <a href=\"" << request_path << rs_name;
         if (entry->d_type == DT_DIR)
-           response << "/\" class=\"folder\">"  << rs_name << "/";
+           response << "/\" class=\"folder\"> <i class=\"fa-solid fa-folder\" style=\"margin-right: 20px; font-wieght : 700; color : rgb(235, 219, 52);\"></i>"  << rs_name << "/";
         else if (entry->d_type == DT_REG)
-            response << "\" class=\"file\">" << rs_name;
+            response << "\" class=\"file\"> <i class=\"fa-solid fa-file\" style=\"margin-right: 20px; \" ></i>" << rs_name;
         response << "</a></li>\n";
     }
     response << "</ul>\n";
