@@ -51,7 +51,7 @@ void HttpResponse::setBuffer(std::string buffer)
     this->_buffer = buffer;
 }
 
-void HttpResponse::setByteSent(size_t byte_sent)
+void HttpResponse::setByteSent(int byte_sent)
 {
     this->_byte_sent = byte_sent;
 }
@@ -73,6 +73,7 @@ void HttpResponse::clear()
         this->_keep_alive = false;
     this->_byte_sent = 0;
     this->_content_type.clear();
+    this->_byte_to_send = 0;
 }
 
 int HttpResponse::getStatusCode() const
@@ -85,12 +86,12 @@ std::string HttpResponse::getStatusMessage() const
     return this->_status_message;
 }
 
-size_t HttpResponse::getByteToSend() const
+int HttpResponse::getByteToSend() const
 {
     return this->_byte_to_send;
 }
 
-void HttpResponse::setByteToSend(size_t byte_to_send)
+void HttpResponse::setByteToSend(int byte_to_send)
 {
     this->_byte_to_send = byte_to_send;
 }
@@ -129,7 +130,7 @@ std::map<std::string, std::string> HttpResponse::getHeaders() const
     return this->_headers;
 }
 
-size_t HttpResponse::getByteSent() const
+int HttpResponse::getByteSent() const
 {
     return this->_byte_sent;
 }
@@ -283,43 +284,103 @@ void HttpResponse::sendResponse(int socket_fd)
     std::cout << "Bytes sent: " << bytes_sent << " out of " << response.size() << " bytes" << std::endl;
 
 }
-
+#include <cstdlib>
 void HttpResponse::sendChunkedResponse(int socket_fd)
 {
-    // std::string response = this->toString();
-    // so while where sending chunked response so the response gonna be  a file  or a buffer
-    std::cout << "[Debug : ] ---Start of Sending A Chunked response--- !!\n";
+    std::cout << "[Debug] ---Start of Sending A Chunked response---\n";
     std::string response;
-
+    
+    // Handle buffer-based responses (non-file) -> BUFFER
     if (!this->_buffer.empty())
     {
+        std::cout << "[Debug] Sending chunked response from buffer\n";
         response = this->toString();
-        this->_byte_sent = send(socket_fd, response.c_str(), response.size(), 0);
-        if (this->_byte_sent < 0)
-        {
+        ssize_t bytes_sent = send(socket_fd, response.c_str(), response.size(), 0);
+        if (bytes_sent < 0) {
             std::cerr << "Error sending chunked response: " << strerror(errno) << std::endl;
             throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
         }
-        std::cout << "Bytes sent: " << this->_byte_sent << " out of " << response.size() << " bytes" << std::endl;
+        this->_byte_sent = this->_byte_to_send; 
+        std::cout << "Buffer response sent: " << bytes_sent << " bytes" << std::endl;
         return;
     }
-
-    std::vector<char> buffer(1024);
+    
+    // Handle file-based responses
     std::ifstream file(this->_file_path.c_str(), std::ios::binary);
     if (!file)
     {
         std::cerr << "Error opening file: " << this->_file_path << std::endl;
         throw HttpException(404, "Not Found", NOT_FOUND);
     }
-    file.seekg(this->_byte_sent);
-    file.read(buffer.data(), buffer.size()); 
-    this->_byte_sent +=  send(socket_fd, response.c_str(), response.size(), 0);
+    
+    // Send headers only once (when _byte_sent == 0) => FIRST CHUNK
     if (this->_byte_sent == 0)
     {
-        std::cerr << "Error sending chunked response" << std::endl;
+        std::ostringstream headers;
+        headers << "HTTP/1.1 200 OK\r\n";
+        headers << "Transfer-Encoding: chunked\r\n";
+        headers << "Connection: keep-alive\r\n";
+        
+        if (!this->_file_path.empty())
+            this->_content_type = determineContentType(this->_file_path);
+        headers << "Content-Type: " + (this->_content_type.empty() ? "text/plain" : this->_content_type) + "\r\n";
+        headers << "\r\n";
+        
+        std::string header_str = headers.str();
+        ssize_t header_bytes = send(socket_fd, header_str.c_str(), header_str.size(), 0);
+        if (header_bytes < 0) {
+            std::cerr << "Error sending headers: " << strerror(errno) << std::endl;
+            throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
+        }
+        std::cout << "[Debug] Headers sent: " << header_bytes << " bytes\n";
+        std::cout << "[Debug] Content type: " << this->_content_type << std::endl;
+    }
+
+    // HANDLE FINAL CHUNK
+    if (this->_byte_sent >= this->_byte_to_send)
+    {
+        std::cout << "[Debug] Sending final chunk (size 0)\n";
+        std::string final_chunk = "0\r\n\r\n";
+        ssize_t final_bytes = send(socket_fd, final_chunk.c_str(), final_chunk.size(), 0);
+        if (final_bytes < 0) {
+            std::cerr << "Error sending final chunk: " << strerror(errno) << std::endl;
+            throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
+        }
+        std::cout << "[Debug] Final chunk sent: " << final_bytes << " bytes\n";
+        return;
+    }
+    file.seekg(this->_byte_sent);
+    size_t remaining_bytes = this->_byte_to_send - this->_byte_sent;
+    size_t chunk_size = std::min(static_cast<size_t>(CHUNK_SIZE), remaining_bytes);
+    // Read chunk from file
+    std::vector<char> buffer(chunk_size);
+    file.read(buffer.data(), chunk_size);
+    if (!file && !file.eof()) {
+        std::cerr << "Error reading file chunk" << std::endl;
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
+    
+    // Get actual bytes read (might be less than requested at end of file)
+    size_t actual_bytes_read = file.gcount();
+    
+    // Create chunk response
+    std::ostringstream chunk_stream;
+    chunk_stream << std::hex << actual_bytes_read << "\r\n";
+    std::string chunk_response = chunk_stream.str();
+    chunk_response += std::string(buffer.data(), actual_bytes_read);
+    chunk_response += "\r\n";
+    ssize_t bytes_sent = send(socket_fd, chunk_response.c_str(), chunk_response.size(), 0);
+    if (bytes_sent < 0)
+    {
+        std::cerr << "Error sending chunk: " << strerror(errno) << std::endl;
+        throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
+    }
+    this->_byte_sent += actual_bytes_read;
+    std::cout << "[Debug] Chunk sent: size=" << actual_bytes_read 
+              << ", total_sent=" << this->_byte_sent 
+              << "/" << this->_byte_to_send << std::endl;
+    
+    file.close();
 }
-
 HttpResponse::~HttpResponse()
 {}

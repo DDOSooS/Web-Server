@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include "../request/HttpException.hpp"
 
+#define CHUNK_SIZE 1024
 class HttpResponse
 {
     private:
@@ -24,8 +25,8 @@ class HttpResponse
         std::string                                         _file_path;
         bool                                                _is_chunked;
         bool                                                _keep_alive;
-        size_t                                              _byte_sent;
-        size_t                                              _byte_to_send;
+        int                                                 _byte_sent;
+        int                                                 _byte_to_send;
 
     public:
         HttpResponse(int , std::map<std::string, std::string>, std::string, bool, bool);
@@ -38,11 +39,11 @@ class HttpResponse
         void                                                setKeepAlive(bool keep_alive);
         void                                                setBuffer(std::string buffer);
         void                                                setContentType(std::string content_type);
-        void                                                setByteSent(size_t byte_sent);
-        void                                                setByteToSend(size_t byte_to_send);
+        void                                                setByteSent(int byte_sent);
+        void                                                setByteToSend(int byte_to_send);
 
 
-        size_t                                              getByteToSend() const;
+        int                                              getByteToSend() const;
         int                                                 getStatusCode() const;
         std::string                                         getStatusMessage() const;
         std::string                                         getHeader(std::string key) const;
@@ -50,7 +51,7 @@ class HttpResponse
         bool                                                isChunked() const;
         bool                                                isKeepAlive() const;
         std::string                                         getBuffer() const;
-        size_t                                              getByteSent() const;
+        int                                              getByteSent() const;
         std::string                                         getContentType() const;
         std::map<std::string, std::string>                  getHeaders() const;
 
