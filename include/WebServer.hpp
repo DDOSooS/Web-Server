@@ -56,6 +56,11 @@ class  WebServer
         CgiHandler                          *cgiHandler; // Pointer to the CGI handler
         // fd_set          m_master;      // Master files descriptor set
         // nfds_t         nfds = 0;
+
+        void addCgiToPoll(int cgi_fd);
+        void removeCgiFromPoll(int cgi_fd);
+        bool isCgiFd(int fd);
+        void handleCgiEvent(int fd);
 };
 
 

@@ -15,8 +15,17 @@ class ServerConfig;
 class CgiHandler : public RequestHandler {
 private:
     ClientConnection* _client;
+   
 
 public:
+    typedef struct CgiProcess {
+        pid_t pid;
+        int pipe_fd;
+        time_t start_time;
+        std::string output;
+        ClientConnection* client;
+        HttpRequest* request;
+    } CgiProcess;
     // Constructor and Destructor
     CgiHandler(ClientConnection* client);
     ~CgiHandler();
@@ -53,6 +62,13 @@ public:
     bool isPathTraversalSafe(const std::string& path);
     template <typename T>
     std::string to_string(const T& value);
+
+    bool startCgiProcess(HttpRequest *request);
+    
+    // Static map to track CGI processes (add to .cpp file)
+    static std::map<int, CgiProcess> active_cgis;
 };
+
+
 
 #endif // CGIHANDLER_HPP

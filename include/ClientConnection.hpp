@@ -68,4 +68,5 @@ public:
     void            initializeStreaming(size_t content_length);
     bool            continueStreamingRead(int fd);
     void            finalizeStreaming();
+    int GetFd() const;
 };

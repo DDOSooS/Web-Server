@@ -117,7 +117,7 @@ int WebServer::run()
     while (running)
     {
         // Wait for events with poll
-        int ready = poll(pollfds, numfds, -1);
+        int ready = poll(pollfds, numfds, 1000);
         if (ready == -1)
         {
             if (errno == EINTR) {
@@ -126,6 +126,22 @@ int WebServer::run()
             }
             perror("poll");
             break;  // Exit on serious poll errors
+        }
+
+        // ==== TRACK CGI ACTIVES PROCESS 
+        for (std::map<int, CgiHandler::CgiProcess>::iterator it = CgiHandler::active_cgis.begin();
+            it != CgiHandler::active_cgis.end(); ++it) {
+            int cgi_fd = it->first;
+            bool found = false;
+            for (int i = 0; i < numfds; i++) {
+                if (pollfds[i].fd == cgi_fd) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                addCgiToPoll(cgi_fd);
+            }
         }
 
         for (int i = 0; i < numfds; i++)
@@ -512,4 +528,31 @@ void WebServer::handleClientResponse(int fd)
         }
     }
 }
+
+// ======================== CGI TIME OUT ===================================== 
+void WebServer::addCgiToPoll(int cgi_fd) {
+    if (numfds < maxfds) {
+        pollfds[numfds].fd = cgi_fd;
+        pollfds[numfds].events = POLLIN;
+        pollfds[numfds].revents = 0;
+        numfds++;
+        std::cout << "Added CGI fd " << cgi_fd << " to poll" << std::endl;
+    }
+}
+
+// Remove CGI fd from poll system
+void WebServer::removeCgiFromPoll(int cgi_fd) {
+    for (int i = 1; i < numfds; i++) { // Start from 1 to skip listening socket
+        if (pollfds[i].fd == cgi_fd) {
+            // Move last element to this position
+            pollfds[i] = pollfds[numfds - 1];
+            numfds--;
+            std::cout << "Removed CGI fd " << cgi_fd << " from poll" << std::endl;
+            break;
+        }
+    }
+}
+
+
+
 

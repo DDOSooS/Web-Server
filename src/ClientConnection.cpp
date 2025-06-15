@@ -446,3 +446,6 @@ void ClientConnection::parseRequest(char *buff)
     (void)buff; // Silence unused parameter warning
     // This functionality is handled by GenerateRequest()
 }
+int ClientConnection::GetFd() const {
+    return (fd);
+}
