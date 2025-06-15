@@ -47,6 +47,8 @@ public:
     std::string             accumulated_body;
     int                     temp_upload_fd;
     std::string             temp_upload_path;
+    static int                     redirect_counter;
+    bool                    should_close;
 
     // Constructors and destructor
     ClientConnection(); 

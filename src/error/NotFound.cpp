@@ -42,6 +42,7 @@ void    NotFound::ProcessError(Error &error, const ServerConfig & config)
     std::cout << "[Rsponse] : " << response << std::endl;
     error.GetClientData().http_response->setBuffer(response);
     error.GetClientData().http_response->setStatusCode(error.GetCodeError());
+    error.GetClientData().http_response->setStatusMessage("Not Found");
     if (!error.GetClientData().http_response->getContentType().empty())
         error.GetClientData().http_response->setContentType("text/html");
     // error->GetClientData().http_response.send(response, response);

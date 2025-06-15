@@ -41,10 +41,11 @@ void    RequestHandler::HandleRequest(HttpRequest *request, const ServerConfig &
     std::string rel_path;
     // std::cout << "RequestHandler::HandleRequest=================" << std::endl;
      const Location *cur_location = serverConfig.findMatchingLocation(request->GetLocation());
-    rel_path = request->GetRelativePath(cur_location);
+    rel_path = request->GetRelativePath(cur_location, request->GetClientDatat());
 
     if (request->IsRedirected())
     {
+        // request->SetRedirectCounter(request->GetRedirectCounter() + 1);
         request->handleRedirect(cur_location, rel_path);
         return;
     }

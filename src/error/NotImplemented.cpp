@@ -42,6 +42,7 @@ void    NotImplemented::ProcessError(Error &error, const ServerConfig & config)
     // Set the response buffer
     error.GetClientData().http_response->setBuffer(response);
     error.GetClientData().http_response->setStatusCode(error.GetCodeError());
+    error.GetClientData().http_response->setStatusMessage("Not Implemented");
     if (!error.GetClientData().http_response->getContentType().empty())
         error.GetClientData().http_response->setContentType("text/html");
 }

@@ -272,7 +272,7 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
             throw HttpException(404, "HTTP Version Not Supported", NOT_FOUND);
         }
         else if (_http_request.GetIsRl() == REQ_METHOD_ERROR || _http_request.GetIsRl() == REQ_LOCATION_ERROR)
-            throw HttpException(500, "Bad Request", BAD_REQUEST);
+            throw HttpException(400, "Bad Request", BAD_REQUEST);
         else if (_http_request.GetIsRl() == REQ_LOCATION_ERROR)
             throw HttpException(404, "Not Found", NOT_FOUND);
         else if (_http_request.GetIsRl() == REQ_NOT_IMPLEMENTED)
@@ -285,9 +285,9 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
     {
         std::cerr << "Invalid headers" << std::endl;
         if (_http_request.GetIsRl() == REQ_HTTP_VERSION_ERROR)
-            throw HttpException(505, "HTTP Version Not Supported", BAD_REQUEST);
+            throw HttpException(400, "HTTP Version Not Supported", BAD_REQUEST);
         else if (_http_request.GetIsRl() == REQ_METHOD_ERROR || _http_request.GetIsRl() == REQ_LOCATION_ERROR)
-            throw HttpException(500, "Bad Request", BAD_REQUEST);
+            throw HttpException(400, "Bad Request", BAD_REQUEST);
         else if (_http_request.GetIsRl() == REQ_LOCATION_ERROR)
             throw HttpException(404, "Not Found", NOT_FOUND);
         else if (_http_request.GetIsRl() == REQ_NOT_IMPLEMENTED)

@@ -70,8 +70,11 @@ class HttpRequest
         std::string                                     GetQueryStringStr() const;
         bool                                            IsRedirected() const;
         bool                                            IsProcessed() const;
-        std::string                                     GetRelativePath(const Location * cur_location) const ;
+        std::string                                     GetRelativePath(const Location * cur_location, ClientConnection *client);  ;
+        int                                             GetRedirectCounter() const;
 
+        
+        void                                            SetRedirectCounter(int);
         void                                            SetIsRedirected(bool);
         void                                            SetProcessed(bool);
         void                                            SetQueryStringStr(std::string);
