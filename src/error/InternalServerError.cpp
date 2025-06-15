@@ -41,6 +41,7 @@ void    InternalServerError::ProcessError(Error &error, const ServerConfig & con
     // Set the response buffer
     error.GetClientData().http_response->setBuffer(response);
     error.GetClientData().http_response->setStatusCode(error.GetCodeError());
+    error.GetClientData().http_response->setStatusMessage("Internal Server Error");
     if (!error.GetClientData().http_response->getContentType().empty())
         error.GetClientData().http_response->setContentType("text/html");
 }

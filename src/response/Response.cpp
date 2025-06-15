@@ -302,6 +302,8 @@ void HttpResponse::sendChunkedResponse(int socket_fd)
         }
         this->_byte_sent = this->_byte_to_send; 
         std::cout << "Buffer response sent: " << bytes_sent << " bytes" << std::endl;
+        std::cout << "[Debug] Chunked response sent from buffer\n";
+        std::cout << "---> [DEBUG] RESPONSE SENT: " << response << std::endl;
         return;
     }
     
@@ -351,7 +353,7 @@ void HttpResponse::sendChunkedResponse(int socket_fd)
     }
     file.seekg(this->_byte_sent);
     size_t remaining_bytes = this->_byte_to_send - this->_byte_sent;
-    size_t chunk_size = std::min(static_cast<size_t>(CHUNK_SIZE), remaining_bytes);
+    size_t chunk_size = std::min(static_cast<size_t>(CHUNKED_SIZE), remaining_bytes);
     // Read chunk from file
     std::vector<char> buffer(chunk_size);
     file.read(buffer.data(), chunk_size);

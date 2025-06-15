@@ -9,7 +9,7 @@ INC_DIR	= include/
 SRC		= main.cpp \
 			$(SRC_DIR)WebServer.cpp $(SRC_DIR)ClientConnection.cpp \
 			$(SRC_DIR)response/Response.cpp \
-			$(SRC_DIR)error/Error.cpp $(SRC_DIR)error/Forbidden.cpp $(SRC_DIR)error/BadRequest.cpp $(SRC_DIR)error/NotFound.cpp $(SRC_DIR)error/NotImplemented.cpp \
+			$(SRC_DIR)error/Error.cpp $(SRC_DIR)error/Forbidden.cpp $(SRC_DIR)error/BadRequest.cpp $(SRC_DIR)error/NotFound.cpp $(SRC_DIR)error/TooManyRedirection.cpp $(SRC_DIR)error/NotImplemented.cpp \
 			$(SRC_DIR)error/MethodNotAllowed.cpp $(SRC_DIR)error/InternalServerError.cpp $(SRC_DIR)error/ErrorHandler.cpp \
 			$(SRC_DIR)request/CgiHandler.cpp $(SRC_DIR)request/HttpException.cpp $(SRC_DIR)request/HttpRequest.cpp $(SRC_DIR)request/HttpRequestBuilder.cpp \
 			$(SRC_DIR)request/RequestHandler.cpp $(SRC_DIR)request/Get.cpp $(SRC_DIR)request/Post.cpp $(SRC_DIR)request/Delete.cpp \

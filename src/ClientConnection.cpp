@@ -16,9 +16,11 @@
 #include <errno.h>
 #include <set>
 
+int ClientConnection::redirect_counter = 0;
+
 ClientConnection::ClientConnection(): fd(-1), ipAddress(""), port(0), connectTime(0), lastActivity(0)
             , builder(NULL), http_response(NULL), http_request(NULL), handler_chain(NULL)
-            , is_streaming_upload(false), total_content_length(0), bytes_received_so_far(0), temp_upload_fd(-1)
+            , is_streaming_upload(false), total_content_length(0), bytes_received_so_far(0), temp_upload_fd(-1), should_close(false)
 {
     this->_server = NULL;
 }
@@ -37,7 +39,8 @@ ClientConnection::ClientConnection(int socketFd, const sockaddr_in& clientAddr) 
     is_streaming_upload(false),
     total_content_length(0),
     bytes_received_so_far(0),
-    temp_upload_fd(-1)
+    temp_upload_fd(-1),
+    should_close(false)
 {
     char ipStr[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &(clientAddr.sin_addr), ipStr, INET_ADDRSTRLEN);
@@ -182,11 +185,15 @@ void ClientConnection::GenerateRequest(int fd)
     }
     
     // Clean up any existing request object
-    if (this->http_request) {
+    // int redirectCounter = this->http_request->GetRedirectCounter();
+    if (this->http_request)
+    {
         delete this->http_request;
     }
     this->http_request = new HttpRequest(build.GetHttpRequest());
     this->http_request->SetClientData(this);
+    // if (redirectCounter)
+    //     this->http_request->SetRedirectCounter(redirectCounter);
     
     // For small uploads, process immediately
     // For large uploads, this won't be reached until streaming is complete

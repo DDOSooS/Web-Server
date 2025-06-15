@@ -23,6 +23,7 @@ HttpRequest::HttpRequest(HttpRequest const &src)
     _query_string_str = src._query_string_str;
     _is_redirected = src._is_redirected;
     _processed = src._processed;
+    _client = src._client;
 }
 
 bool HttpRequest::FindHeader(std::string key, std::string value)
@@ -156,6 +157,8 @@ enum RequestStatus HttpRequest::GetStatus() const
     return _status;
 }
 
+
+
 void    HttpRequest::SetClientData(ClientConnection *client)
 {
     this->_client =  client;
@@ -180,6 +183,7 @@ void HttpRequest::SetBuffer(std::string buffer)
 {
     _buffer = buffer;
 }
+
 
 void HttpRequest::SetIsCrlf(bool is_crlf)
 {
@@ -228,6 +232,7 @@ void HttpRequest::ResetRequest()
     _headers.clear();
     _is_redirected = false;
     _processed = false;
+    _client = NULL;
 }
 
 bool HttpRequest::IsValidRequest() const
@@ -240,7 +245,7 @@ HttpRequest::~HttpRequest()
 
 }
 
-std::string    HttpRequest::GetRelativePath(const Location * cur_location)
+std::string    HttpRequest::GetRelativePath(const Location * cur_location, ClientConnection *client)
 {
     std::string rel_path;
 
@@ -283,6 +288,9 @@ std::string    HttpRequest::GetRelativePath(const Location * cur_location)
     if (!cur_location->get_return().empty())
     {        
         SetIsRedirected(true);
+        std::cout << "\n\n\n-------------------------[ DEBUG ] : [ORIGIN ]Redirecting to : " << cur_location->get_path() << "------" << cur_location->get_return()[1] << "------------------\n\n" << std::endl;
+        // this->SetRedirectCounter(this->GetRedirectCounter() + 1);
+        client->redirect_counter++;
         /*
         std::cout << "REDIRECTED TO : " << cur_location->get_return()[0] << std::endl;
         std::cout << "REDIRECTED TO : " << cur_location->get_return()[1] << std::endl;

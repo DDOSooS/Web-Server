@@ -263,7 +263,7 @@ void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConf
     }
     // Get the current location from the server configuration
     cur_location = serverConfig.findBestMatchingLocation(request->GetLocation());
-    rel_path = request->GetRelativePath(cur_location);
+    rel_path = request->GetRelativePath(cur_location, request->GetClientDatat());
     if (rel_path.empty())
     {
         std::cerr << "[empty rel_path Not Found ]\n";
