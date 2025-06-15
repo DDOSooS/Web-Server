@@ -218,6 +218,8 @@ long getFileSize(std::string &file_name)
     return file_info.st_size;
 }
 
+
+    
 std::string HttpResponse::toString() 
 {
     std::cout << "[INFO ] : [ --- HTTP RESPONSE TO STRING METHOD --- ]\n";
@@ -226,8 +228,28 @@ std::string HttpResponse::toString()
 
     ss << this->getStatusCode();
     std::string response = "HTTP/1.1 " + ss.str() + " " + this->_status_message + "\r\n";
+    
+    // CRITICAL FIX: Handle Set-Cookie headers specially
+    std::vector<std::string> set_cookie_headers;
+    
+    // First pass: collect Set-Cookie headers and add other headers
     for (it = this->_headers.begin(); it != this->_headers.end(); ++it)
-        response += it->first + ": " + it->second + "\r\n";
+    {
+        if (it->first == "Set-Cookie") {
+            set_cookie_headers.push_back(it->second);
+            std::cout << "🍪 Found Set-Cookie header: " << it->second << std::endl;
+        } else {
+            response += it->first + ": " + it->second + "\r\n";
+            std::cout << "📤 Adding header: " << it->first << ": " << it->second << std::endl;
+        }
+    }
+    
+    // CRITICAL: Add each Set-Cookie header on a separate line
+    for (size_t i = 0; i < set_cookie_headers.size(); ++i) {
+        response += "Set-Cookie: " + set_cookie_headers[i] + "\r\n";
+        std::cout << "🍪 Added Set-Cookie to response: " << set_cookie_headers[i] << std::endl;
+    }
+    
     if (this->_is_chunked)
         response += "Transfer-Encoding: chunked\r\n";
     if (this->_keep_alive)
@@ -266,8 +288,21 @@ std::string HttpResponse::toString()
     // Final CRLF to end headers
     response += "\r\n";
     response += body;
+    
+    std::cout << "🔐 Final response headers:" << std::endl;
+    // Log the full response headers for debugging
+    size_t header_end = response.find("\r\n\r\n");
+    if (header_end != std::string::npos) {
+        std::string headers_only = response.substr(0, header_end);
+        std::cout << "========== RESPONSE HEADERS START ==========" << std::endl;
+        std::cout << headers_only << std::endl;
+        std::cout << "========== RESPONSE HEADERS END ==========" << std::endl;
+    }
+    
     return response;
 }
+
+
 
 void HttpResponse::sendResponse(int socket_fd)
 {

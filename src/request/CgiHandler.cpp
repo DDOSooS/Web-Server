@@ -160,11 +160,26 @@ char** CgiHandler::setGgiEnv(HttpRequest *request) {
     
     // Required CGI environment variables
     env_vars.push_back("REQUEST_METHOD=" + request->GetMethod());
-    env_vars.push_back("SCRIPT_NAME=" + request->GetLocation());
     
-    // Extract actual query string from request URL
+    // FIX: Clean script name (remove query string and normalize path)
+    std::string request_path = request->GetLocation();
+    size_t question_pos = request_path.find('?');
+    if (question_pos != std::string::npos) {
+        request_path = request_path.substr(0, question_pos);
+    }
+    env_vars.push_back("SCRIPT_NAME=" + request_path);
+    
+    // FIX: Ensure query string is properly extracted and set
     std::string query_string = request->GetQueryStringStr();
-    std::cout << "--------------------> Query string: " << query_string << std::endl;
+    if (query_string.empty()) {
+        // Try to extract from location if not already set
+        std::string full_location = request->GetLocation();
+        size_t q_pos = full_location.find('?');
+        if (q_pos != std::string::npos) {
+            query_string = full_location.substr(q_pos + 1);
+        }
+    }
+    std::cout << "🔍 Final Query String for CGI: '" << query_string << "'" << std::endl;
     env_vars.push_back("QUERY_STRING=" + query_string);
     
     // Server information
@@ -179,12 +194,6 @@ char** CgiHandler::setGgiEnv(HttpRequest *request) {
     env_vars.push_back("REMOTE_PORT=" + this->to_string(_client->port));
     
     // Script and document information
-    std::string request_path = request->GetLocation();
-    size_t question_pos = request_path.find('?');
-    if (question_pos != std::string::npos) {
-        request_path = request_path.substr(0, question_pos);
-    }
-    
     std::string script_path = _client->_server->getServerConfig().get_root() + request_path;
     env_vars.push_back("SCRIPT_FILENAME=" + script_path);
     env_vars.push_back("DOCUMENT_ROOT=" + _client->_server->getServerConfig().get_root());
@@ -205,35 +214,33 @@ char** CgiHandler::setGgiEnv(HttpRequest *request) {
         env_vars.push_back("CONTENT_LENGTH=" + this->to_string(request->GetBody().length()));
     }
     
-    // HTTP headers (only add non-empty headers)
-    std::string host = request->GetHeader("Host");
-    if (!host.empty()) env_vars.push_back("HTTP_HOST=" + host);
-    
-    std::string user_agent = request->GetHeader("User-Agent");
-    if (!user_agent.empty()) env_vars.push_back("HTTP_USER_AGENT=" + user_agent);
-    
-    std::string accept = request->GetHeader("Accept");
-    if (!accept.empty()) env_vars.push_back("HTTP_ACCEPT=" + accept);
-    
-    std::string accept_language = request->GetHeader("Accept-Language");
-    if (!accept_language.empty()) env_vars.push_back("HTTP_ACCEPT_LANGUAGE=" + accept_language);
-    
-    std::string accept_encoding = request->GetHeader("Accept-Encoding");
-    if (!accept_encoding.empty()) env_vars.push_back("HTTP_ACCEPT_ENCODING=" + accept_encoding);
-    
-    std::string connection = request->GetHeader("Connection");
-    if (!connection.empty()) env_vars.push_back("HTTP_CONNECTION=" + connection);
-    
-    std::string cookie = request->GetHeader("Cookie");
-    if (!cookie.empty()) env_vars.push_back("HTTP_COOKIE=" + cookie);
-    
-    std::string referer = request->GetHeader("Referer");
-    if (!referer.empty()) env_vars.push_back("HTTP_REFERER=" + referer);
+    // FIX: Enhanced HTTP headers (add all headers as HTTP_* variables)
+    std::map<std::string, std::string> headers = request->GetHeaders();
+    for (std::map<std::string, std::string>::const_iterator it = headers.begin(); 
+         it != headers.end(); ++it) {
+        if (!it->second.empty()) {
+            std::string header_name = "HTTP_" + it->first;
+            // Convert to uppercase and replace hyphens with underscores
+            for (size_t i = 5; i < header_name.length(); ++i) {
+                if (header_name[i] == '-') {
+                    header_name[i] = '_';
+                }
+                header_name[i] = std::toupper(header_name[i]);
+            }
+            env_vars.push_back(header_name + "=" + it->second);
+            
+            // Special handling for important headers
+            if (it->first == "Cookie") {
+                std::cout << "🍪 Setting HTTP_COOKIE: " << it->second << std::endl;
+            }
+        }
+    }
     
     // Create environment array
     char **env = new char*[env_vars.size() + 1];
     for (size_t i = 0; i < env_vars.size(); ++i) {
         env[i] = strdup(env_vars[i].c_str());
+        std::cout << "ENV[" << i << "]: " << env_vars[i] << std::endl;
     }
     env[env_vars.size()] = NULL;
     
@@ -268,8 +275,14 @@ std::string CgiHandler::executeCgiScript(HttpRequest *request) {
         request_path = request_path.substr(0, question_pos);
     }
     
+    // FIXED: Don't add trailing slash for CGI scripts
     std::string script_path = _client->_server->getServerConfig().get_root() + request_path;
-    std::cout << "Script path: " << script_path << std::endl;
+    // Remove trailing slash if it exists and path is not root
+    if (script_path.length() > 1 && script_path[script_path.length() - 1] == '/') {
+        script_path = script_path.substr(0, script_path.length() - 1);
+    }
+    
+    std::cout << "FIXED Script path: " << script_path << std::endl;
     
     // Validate script exists and is executable
     if (!isValidScriptPath(script_path)) {
@@ -536,8 +549,6 @@ void CgiHandler::parseHttpHeaders(const std::string& cgi_output, std::string& he
         body = cgi_output.substr(header_end + 4);
     }
 }
-
-// Set response headers from CGI output
 void CgiHandler::setCgiResponseHeaders(HttpRequest* request, const std::string& headers) {
     std::istringstream header_stream(headers);
     std::string line;
@@ -547,9 +558,11 @@ void CgiHandler::setCgiResponseHeaders(HttpRequest* request, const std::string& 
     std::string content_type = "text/html";
     
     while (std::getline(header_stream, line)) {
+        // Remove carriage return if present
         if (!line.empty() && line[line.length() - 1] == '\r') {
             line.erase(line.length() - 1);
         }
+        
         // Skip empty lines
         if (line.empty()) continue;
         
@@ -560,10 +573,15 @@ void CgiHandler::setCgiResponseHeaders(HttpRequest* request, const std::string& 
         std::string header_name = line.substr(0, colon_pos);
         std::string header_value = line.substr(colon_pos + 1);
         
-        // Trim whitespace
+        // Trim whitespace from header value
         while (!header_value.empty() && (header_value[0] == ' ' || header_value[0] == '\t')) {
             header_value.erase(0, 1);
         }
+        while (!header_value.empty() && (header_value[header_value.length()-1] == ' ' || header_value[header_value.length()-1] == '\t')) {
+            header_value.erase(header_value.length()-1, 1);
+        }
+        
+        std::cout << "🔐 Processing CGI header: " << header_name << ": " << header_value << std::endl;
         
         // Handle special CGI headers
         if (header_name == "Status") {
@@ -575,14 +593,29 @@ void CgiHandler::setCgiResponseHeaders(HttpRequest* request, const std::string& 
             } else {
                 status_code = std::atoi(header_value.c_str());
             }
-        } else if (header_name == "Content-Type" || header_name == "Content-type") {
+            std::cout << "🔐 Set status: " << status_code << " " << status_message << std::endl;
+        } 
+        else if (header_name == "Content-Type" || header_name == "Content-type") {
             content_type = header_value;
-        } else if (header_name == "Location") {
+            std::cout << "🔐 Set content-type: " << content_type << std::endl;
+        } 
+        else if (header_name == "Location") {
             // Handle redirect
             status_code = 302;
             status_message = "Found";
-            // Set location header in response
             request->GetClientDatat()->http_response->setHeader("Location", header_value);
+            std::cout << "🔐 Set redirect location: " << header_value << std::endl;
+        }
+        // CRITICAL FIX: Enhanced Set-Cookie handling
+        else if (header_name == "Set-Cookie") {
+            std::cout << "🍪 [CRITICAL] Processing Set-Cookie from CGI: " << header_value << std::endl;
+            request->GetClientDatat()->http_response->setHeader("Set-Cookie", header_value);
+            std::cout << "🍪 [CRITICAL] Set-Cookie header added to response object" << std::endl;
+        }
+        // Handle other headers
+        else {
+            request->GetClientDatat()->http_response->setHeader(header_name, header_value);
+            std::cout << "🔐 Set header: " << header_name << ": " << header_value << std::endl;
         }
     }
     
@@ -591,7 +624,19 @@ void CgiHandler::setCgiResponseHeaders(HttpRequest* request, const std::string& 
     request->GetClientDatat()->http_response->setStatusMessage(status_message);
     request->GetClientDatat()->http_response->setContentType(content_type);
     request->GetClientDatat()->http_response->setChunked(false);
+    
+    std::cout << "🔐 Final CGI response setup - Status: " << status_code << " " << status_message << std::endl;
+    std::cout << "🔐 Final CGI response setup - Content-Type: " << content_type << std::endl;
+    
+    // Debug: Check if Set-Cookie header is in the response object
+    std::string set_cookie_check = request->GetClientDatat()->http_response->getHeader("Set-Cookie");
+    if (!set_cookie_check.empty()) {
+        std::cout << "🍪 [VERIFICATION] Set-Cookie header in response object: " << set_cookie_check << std::endl;
+    } else {
+        std::cout << "🍪 [ERROR] No Set-Cookie header found in response object!" << std::endl;
+    }
 }
+
 // to_string to be c++ 98 compatible
 template <typename T>
 std::string CgiHandler::to_string(const T& value) {
