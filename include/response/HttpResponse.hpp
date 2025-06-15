@@ -23,6 +23,8 @@ class HttpResponse
 
         // if the response is a file
         std::string                                         _file_path;
+
+
         bool                                                _is_chunked;
         bool                                                _keep_alive;
         int                                                 _byte_sent;

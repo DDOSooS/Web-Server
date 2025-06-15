@@ -1,15 +1,94 @@
---------------------> Query string: name=abde&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&lname=afdsa
-<html>
-<head><title>Test CGI Script</title></head>
-<body>
-<h1>Test CGI Script</h1>
-<p>This is a test CGI script running on the server.</p>
-<p>Current date and time: Sat Jun 14 02:42:08 +01 2025</p>
-<p>Server name: c4r10p8.1337.ma</p>clear
-hostname: invalid option -- 'I'
-Try 'hostname --help' for more information.
-<p>Server IP address: </p>
-<p>Server software: "Freedesktop SDK 24.08 (Flatpak runtime)"</p>
-<p>CGI script executed successfully!</p>
-</body>
-</html>
+🔍 Final Query String for CGI: ''
+🍪 Setting HTTP_COOKIE: PHPSESSID=in4nag3iv6qm20c6l1utnnm6rk; SESSIONID=
+ENV[0]: REQUEST_METHOD=GET
+ENV[1]: SCRIPT_NAME=/cgi-bin/session_manager.py
+ENV[2]: QUERY_STRING=
+ENV[3]: SERVER_NAME=webserv
+ENV[4]: SERVER_PORT=8080
+ENV[5]: SERVER_PROTOCOL=HTTP/1.1
+ENV[6]: SERVER_SOFTWARE=webserv/1.0
+ENV[7]: GATEWAY_INTERFACE=CGI/1.1
+ENV[8]: REMOTE_ADDR=127.0.0.1
+ENV[9]: REMOTE_PORT=45230
+ENV[10]: SCRIPT_FILENAME=/home/aezzahir/Dev/webserv/www/cgi-bin/session_manager.py
+ENV[11]: DOCUMENT_ROOT=/home/aezzahir/Dev/webserv/www
+ENV[12]: HTTP_ACCEPT=text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+ENV[13]: HTTP_ACCEPT_ENCODING=gzip, deflate, br, zstd
+ENV[14]: HTTP_ACCEPT_LANGUAGE=en-US,en;q=0.9
+ENV[15]: HTTP_CONNECTION=keep-alive
+ENV[16]: HTTP_COOKIE=PHPSESSID=in4nag3iv6qm20c6l1utnnm6rk; SESSIONID=
+ENV[17]: HTTP_HOST=localhost:8080
+ENV[18]: HTTP_REFERER=http://localhost:8080/cgi-bin/session_manager.py
+ENV[19]: HTTP_SEC_FETCH_DEST=document
+ENV[20]: HTTP_SEC_FETCH_MODE=navigate
+ENV[21]: HTTP_SEC_FETCH_SITE=same-origin
+ENV[22]: HTTP_SEC_FETCH_USER=?1
+ENV[23]: HTTP_UPGRADE_INSECURE_REQUESTS=1
+ENV[24]: HTTP_USER_AGENT=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36
+ENV[25]: HTTP_SEC_CH_UA="Google Chrome";v="137", "Chromium";v="137", "Not/A)Brand";v="24"
+ENV[26]: HTTP_SEC_CH_UA_MOBILE=?0
+ENV[27]: HTTP_SEC_CH_UA_PLATFORM="Linux"
+Status: 200 OK
+Content-Type: text/html; charset=utf-8
+
+
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Webserv - Session Demo</title>
+                <meta charset="utf-8">
+                <style>
+                    body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+                    .status { padding: 15px; border-radius: 5px; margin: 20px 0; }
+                    .logged-in { background: #d4edda; color: #155724; }
+                    .logged-out { background: #f8d7da; color: #721c24; }
+                    a { color: #007cba; text-decoration: none; margin-right: 15px; }
+                    .demo-info { background: #e7f3ff; padding: 15px; border-radius: 5px; margin: 20px 0; }
+                    .debug { background: #f0f0f0; padding: 10px; margin: 10px 0; font-family: monospace; font-size: 12px; }
+                </style>
+            </head>
+            <body>
+                <h1>Webserv Cookie Session Demo</h1>
+                
+                <div class="status logged-out">
+                    Not logged in
+                </div>
+                
+                <h3>Navigation</h3>
+                <p>
+                    <a href="/cgi-bin/session_manager.py">Home</a>
+                    
+                    <a href="/cgi-bin/session_manager.py?action=login">Login</a>
+                </p>
+                
+                <div class="demo-info">
+                    <h3>Cookie Session Features</h3>
+                    <ul>
+                        <li>Session-based authentication using HTTP cookies</li>
+                        <li>Automatic session expiry (1 hour timeout)</li>
+                        <li>Protected pages (profile requires login)</li>
+                        <li>Session data stored server-side</li>
+                        <li>Secure session ID generation</li>
+                    </ul>
+                </div>
+                
+                <div class="debug">
+                    <h4>DEBUG Information</h4>
+                    <p><strong>Current User:</strong> None</p>
+                    <p><strong>SESSIONID Cookie:</strong> </p>
+                    <p><strong>Debug Log:</strong> /tmp/webserv_debug.log</p>
+                </div>
+                
+                <h3>Test Instructions</h3>
+                <ol>
+                    <li>Clear all browser cookies for localhost:8080</li>
+                    <li>Click "Login" and use: <strong>admin / password123</strong></li>
+                    <li>Check browser dev tools for cookies</li>
+                    <li>Visit protected "Profile" page</li>
+                </ol>
+                
+                <hr>
+                <p><em>Debug mode enabled - check /tmp/webserv_debug.log for logs</em></p>
+            </body>
+            </html>
+            
