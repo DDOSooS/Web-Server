@@ -28,11 +28,6 @@ ErrorHandler *ErrorHandler::SetNext(ErrorHandler *handler)
    return this;
 }
 
-void	ErrorHandler::DefaultErrorHandler(Error &error)
-{
-
-}
-
 bool ErrorHandler::IsErrorPageDefined(const ServerConfig &config, short error_code) const
 {
     std::cout << " [DEBUG] : Checking if error page is defined for error code: " << error_code << std::endl;
@@ -92,8 +87,6 @@ void ErrorHandler::HanldeError(Error &error, const ServerConfig & config)
             
             this->nextHandler->HanldeError(error, config);
         }
-        else
-        DefaultErrorHandler(error);
     }
     catch(const std::exception& e)
     {

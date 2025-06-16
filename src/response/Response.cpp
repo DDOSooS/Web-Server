@@ -330,7 +330,7 @@ void HttpResponse::sendChunkedResponse(int socket_fd)
     {
         std::cout << "[Debug] Sending chunked response from buffer\n";
         response = this->toString();
-        ssize_t bytes_sent = send(socket_fd, response.c_str(), response.size(), 0);
+        ssize_t bytes_sent = send(socket_fd, response.c_str(), response.size(), MSG_NOSIGNAL);
         if (bytes_sent < 0) {
             std::cerr << "Error sending chunked response: " << strerror(errno) << std::endl;
             throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
@@ -364,7 +364,7 @@ void HttpResponse::sendChunkedResponse(int socket_fd)
         headers << "\r\n";
         
         std::string header_str = headers.str();
-        ssize_t header_bytes = send(socket_fd, header_str.c_str(), header_str.size(), 0);
+        ssize_t header_bytes = send(socket_fd, header_str.c_str(), header_str.size(), MSG_NOSIGNAL);
         if (header_bytes < 0) {
             std::cerr << "Error sending headers: " << strerror(errno) << std::endl;
             throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
@@ -378,7 +378,7 @@ void HttpResponse::sendChunkedResponse(int socket_fd)
     {
         std::cout << "[Debug] Sending final chunk (size 0)\n";
         std::string final_chunk = "0\r\n\r\n";
-        ssize_t final_bytes = send(socket_fd, final_chunk.c_str(), final_chunk.size(), 0);
+        ssize_t final_bytes = send(socket_fd, final_chunk.c_str(), final_chunk.size(), MSG_NOSIGNAL);
         if (final_bytes < 0) {
             std::cerr << "Error sending final chunk: " << strerror(errno) << std::endl;
             throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
@@ -406,7 +406,7 @@ void HttpResponse::sendChunkedResponse(int socket_fd)
     std::string chunk_response = chunk_stream.str();
     chunk_response += std::string(buffer.data(), actual_bytes_read);
     chunk_response += "\r\n";
-    ssize_t bytes_sent = send(socket_fd, chunk_response.c_str(), chunk_response.size(), 0);
+    ssize_t bytes_sent = send(socket_fd, chunk_response.c_str(), chunk_response.size(), MSG_NOSIGNAL);
     if (bytes_sent < 0)
     {
         std::cerr << "Error sending chunk: " << strerror(errno) << std::endl;
