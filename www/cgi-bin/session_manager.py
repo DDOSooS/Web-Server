@@ -13,7 +13,7 @@ from urllib.parse import parse_qs, unquote_plus
 def debug_log(message):
     """Log to file (never stdout)"""
     try:
-        with open('/tmp/webserv_debug.log', 'a') as f:
+        with open('./tmp/webserv_debug.log', 'a') as f:
             timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
             f.write(f"[{timestamp}] {message}\n")
             f.flush()
