@@ -39,7 +39,14 @@ class  WebServer
         // void sendErrorResponse(int fd, int code, const std::string& message);
         //Location getLocationForPath(const std::string& path);
         CgiHandler* getCgiHandler() const { return cgiHandler; }
-
+        
+        
+        // Manage CGI time out ============ 
+        void addCgiToPoll(int cgi_fd);
+        void removeCgiFromPoll(int cgi_fd);
+        bool isCgiFd(int fd);
+        void handleCgiEvent(int fd);
+        void checkCgiTimeouts();
     protected:
         void closeClientConnection(int clientSocket);
         void handleClientRequest(int fd);
@@ -56,6 +63,9 @@ class  WebServer
         CgiHandler                          *cgiHandler; // Pointer to the CGI handler
         // fd_set          m_master;      // Master files descriptor set
         // nfds_t         nfds = 0;
+
+
+       
 };
 
 

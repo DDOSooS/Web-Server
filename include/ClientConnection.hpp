@@ -54,7 +54,7 @@ public:
     ClientConnection(); 
     ClientConnection(int socketFd, const sockaddr_in& clientAddr);
     ~ClientConnection();
-    
+    int GetFd() const ;
     // Main methods
     void            GenerateRequest(int fd);
     void            ProcessRequest(int fd);
