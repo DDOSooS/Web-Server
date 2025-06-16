@@ -8,6 +8,10 @@ ServerConfig::ServerConfig() {
     this->_root = "";
     this->_client_max_body_size = 0;
     this->_autoindex = false;
+    this->_index.clear();
+    this->_error_pages.clear();
+    this->_locations.clear();
+
     
     // Initialize common error pages more elegantly
     initializeDefaultErrorPages();

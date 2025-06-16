@@ -60,6 +60,28 @@ int main(int argc, char *argv[]) {
         std::cerr << "No server configurations found." << std::endl;
         return -1;
     }
+    char cwd[1024];
+    if (!getcwd(cwd, sizeof(cwd)) )
+    {
+        std::cerr << "Error getting current working directory." << std::endl;
+        return -1;
+    }
+    for (size_t i = 0; i < configs.size(); i++)
+    {
+        if (configs[i].get_root().empty()) {
+            std::cerr << "Error: Server root is not set in configuration." << std::endl;
+            return -1;
+        }
+        if (configs[i].get_root()[0] != '/')
+        {
+            // If the root path is relative, prepend the current working directory
+            configs[i].set_root(std::string(cwd) + "/" + configs[i].get_root());
+        }
+        else
+        {
+            configs[i].set_root(cwd + configs[i].get_root());
+        }
+    }
 
     // Create and initialize a single server
 

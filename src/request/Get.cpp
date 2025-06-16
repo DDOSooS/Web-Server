@@ -17,7 +17,6 @@ bool Get::CanHandle(std::string method)
     return method == "GET";
 }
 
-
 std::string Get::IsValidPath( std::string &path)
 {
     struct stat _statinfo;
@@ -76,6 +75,7 @@ bool Get::check_auto_indexing(const Location *cur_location, const ServerConfig &
 std::string Get::ListingDir(const std::string &path, std::string request_path, const Location *cur_location,const ServerConfig &serverConfig)
 {
     std::cout << "[DEBUG] REL PATH :" << path << std::endl;
+    std::cout << "==>[DEBUG AUTO INDEXING] : " << (cur_location ? (cur_location->get_autoindex() ? "ON" : "OFF") : "No location found") << std::endl;
     //To Check the auto indexing Option  Conf File
     if (!check_auto_indexing(cur_location, serverConfig))
     {
@@ -88,9 +88,10 @@ std::string Get::ListingDir(const std::string &path, std::string request_path, c
     std::string path_;
     std::string normalized_path = path;
     
-    if (normalized_path.empty() || normalized_path[0] != '/')
-        normalized_path = "/" + normalized_path;
-    path_ = normalized_path;  // Use a relative path that exists in your project structure
+    std::cout << "[ DEBUG ] : NORMALIZED PATH : " << normalized_path << std::endl;
+    if (normalized_path.empty() || normalized_path[normalized_path.length() - 1] != '/')
+        normalized_path += "/";
+    path_ = normalized_path; 
     std::cout << "Opening directory: " << path_ << std::endl;
     dir = opendir(path_.c_str());
     if (dir == NULL)
@@ -263,6 +264,7 @@ void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConf
     }
     // Get the current location from the server configuration
     cur_location = serverConfig.findBestMatchingLocation(request->GetLocation());
+    std::cout << "[ Debug ] rel LOCATION: " << request->GetLocation() << std::endl; 
     rel_path = request->GetRelativePath(cur_location, request->GetClientDatat());
     if (rel_path.empty())
     {
@@ -328,10 +330,9 @@ void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConf
     }
     else
     {
+        std::cout << "[Debug] : File is a regular file.!!!!!!!!!!!!!!!!!!!!" << std::endl;
         request->GetClientDatat()->http_response->setByteToSend(GetFileSize(rel_path));
         std::cout << "[Debug] : File size to send: " << request->GetClientDatat()->http_response->getByteToSend() << " bytes." << std::endl;
-        // exit(11);
-
         if (request->GetClientDatat()->http_response->getByteToSend() > 1000000)
         {
             std::cout << "[Debug] : File size is greater than 1MB, sending as chunked response." << std::endl;
