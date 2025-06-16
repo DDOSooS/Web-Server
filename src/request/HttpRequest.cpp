@@ -252,7 +252,7 @@ std::string    HttpRequest::GetRelativePath(const Location * cur_location, Clien
     // in case of no location found, 
     if (!cur_location)
     {
-        rel_path = this->GetClientDatat()->_server->getServerConfig().get_root() + this->GetLocation();
+        rel_path = this->GetClientDatat()->_server->getConfigForClient(this->_client->GetFd()).get_root() + this->GetLocation();
         if (rel_path[rel_path.length() - 1] != '/')
             rel_path += '/';
         std::cout << "[ WARNING ] : No matching location found, using server root: " << rel_path << std::endl;
@@ -313,8 +313,8 @@ std::string    HttpRequest::GetRelativePath(const Location * cur_location, Clien
     {
         std::cerr << "[ WARNING ] : No alias or root location specified, using server root." << std::endl;
         // If no alias or root location is specified, we use the Server's root path
-        std::cout << "[ Server Root Path :" << this->GetClientDatat()->_server->getServerConfig().get_root() << " ]\n";
-        rel_path = this->GetClientDatat()->_server->getServerConfig().get_root() + this->GetLocation();
+        std::cout << "[ Server Root Path :" << this->GetClientDatat()->_server->getConfigForClient(this->_client->GetFd()).get_root() << " ]\n";
+        rel_path = this->GetClientDatat()->_server->getConfigForClient(this->_client->GetFd()).get_root() + this->GetLocation();
     }
     if (rel_path[rel_path.length() - 1] != '/')
     {

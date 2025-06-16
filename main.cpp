@@ -8,7 +8,6 @@
 #include "./include/error/NotImplemented.hpp"
 #include "./include/error/Forbidden.hpp"
 
-
 int main(int argc, char *argv[]) {
     bool test_mode = false;
     std::string config_file;
@@ -25,77 +24,81 @@ int main(int argc, char *argv[]) {
             return 1;
         }
     }
-
+    
     if (config_file.empty()) {
         // Use default configuration file if none specified
         config_file = "default.config";
         std::cout << "No configuration file specified, using default: " << config_file << std::endl;
     }
-
+    
     // Test mode - just validate the configuration and exit
     if (test_mode) {
         bool valid = test_config(config_file);
         return valid ? 0 : 1;
     }
-
+    
     // Normal server operation
-    ConfigParser parser(config_file);
-
-    if (!parser.parse()) {
-        std::cerr << "Failed to parse configuration file." << std::endl;
+    try {
+        ConfigParser parser(config_file);
+        if (!parser.parse()) {
+            std::cerr << "Failed to parse configuration file." << std::endl;
+            return 1;
+        }
+        
+        // Validate configuration
+        if (!parser.validate_config()) {
+            std::cerr << "Configuration validation failed. Oooooops!" << std::endl;
+            return 1;
+        }
+        
+        std::vector<ServerConfig> configs = parser.create_servers();
+        std::cout << "Created [" << configs.size() << "] server configuration(s)!" << std::endl;
+        
+        // Check if we have any server configurations
+        if (configs.empty()) {
+            std::cerr << "No server configurations found." << std::endl;
+            return 1;
+        }
+        
+        std::cout << "[DEBUG] *********** Configuration parsing completed successfully" << std::endl;
+        
+        // Print summary of server configurations
+        std::cout << "\n=== Server Configuration Summary ===" << std::endl;
+        for (size_t i = 0; i < configs.size(); ++i) {
+            std::cout << "Server " << (i + 1) << ": " 
+                      << configs[i].get_server_name() 
+                      << " (http://" << configs[i].get_host() 
+                      << ":" << configs[i].get_port() << ")" << std::endl;
+        }
+        std::cout << "===================================\n" << std::endl;
+        
+        // Create and initialize a single WebServer with all configurations
+        WebServer webServer;
+        
+        if (webServer.init(configs) != 0) {
+            std::cerr << "WebServer initialization failed!" << std::endl;
+            return 1;
+        }
+        
+        std::cout << "WebServer initialized successfully with " << configs.size() << " server(s)" << std::endl;
+        
+        // Run the multi-server WebServer - this will block until the server stops
+        std::cout << "Starting WebServer..." << std::endl;
+        int result = webServer.run();
+        
+        if (result == 0) {
+            std::cout << "WebServer shut down gracefully." << std::endl;
+        } else {
+            std::cerr << "WebServer encountered an error during execution." << std::endl;
+        }
+        
+        return result;
+        
+    } catch (const std::exception& e) {
+        std::cerr << "Exception caught in main: " << e.what() << std::endl;
+        return 1;
+    } catch (...) {
+        std::cerr << "Unknown exception caught in main" << std::endl;
         return 1;
     }
-
-    // Validate configuration
-    if (!parser.validate_config()) {
-        std::cerr << "Configuration validation failed. Oooooops!" << std::endl;
-        return 1;
-    }
-
-    std::vector<ServerConfig> configs = parser.create_servers();
-    std::cout << "Created " << configs.size() << " server objects." << std::endl;
-
-    // Just use the first config
-    if (configs.empty()) {
-        std::cerr << "No server configurations found." << std::endl;
-        return -1;
-    }
-    char cwd[1024];
-    if (!getcwd(cwd, sizeof(cwd)) )
-    {
-        std::cerr << "Error getting current working directory." << std::endl;
-        return -1;
-    }
-    for (size_t i = 0; i < configs.size(); i++)
-    {
-        if (configs[i].get_root().empty()) {
-            std::cerr << "Error: Server root is not set in configuration." << std::endl;
-            return -1;
-        }
-        if (configs[i].get_root()[0] != '/')
-        {
-            // If the root path is relative, prepend the current working directory
-            configs[i].set_root(std::string(cwd) + "/" + configs[i].get_root());
-        }
-        else
-        {
-            configs[i].set_root(cwd + configs[i].get_root());
-        }
-    }
-
-    // Create and initialize a single server
-
-    WebServer server;
-    if (server.init(configs[0]) == -1) {
-        std::cerr << "Server initialization failed: " << configs[0].get_server_name() << std::endl;
-        return -1;
-    }
-    server.getServerConfig().print_server_config();
-
-    std::cout << "Started server: " << configs[0].get_server_name() << std::endl;
-
-    // Run the server in the main thread - this will block until the server stops
-    server.run();
-
-    return 0;
-    }
+}
