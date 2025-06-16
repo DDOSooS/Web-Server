@@ -1,0 +1,44 @@
+[2025-06-16 18:01:35] ==================================================
+[2025-06-16 18:01:35] ==================================================
+[2025-06-16 18:01:35] FILE UPLOAD CGI START
+[2025-06-16 18:01:35] FILE UPLOAD CGI START
+[2025-06-16 18:01:35] ==================================================
+[2025-06-16 18:01:35] ==================================================
+[2025-06-16 18:01:35] Request method: POST
+[2025-06-16 18:01:35] Request method: POST
+[2025-06-16 18:01:35] Content type: multipart/form-data; boundary=----WebKitFormBoundaryNvu5ywAspsaesuKQ
+[2025-06-16 18:01:35] Content type: multipart/form-data; boundary=----WebKitFormBoundaryNvu5ywAspsaesuKQ
+[2025-06-16 18:01:35] Content length: 52
+[2025-06-16 18:01:35] Content length: 52
+[2025-06-16 18:01:35] Stdin data: __STREAMING_UPLOAD_FILE:/tmp/webserver_upload_ik6COD...
+[2025-06-16 18:01:35] Stdin data: __STREAMING_UPLOAD_FILE:/tmp/webserver_upload_ik6COD...
+[2025-06-16 18:01:35] Detected streaming upload
+[2025-06-16 18:01:35] Detected streaming upload
+[2025-06-16 18:01:35] Streaming file path: /tmp/webserver_upload_ik6COD
+[2025-06-16 18:01:35] Streaming file path: /tmp/webserver_upload_ik6COD
+[2025-06-16 18:01:35] Parsing multipart from file: /tmp/webserver_upload_ik6COD
+[2025-06-16 18:01:35] Parsing multipart from file: /tmp/webserver_upload_ik6COD
+[2025-06-16 18:01:36] Read 7461738 bytes from file
+[2025-06-16 18:01:36] Using boundary: ----WebKitFormBoundaryNvu5ywAspsaesuKQ
+[2025-06-16 18:01:36] Read 7461738 bytes from file
+[2025-06-16 18:01:36] Using boundary: ----WebKitFormBoundaryNvu5ywAspsaesuKQ
+[2025-06-16 18:01:36] Found file field: filename, filename: video_errachidia_state.mp4
+[2025-06-16 18:01:36] Found file: video_errachidia_state.mp4, size: 7461535 bytes
+[2025-06-16 18:01:36] Sanitized filename: video_errachidia_state.mp4
+[2025-06-16 18:01:36] Found file field: filename, filename: video_errachidia_state.mp4
+[2025-06-16 18:01:36] Found file: video_errachidia_state.mp4, size: 7461535 bytes
+[2025-06-16 18:01:36] Sanitized filename: video_errachidia_state.mp4
+[2025-06-16 18:01:36] File saved to: ./tmp/video_errachidia_state.mp4
+[2025-06-16 18:01:36] Sending response: 200 OK
+[2025-06-16 18:01:36] Response sent
+[2025-06-16 18:01:36] Cleaned up temp file: /tmp/webserver_upload_ik6COD
+[2025-06-16 18:01:36] ==================================================
+[2025-06-16 18:01:36] FILE UPLOAD CGI END
+[2025-06-16 18:01:36] ==================================================
+[2025-06-16 18:01:36] File saved to: ./tmp/video_errachidia_state.mp4
+[2025-06-16 18:01:36] Sending response: 200 OK
+[2025-06-16 18:01:36] Response sent
+[2025-06-16 18:01:36] Failed to clean up temp file: /tmp/webserver_upload_ik6COD
+[2025-06-16 18:01:36] ==================================================
+[2025-06-16 18:01:36] FILE UPLOAD CGI END
+[2025-06-16 18:01:36] ==================================================
