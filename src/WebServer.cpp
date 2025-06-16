@@ -123,17 +123,17 @@ int WebServer::run()
     {
         // ============ CHECK FOR TIME OUT ===============
         time_t current_time = time(NULL);
-        if (current_time - last_timeout_check >= 2) {
+        if (current_time - last_timeout_check >= 2)
+        {
             checkCgiTimeouts();
             last_timeout_check = current_time;
         }
-
-
         int ready = poll(pollfds, numfds, 1000);
         
         if (ready == -1)
         {
-            if (errno == EINTR) {
+            if (errno == EINTR)
+            {
                 continue;
             }
             perror("poll");
@@ -158,9 +158,19 @@ int WebServer::run()
 
         for (int i = 0; i < numfds; i++)
         {
+            // ==> checking time out for client connections <==
+            if (clients.find(pollfds[i].fd) != clients.end())
+            {
+                ClientConnection& conn = clients[pollfds[i].fd];
+                if (conn.isStale(30))
+                { 
+                    std::cout << "Client connection timed out, closing connection." << std::endl;
+                    closeClientConnection(pollfds[i].fd);
+                    continue;
+                }
+            }
             if (pollfds[i].revents == 0)
                 continue;
-
             int fd = pollfds[i].fd;
 
             // ========================================= handle CGI events first:
@@ -266,6 +276,7 @@ void WebServer::acceptNewConnection()
 
         // Now store in map after poll is updated
         clients[clientFd] = conn;
+        clients[clientFd].updateActivity(); // Initialize activity timestamp
 
         std::cout << "Client ip: " << clients[clientFd].ipAddress << " connected" << std::endl;
     }
@@ -329,6 +340,9 @@ void WebServer::updatePollEvents(int fd, short events)
 
 void WebServer::handleClientRequest(int fd)
 {
+    clients[fd].updateActivity(); // Update last activity timestamp
+
+
     std::cout << "============== (START OF HANDLING CLIENT REQUEST) ==============\n";
 
     // Check if client exists
