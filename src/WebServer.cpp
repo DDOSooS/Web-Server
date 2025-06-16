@@ -14,6 +14,8 @@
 #include <fcntl.h>
 #include <map>
 #include <sstream>
+#include <signal.h>
+#include <sys/wait.h>
 #include "../include/request/CgiHandler.hpp" 
 #include "../include/request/RequestHandler.hpp" 
 
@@ -105,6 +107,9 @@ int WebServer::init(ServerConfig& config)
 int WebServer::run()
 {
     bool running = true;
+    time_t last_timeout_check = time(NULL);  
+
+
     std::cout << "Server '" << m_config.get_server_name() << "' is running on port: " << m_config.get_port() << std::endl;
     // Set error chain handler
     ErrorHandler *errorHandler = new NotFound();
@@ -116,16 +121,39 @@ int WebServer::run()
                 ->SetNext(new TooManyRedirection());
     while (running)
     {
-        // Wait for events with poll
-        int ready = poll(pollfds, numfds, -1);
+        // ============ CHECK FOR TIME OUT ===============
+        time_t current_time = time(NULL);
+        if (current_time - last_timeout_check >= 2) {
+            checkCgiTimeouts();
+            last_timeout_check = current_time;
+        }
+
+
+        int ready = poll(pollfds, numfds, 1000);
+        
         if (ready == -1)
         {
             if (errno == EINTR) {
-                // Interrupted by signal, just continue
                 continue;
             }
             perror("poll");
-            break;  // Exit on serious poll errors
+            break;
+        }
+
+        // =================== Check for new CGI processes ===================================
+        for (std::map<int, CgiHandler::CgiProcess>::iterator it = CgiHandler::active_cgis.begin();
+             it != CgiHandler::active_cgis.end(); ++it) {
+            int cgi_fd = it->first;
+            bool found = false;
+            for (int i = 0; i < numfds; i++) {
+                if (pollfds[i].fd == cgi_fd) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                addCgiToPoll(cgi_fd);
+            }
         }
 
         for (int i = 0; i < numfds; i++)
@@ -135,6 +163,14 @@ int WebServer::run()
 
             int fd = pollfds[i].fd;
 
+            // ========================================= handle CGI events first:
+            if (isCgiFd(fd)) {
+                if (pollfds[i].revents & (POLLIN | POLLHUP | POLLERR)) {
+                    handleCgiEvent(fd);
+                }
+                continue;
+            }
+            
             if (pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL))
             {
                 if (fd == m_socket) {
@@ -168,14 +204,13 @@ int WebServer::run()
             // Handle outgoing data
             if (pollfds[i].revents & POLLOUT)
             {
-                std::cout << "START OF SENDING HTTP RESPONSE TO THE CLIENT\n";
+                //std::cout << "START OF SENDING HTTP RESPONSE TO THE CLIENT\n";
                 try {
                     handleClientResponse(fd);
                 }
                 catch (const HttpException & e)
                 {
                     std::cerr << "Unhandled exception in handleClientResponse: " << e.what() << std::endl;
-                    // Handle the exception using the error handler
                     this->updatePollEvents(fd, POLLOUT);
                     Error error(clients[fd], e.GetCode(), e.GetMessage(), e.GetErrorType());
                     errorHandler->HanldeError(error, this->getServerConfig());
@@ -184,9 +219,6 @@ int WebServer::run()
                 }
             }
         }
-
-        // Check for and remove stale connections (optional timeout handling)
-        // This would iterate through clients and close those inactive for too long
     }
 
     // Clean up before exiting
@@ -353,7 +385,7 @@ void WebServer::handleClientRequest(int fd)
 void WebServer::handleClientResponse(int fd)
 {
     //check if the client exists in our map
-    std::cout << "============== (START OF HANDLING CLIENT RESPONSE) ==============\n";
+    //std::cout << "============== (START OF HANDLING CLIENT RESPONSE) ==============\n";
     if (clients.find(fd) == clients.end()) {
         std::cerr << "Client with fd " << fd << " not found in clients map" << std::endl;
         return;
@@ -513,3 +545,295 @@ void WebServer::handleClientResponse(int fd)
     }
 }
 
+
+
+
+// ================= CGI TIME OUT MANAGEMENT
+void WebServer::addCgiToPoll(int cgi_fd) {
+    if (numfds < maxfds) {
+        pollfds[numfds].fd = cgi_fd;
+        pollfds[numfds].events = POLLIN;
+        pollfds[numfds].revents = 0;
+        numfds++;
+        std::cout << "Added CGI fd " << cgi_fd << " to poll" << std::endl;
+    }
+}
+
+void WebServer::removeCgiFromPoll(int cgi_fd) {
+    for (int i = 1; i < numfds; i++) {
+        if (pollfds[i].fd == cgi_fd) {
+            pollfds[i] = pollfds[numfds - 1];
+            numfds--;
+            std::cout << "Removed CGI fd " << cgi_fd << " from poll" << std::endl;
+            break;
+        }
+    }
+}
+
+bool WebServer::isCgiFd(int fd) {
+    return CgiHandler::active_cgis.find(fd) != CgiHandler::active_cgis.end();
+}
+
+
+
+
+// ======================== CGI Time Out ========================
+void WebServer::checkCgiTimeouts() {
+    time_t current_time = time(NULL);
+    std::vector<int> timed_out_fds;
+    
+    for (std::map<int, CgiHandler::CgiProcess>::iterator it = CgiHandler::active_cgis.begin();
+         it != CgiHandler::active_cgis.end(); ++it) {
+        
+        if (current_time - it->second.start_time > 10) {  // 10 second timeout
+            std::cout << "CGI process " << it->second.pid << " timed out after 30 seconds" << std::endl;
+            
+            // Kill the process
+            kill(it->second.pid, SIGTERM);
+            usleep(100000); // 100ms
+            
+            int status;
+            if (waitpid(it->second.pid, &status, WNOHANG) == 0) {
+                kill(it->second.pid, SIGKILL);
+                waitpid(it->second.pid, &status, 0);
+            }
+            
+            // Set timeout error response
+            std::map<std::string, std::string> headers;
+            headers["Content-Type"] = "text/html";
+            it->second.client->http_response = new HttpResponse(504, headers, "text/html", false, false);
+            it->second.client->http_response->setBuffer("<html><body><h1>504 Gateway Timeout</h1><p>CGI script exceeded 10 second limit</p></body></html>");
+            
+            // Signal client to send response
+            updatePollEvents(it->second.client->GetFd(), POLLOUT);
+            
+            timed_out_fds.push_back(it->first);
+        }
+    }
+    
+    // Clean up timed out processes
+    for (std::vector<int>::iterator it = timed_out_fds.begin(); it != timed_out_fds.end(); ++it) {
+        close(*it);
+        removeCgiFromPoll(*it);
+        CgiHandler::active_cgis.erase(*it);
+    }
+}
+
+
+// ================== CGI Events ==================================
+
+void WebServer::handleCgiEvent(int fd) {
+    std::map<int, CgiHandler::CgiProcess>::iterator it = CgiHandler::active_cgis.find(fd);
+    if (it == CgiHandler::active_cgis.end()) {
+        return;
+    }
+    
+    CgiHandler::CgiProcess& cgi = it->second;
+    
+    // Check timeout (10 seconds)
+    if (time(NULL) - cgi.start_time > 10) {
+        std::cout << "CGI timeout, killing process " << cgi.pid << std::endl;
+        kill(cgi.pid, SIGKILL);
+        waitpid(cgi.pid, NULL, 0);
+        
+        std::map<std::string, std::string> headers;
+        headers["Content-Type"] = "text/html";
+        cgi.client->http_response = new HttpResponse(504, headers, "text/html", false, false);
+        cgi.client->http_response->setBuffer("<html><body><h1>504 Gateway Timeout</h1></body></html>");
+        
+        updatePollEvents(cgi.client->GetFd(), POLLOUT);
+        
+        close(fd);
+        removeCgiFromPoll(fd);
+        CgiHandler::active_cgis.erase(it);
+        return;
+    }
+    
+    // Read CGI output
+    char buffer[4096];
+    ssize_t bytes = read(fd, buffer, sizeof(buffer) - 1);
+    
+    if (bytes > 0) {
+        buffer[bytes] = '\0';
+        cgi.output += buffer;
+        std::cout << "🔍 Read " << bytes << " bytes from CGI process " << cgi.pid << std::endl;
+    } else if (bytes == 0) {
+        // EOF - CGI finished
+        std::cout << "🔍 CGI process " << cgi.pid << " finished (EOF)" << std::endl;
+        std::cout << "🔍 Total output length: " << cgi.output.length() << " bytes" << std::endl;
+        
+        // Print first 200 characters of output for debugging
+        if (cgi.output.length() > 0) {
+            std::string preview = cgi.output.substr(0, 200);
+            std::cout << "🔍 Output preview: " << preview << "..." << std::endl;
+        } else {
+            std::cout << "🔍 No output received from CGI!" << std::endl;
+        }
+        
+        int status;
+        pid_t wait_result = waitpid(cgi.pid, &status, 0);
+        std::cout << "🔍 waitpid result: " << wait_result << " for PID " << cgi.pid << std::endl;
+        
+        if (wait_result == cgi.pid) {
+            std::cout << "🔍 Process status raw value: " << status << std::endl;
+            
+            if (WIFEXITED(status)) {
+                int exit_code = WEXITSTATUS(status);
+                std::cout << "🔍 Process exited normally with code: " << exit_code << std::endl;
+                
+                if (exit_code == 0) {
+                    std::cout << "🔍 SUCCESS: Processing CGI output" << std::endl;
+                    
+                    // Parse headers and body
+                    std::string headers, body;
+                    size_t header_end = cgi.output.find("\r\n\r\n");
+                    if (header_end == std::string::npos) {
+                        header_end = cgi.output.find("\n\n");
+                        if (header_end != std::string::npos) {
+                            headers = cgi.output.substr(0, header_end);
+                            body = cgi.output.substr(header_end + 2);
+                        } else {
+                            headers = "";
+                            body = cgi.output;
+                        }
+                    } else {
+                        headers = cgi.output.substr(0, header_end);
+                        body = cgi.output.substr(header_end + 4);
+                    }
+                    
+                    std::cout << "🔍 Headers found: " << headers.length() << " chars" << std::endl;
+                    std::cout << "🔍 Body found: " << body.length() << " chars" << std::endl;
+                    
+                    // Parse CGI headers
+                    std::map<std::string, std::string> response_headers;
+                    response_headers["Content-Type"] = "text/html";
+                    
+                    int status_code = 200;
+                    std::string status_message = "OK";
+                    std::vector<std::string> set_cookies;
+                    
+                    // Parse each header line
+                    std::istringstream header_stream(headers);
+                    std::string line;
+                    
+                    while (std::getline(header_stream, line)) {
+                        // Remove carriage return if present
+                        if (!line.empty() && line[line.length() - 1] == '\r') {
+                            line.erase(line.length() - 1);
+                        }
+                        
+                        // Skip empty lines
+                        if (line.empty()) continue;
+                        
+                        // Find colon separator
+                        size_t colon_pos = line.find(':');
+                        if (colon_pos == std::string::npos) continue;
+                        
+                        std::string header_name = line.substr(0, colon_pos);
+                        std::string header_value = line.substr(colon_pos + 1);
+                        
+                        // Trim whitespace from header value
+                        while (!header_value.empty() && (header_value[0] == ' ' || header_value[0] == '\t')) {
+                            header_value.erase(0, 1);
+                        }
+                        while (!header_value.empty() && (header_value.back() == '\r' || header_value.back() == ' ' || header_value.back() == '\t')) {
+                            header_value.pop_back();
+                        }
+                        
+                        std::cout << "🔍 Processing CGI header: " << header_name << ": " << header_value << std::endl;
+                        
+                        // Handle special CGI headers
+                        if (header_name == "Status") {
+                            size_t space_pos = header_value.find(' ');
+                            if (space_pos != std::string::npos) {
+                                status_code = std::atoi(header_value.substr(0, space_pos).c_str());
+                                status_message = header_value.substr(space_pos + 1);
+                            } else {
+                                status_code = std::atoi(header_value.c_str());
+                            }
+                            std::cout << "🔍 Set status: " << status_code << " " << status_message << std::endl;
+                        } 
+                        else if (header_name == "Content-Type" || header_name == "Content-type") {
+                            response_headers["Content-Type"] = header_value;
+                            std::cout << "🔍 Set content-type: " << header_value << std::endl;
+                        } 
+                        else if (header_name == "Location") {
+                            response_headers["Location"] = header_value;
+                            std::cout << "🔍 Set redirect location: " << header_value << std::endl;
+                        }
+                        else if (header_name == "Set-Cookie") {
+                            set_cookies.push_back(header_value);
+                            std::cout << "🔍 [CRITICAL] Found Set-Cookie: " << header_value << std::endl;
+                        }
+                        else {
+                            response_headers[header_name] = header_value;
+                            std::cout << "🔍 Set header: " << header_name << ": " << header_value << std::endl;
+                        }
+                    }
+                    
+                    // Create HTTP response
+                    cgi.client->http_response = new HttpResponse(status_code, response_headers, response_headers["Content-Type"], false, false);
+                    
+                    // Set cookies if any
+                    for (std::vector<std::string>::iterator cookie_it = set_cookies.begin(); 
+                         cookie_it != set_cookies.end(); ++cookie_it) {
+                        cgi.client->http_response->setHeader("Set-Cookie", *cookie_it);
+                        std::cout << "🔍 [CRITICAL] Added Set-Cookie to response: " << *cookie_it << std::endl;
+                    }
+                    
+                    cgi.client->http_response->setBuffer(body);
+                    
+                    std::cout << "🔍 Final CGI response - Status: " << status_code << " " << status_message << std::endl;
+                    updatePollEvents(cgi.client->GetFd(), POLLOUT);
+                } else {
+                    std::cout << "🔍 ERROR: CGI process exited with non-zero code: " << exit_code << std::endl;
+                    // Show some output for debugging
+                    if (cgi.output.length() > 0) {
+                        std::cout << "🔍 CGI output was: " << cgi.output.substr(0, 500) << std::endl;
+                    }
+                    
+                    std::map<std::string, std::string> error_headers;
+                    error_headers["Content-Type"] = "text/html";
+                    cgi.client->http_response = new HttpResponse(500, error_headers, "text/html", false, false);
+                    cgi.client->http_response->setBuffer("<html><body><h1>500 CGI Error</h1><p>Exit code: " + std::string(1, '0' + exit_code) + "</p></body></html>");
+                    updatePollEvents(cgi.client->GetFd(), POLLOUT);
+                }
+            } else if (WIFSIGNALED(status)) {
+                int signal_num = WTERMSIG(status);
+                std::cout << "🔍 ERROR: CGI process terminated by signal: " << signal_num << std::endl;
+                
+                std::map<std::string, std::string> error_headers;
+                error_headers["Content-Type"] = "text/html";
+                cgi.client->http_response = new HttpResponse(500, error_headers, "text/html", false, false);
+                cgi.client->http_response->setBuffer("<html><body><h1>500 CGI Error</h1><p>Killed by signal: " + std::string(1, '0' + signal_num) + "</p></body></html>");
+                updatePollEvents(cgi.client->GetFd(), POLLOUT);
+            } else {
+                std::cout << "🔍 ERROR: CGI process ended abnormally" << std::endl;
+                
+                std::map<std::string, std::string> error_headers;
+                error_headers["Content-Type"] = "text/html";
+                cgi.client->http_response = new HttpResponse(500, error_headers, "text/html", false, false);
+                cgi.client->http_response->setBuffer("<html><body><h1>500 CGI Error</h1><p>Process ended abnormally</p></body></html>");
+                updatePollEvents(cgi.client->GetFd(), POLLOUT);
+            }
+        } else {
+            std::cout << "🔍 ERROR: waitpid failed or returned unexpected result" << std::endl;
+            
+            std::map<std::string, std::string> error_headers;
+            error_headers["Content-Type"] = "text/html";
+            cgi.client->http_response = new HttpResponse(500, error_headers, "text/html", false, false);
+            cgi.client->http_response->setBuffer("<html><body><h1>500 CGI Error</h1><p>waitpid failed</p></body></html>");
+            updatePollEvents(cgi.client->GetFd(), POLLOUT);
+        }
+        
+        close(fd);
+        removeCgiFromPoll(fd);
+        CgiHandler::active_cgis.erase(it);
+    } else if (bytes < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+        std::cout << "🔍 ERROR: read() failed: " << strerror(errno) << std::endl;
+        
+        close(fd);
+        removeCgiFromPoll(fd);
+        CgiHandler::active_cgis.erase(it);
+    }
+}

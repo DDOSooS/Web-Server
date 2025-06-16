@@ -1,69 +1,54 @@
 #!/usr/bin/env python3
 """
-Clean session_manager.py without emojis to avoid encoding issues
+Diagnostic Session Manager - Shows exact cookie and session flow
 """
 
 import os
 import sys
-import cgi
 import uuid
 import time
 import json
-import hashlib
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, unquote_plus
 
 def debug_log(message):
+    """Log to file (never stdout)"""
     try:
         with open('/tmp/webserv_debug.log', 'a') as f:
             timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
             f.write(f"[{timestamp}] {message}\n")
             f.flush()
-    except Exception as e:
-        print(f"Debug log error: {e}", file=sys.stderr)
+    except:
+        pass
 
-# Simple user database
+# User database
 USERS = {
     'admin': 'password123',
-    'user': 'mypass',
+    'user': 'mypass', 
     'john': 'secret'
 }
 
-SESSION_FILE = '/tmp/webserv_sessions.json'
-SESSION_TIMEOUT = 3600  # 1 hour
+SESSION_FILE = './webserv_sessions.json'
+SESSION_TIMEOUT = 3600
 
 class SessionManager:
     def __init__(self):
-        self.sessions = self.load_sessions()
+        self.sessions = self._load_sessions()
     
-    def load_sessions(self):
+    def _load_sessions(self):
         try:
             if os.path.exists(SESSION_FILE):
                 with open(SESSION_FILE, 'r') as f:
-                    sessions = json.load(f)
-                    debug_log(f"Loaded {len(sessions)} sessions from file")
-                    return sessions
-        except Exception as e:
-            debug_log(f"Error loading sessions: {e}")
-        debug_log("No existing sessions found, starting fresh")
+                    return json.load(f)
+        except:
+            pass
         return {}
     
-    def save_sessions(self):
+    def _save_sessions(self):
         try:
             with open(SESSION_FILE, 'w') as f:
                 json.dump(self.sessions, f, indent=2)
-            debug_log(f"Saved {len(self.sessions)} sessions to file")
-        except Exception as e:
-            debug_log(f"Error saving sessions: {e}")
-    
-    def cleanup_expired_sessions(self):
-        current_time = time.time()
-        expired = [sid for sid, data in self.sessions.items() 
-                  if current_time - data.get('created', 0) > SESSION_TIMEOUT]
-        for sid in expired:
-            del self.sessions[sid]
-        if expired:
-            debug_log(f"Cleaned up {len(expired)} expired sessions")
-            self.save_sessions()
+        except:
+            pass
     
     def create_session(self, username):
         session_id = str(uuid.uuid4())
@@ -72,391 +57,346 @@ class SessionManager:
             'created': time.time(),
             'last_access': time.time()
         }
-        self.save_sessions()
-        debug_log(f"Created new session {session_id} for user {username}")
+        self._save_sessions()
+        debug_log(f"CREATED SESSION: {session_id} for {username}")
         return session_id
     
     def get_session(self, session_id):
-        debug_log(f"Looking up session: {session_id}")
+        debug_log(f"LOOKING UP SESSION: {session_id}")
         if session_id in self.sessions:
             session = self.sessions[session_id]
-            if time.time() - session.get('created', 0) > SESSION_TIMEOUT:
+            if time.time() - session['created'] < SESSION_TIMEOUT:
+                debug_log(f"SESSION VALID: {session_id}")
+                return session
+            else:
+                debug_log(f"SESSION EXPIRED: {session_id}")
                 del self.sessions[session_id]
-                self.save_sessions()
-                debug_log(f"Session {session_id} expired and removed")
-                return None
-            session['last_access'] = time.time()
-            self.save_sessions()
-            debug_log(f"Session {session_id} valid for user {session['username']}")
-            return session
-        debug_log(f"Session {session_id} not found")
+                self._save_sessions()
+        debug_log(f"SESSION NOT FOUND: {session_id}")
         return None
-    
-    def destroy_session(self, session_id):
-        if session_id in self.sessions:
-            username = self.sessions[session_id].get('username', 'unknown')
-            del self.sessions[session_id]
-            self.save_sessions()
-            debug_log(f"Destroyed session {session_id} for user {username}")
 
-def get_cookies():
+def parse_cookies():
+    """Parse HTTP_COOKIE environment variable"""
     cookies = {}
     cookie_string = os.environ.get('HTTP_COOKIE', '')
-    debug_log(f"Raw HTTP_COOKIE environment: '{cookie_string}'")
+    debug_log(f"RAW HTTP_COOKIE: '{cookie_string}'")
     
     if cookie_string:
         for cookie in cookie_string.split(';'):
             cookie = cookie.strip()
             if '=' in cookie:
                 name, value = cookie.split('=', 1)
-                name = name.strip()
-                value = value.strip()
-                cookies[name] = value
-                debug_log(f"Parsed cookie: {name} = {value}")
+                cookies[name.strip()] = value.strip()
+                debug_log(f"PARSED COOKIE: {name.strip()} = {value.strip()}")
     
-    debug_log(f"Total cookies parsed: {len(cookies)}")
+    debug_log(f"TOTAL COOKIES: {len(cookies)}")
     return cookies
 
-def set_cookie(name, value, max_age=None, path='/', http_only=True):
-    cookie = f"{name}={value}; Path={path}"
-    if max_age:
-        cookie += f"; Max-Age={max_age}"
-    if http_only:
-        cookie += "; HttpOnly"
-    debug_log(f"Generated Set-Cookie: {cookie}")
-    return cookie
-
-def authenticate_user(username, password):
-    result = username in USERS and USERS[username] == password
-    debug_log(f"Authentication for '{username}': {'SUCCESS' if result else 'FAILED'}")
-    return result
-
-def get_current_user():
-    debug_log("Getting current user...")
-    cookies = get_cookies()
-    session_id = cookies.get('SESSIONID')
-    debug_log(f"Looking for SESSIONID cookie: {session_id}")
+def parse_post_data():
+    """Parse POST form data"""
+    fields = {}
+    try:
+        content_length = int(os.environ.get('CONTENT_LENGTH', '0'))
+        if content_length > 0:
+            post_data = sys.stdin.read(content_length)
+            debug_log(f"RAW POST DATA: '{post_data}'")
+            
+            for pair in post_data.split('&'):
+                if '=' in pair:
+                    key, value = pair.split('=', 1)
+                    fields[unquote_plus(key)] = unquote_plus(value)
+                    debug_log(f"PARSED FORM: {key} = {value}")
+    except Exception as e:
+        debug_log(f"POST PARSE ERROR: {e}")
     
-    if session_id:
-        debug_log(f"Found SESSIONID: {session_id}")
-        session_manager = SessionManager()
-        session_manager.cleanup_expired_sessions()
-        session = session_manager.get_session(session_id)
-        if session:
-            username = session['username']
-            debug_log(f"Valid session found for user: {username}")
-            return username
-        else:
-            debug_log(f"Session {session_id} is invalid/expired")
-    else:
-        debug_log("No SESSIONID cookie found")
-    
-    debug_log("No valid session found")
-    return None
+    return fields
 
-def send_response(content, headers=None, status="200 OK"):
-    debug_log(f"Sending response: {status}")
+def send_response(body, headers=None, status="200 OK"):
+    """Send HTTP response with detailed logging"""
+    debug_log(f"SENDING RESPONSE: {status}")
+    debug_log(f"RESPONSE BODY LENGTH: {len(body)}")
+    
+    # Send status
     print(f"Status: {status}")
+    debug_log(f"SENT STATUS: {status}")
+    
+    # Send additional headers
     if headers:
         for header in headers:
             print(header)
-            debug_log(f"Response header: {header}")
+            debug_log(f"SENT HEADER: {header}")
+    
+    # Send content type
     print("Content-Type: text/html; charset=utf-8")
-    print()  # Empty line to end headers
-    print(content)
-    debug_log(f"Response sent: {status}, content length: {len(content)}")
-
-def login_page(error_message=""):
-    debug_log("Displaying login page")
-    current_user = get_current_user()
-    if current_user:
-        debug_log(f"User {current_user} already logged in, redirecting to profile")
-        send_response("", [
-            "Status: 302 Found",
-            "Location: /cgi-bin/session_manager.py?action=profile"
-        ])
-        return
-
-    cookies = get_cookies()
-
-    html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Login - Webserv Debug</title>
-        <meta charset="utf-8">
-        <style>
-            body {{ font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; padding: 20px; }}
-            .error {{ color: red; margin: 10px 0; padding: 10px; background: #ffe6e6; border: 1px solid #ffcccc; }}
-            .debug {{ background: #f0f0f0; padding: 15px; margin: 10px 0; font-family: monospace; font-size: 12px; border: 1px solid #ccc; }}
-            input {{ display: block; width: 100%; margin: 10px 0; padding: 8px; box-sizing: border-box; }}
-            button {{ background: #007cba; color: white; padding: 10px 20px; border: none; cursor: pointer; }}
-            button:hover {{ background: #005a8a; }}
-        </style>
-    </head>
-    <body>
-        <h1>LOGIN (Debug Mode)</h1>
-        
-        {f'<div class="error">ERROR: {error_message}</div>' if error_message else ''}
-        
-        <form method="POST" action="/cgi-bin/session_manager.py?action=login">
-            <label><strong>Username:</strong></label>
-            <input type="text" name="username" required placeholder="Enter username">
-            <label><strong>Password:</strong></label>
-            <input type="password" name="password" required placeholder="Enter password">
-            <button type="submit">LOGIN</button>
-        </form>
-        
-        <div class="debug">
-            <h4>DEBUG: Environment Info</h4>
-            <p><strong>Query String:</strong> {os.environ.get('QUERY_STRING', 'None')}</p>
-            <p><strong>Request Method:</strong> {os.environ.get('REQUEST_METHOD', 'None')}</p>
-            <p><strong>HTTP Cookie Header:</strong> {os.environ.get('HTTP_COOKIE', 'None')}</p>
-        </div>
-        
-        <div class="debug">
-            <h4>DEBUG: Parsed Cookies ({len(cookies)})</h4>
-            {chr(10).join([f'<p><strong>{name}:</strong> {value}</p>' for name, value in cookies.items()]) if cookies else '<p><em>No cookies found</em></p>'}
-        </div>
-        
-        <div class="debug">
-            <h4>DEBUG: Session Status</h4>
-            <p><strong>Current User:</strong> {get_current_user() or '<em>Not logged in</em>'}</p>
-            <p><strong>SESSIONID Cookie:</strong> {cookies.get('SESSIONID', '<em>Not found</em>')}</p>
-        </div>
-        
-        <hr>
-        <h3>Test Accounts:</h3>
-        <ul>
-            <li><strong>admin</strong> / password123</li>
-            <li><strong>user</strong> / mypass</li>
-            <li><strong>john</strong> / secret</li>
-        </ul>
-        
-        <p><a href="/cgi-bin/session_manager.py">Back to Home</a></p>
-    </body>
-    </html>
-    """
-    send_response(html)
+    debug_log("SENT CONTENT-TYPE: text/html; charset=utf-8")
+    
+    # Empty line
+    print()
+    debug_log("SENT EMPTY LINE (end of headers)")
+    
+    # Send body
+    print(body)
+    debug_log("SENT BODY")
 
 def main():
     try:
-        debug_log("=== CGI EXECUTION START ===")
+        debug_log("=" * 60)
+        debug_log("DIAGNOSTIC CGI SESSION MANAGER START")
+        debug_log("=" * 60)
         
-        # Get action from query string
+        # Parse request
         query_string = os.environ.get('QUERY_STRING', '')
         params = parse_qs(query_string)
         action = params.get('action', [''])[0]
-        debug_log(f"Action extracted: '{action}'")
+        method = os.environ.get('REQUEST_METHOD', 'GET')
         
-        request_method = os.environ.get('REQUEST_METHOD', 'GET')
-        debug_log(f"Request method: {request_method}")
+        debug_log(f"ACTION: '{action}'")
+        debug_log(f"METHOD: {method}")
+        debug_log(f"QUERY: {query_string}")
+        
+        # Log all environment variables related to cookies
+        debug_log("ENVIRONMENT VARIABLES:")
+        for key, value in os.environ.items():
+            if 'COOKIE' in key or 'HTTP_' in key:
+                debug_log(f"  {key} = '{value}'")
         
         if action == 'login':
-            if request_method == 'POST':
-                debug_log("Processing POST login request")
-                form = cgi.FieldStorage()
-                username = form.getvalue('username', '').strip()
-                password = form.getvalue('password', '').strip()
-                debug_log(f"Login attempt: username='{username}', password_length={len(password)}")
+            if method == 'POST':
+                debug_log("PROCESSING LOGIN FORM")
                 
-                if authenticate_user(username, password):
-                    debug_log("Authentication successful!")
+                # Parse form data
+                form_data = parse_post_data()
+                username = form_data.get('username', '').strip()
+                password = form_data.get('password', '').strip()
+                
+                debug_log(f"USERNAME: '{username}'")
+                debug_log(f"PASSWORD LENGTH: {len(password)}")
+                
+                # Authenticate
+                if username in USERS and USERS[username] == password:
+                    debug_log("AUTHENTICATION SUCCESS!")
+                    
+                    # Create session
                     session_manager = SessionManager()
-                    session_manager.cleanup_expired_sessions()
                     session_id = session_manager.create_session(username)
                     
-                    cookie_header = set_cookie('SESSIONID', session_id, max_age=SESSION_TIMEOUT)
-                    debug_log(f"CRITICAL: About to send Set-Cookie header: {cookie_header}")
+                    # Create cookie
+                    cookie_value = f"SESSIONID={session_id}; Path=/; HttpOnly; Max-Age={SESSION_TIMEOUT}"
+                    debug_log(f"CREATING COOKIE: {cookie_value}")
                     
+                    # Send redirect
                     headers = [
-                        f"Set-Cookie: {cookie_header}",
+                        f"Set-Cookie: {cookie_value}",
                         "Location: /cgi-bin/session_manager.py?action=profile"
                     ]
-                    debug_log("CRITICAL: Redirecting to profile page with session cookie")
+                    
+                    debug_log("SENDING REDIRECT WITH SET-COOKIE")
                     send_response("", headers, "302 Found")
+                    
                 else:
-                    debug_log("Authentication failed - invalid credentials")
-                    login_page("Invalid username or password")
+                    debug_log("AUTHENTICATION FAILED")
+                    # Show login form with error
+                    html = f"""<!DOCTYPE html>
+<html>
+<head><title>Login Failed</title></head>
+<body>
+    <h1>❌ Login Failed</h1>
+    <p>Invalid credentials. Try again.</p>
+    <form method="POST" action="/cgi-bin/session_manager.py?action=login">
+        <input type="text" name="username" placeholder="Username" required>
+        <input type="password" name="password" placeholder="Password" required>  
+        <button type="submit">Login</button>
+    </form>
+    <p><a href="/cgi-bin/session_manager.py">Home</a></p>
+</body>
+</html>"""
+                    send_response(html)
             else:
-                debug_log("Showing login form (GET request)")
-                login_page()
-        
-        elif action == 'logout':
-            debug_log("Processing logout request")
-            cookies = get_cookies()
-            session_id = cookies.get('SESSIONID')
-            if session_id:
-                session_manager = SessionManager()
-                session_manager.destroy_session(session_id)
-            
-            expire_cookie = set_cookie('SESSIONID', '', max_age=0)
-            headers = [f"Set-Cookie: {expire_cookie}"]
-            
-            html = """
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Logged Out</title>
-                <meta charset="utf-8">
-                <meta http-equiv="refresh" content="3;url=/cgi-bin/session_manager.py">
-                <style>
-                    body { font-family: Arial, sans-serif; max-width: 400px; margin: 50px auto; padding: 20px; text-align: center; }
-                </style>
-            </head>
-            <body>
-                <h1>Logged Out</h1>
-                <p>You have been successfully logged out.</p>
-                <p>Redirecting to home page in 3 seconds...</p>
-                <p><a href="/cgi-bin/session_manager.py">Go to Home Page</a></p>
-            </body>
-            </html>
-            """
-            send_response(html, headers)
+                debug_log("SHOWING LOGIN FORM")
+                # Show login form
+                html = """<!DOCTYPE html>
+<html>
+<head><title>Login</title></head>
+<body>
+    <h1>🔐 Login</h1>
+    <form method="POST" action="/cgi-bin/session_manager.py?action=login">
+        <input type="text" name="username" placeholder="Username" required>
+        <input type="password" name="password" placeholder="Password" required>
+        <button type="submit">Login</button>
+    </form>
+    <h3>Test Accounts:</h3>
+    <ul>
+        <li>admin / password123</li>
+        <li>user / mypass</li>
+        <li>john / secret</li>
+    </ul>
+    <p><a href="/cgi-bin/session_manager.py">Home</a></p>
+</body>
+</html>"""
+                send_response(html)
         
         elif action == 'profile':
-            debug_log("Processing profile request")
-            current_user = get_current_user()
-            if not current_user:
-                debug_log("No valid session, redirecting to login")
-                send_response("", [
-                    "Status: 302 Found", 
-                    "Location: /cgi-bin/session_manager.py?action=login"
-                ])
-                return
-
-            cookies = get_cookies()
-            session_id = cookies.get('SESSIONID')
-            session_manager = SessionManager()
-            session = session_manager.get_session(session_id)
+            debug_log("SHOWING PROFILE PAGE")
             
-            created_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(session['created']))
-            last_access = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(session['last_access']))
-
-            html = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Profile - {current_user}</title>
-                <meta charset="utf-8">
-                <style>
-                    body {{ font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }}
-                    .user-info {{ background: #f0f8ff; padding: 15px; border-radius: 5px; margin: 20px 0; }}
-                    .session-info {{ background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0; }}
-                    a {{ color: #007cba; text-decoration: none; margin-right: 15px; }}
-                </style>
-            </head>
-            <body>
-                <h1>Welcome, {current_user}!</h1>
-                
-                <div class="user-info">
-                    <h3>User Information</h3>
-                    <p><strong>Username:</strong> {current_user}</p>
-                    <p><strong>Status:</strong> Logged In</p>
-                </div>
-                
-                <div class="session-info">
-                    <h3>Session Information</h3>
-                    <p><strong>Session ID:</strong> {session_id[:16]}...</p>
-                    <p><strong>Login Time:</strong> {created_time}</p>
-                    <p><strong>Last Access:</strong> {last_access}</p>
-                </div>
-                
-                <h3>Navigation</h3>
-                <p>
-                    <a href="/cgi-bin/session_manager.py">Home</a>
-                    <a href="/cgi-bin/session_manager.py?action=profile">Refresh Profile</a>
-                    <a href="/cgi-bin/session_manager.py?action=logout">Logout</a>
-                </p>
-                
-                <hr>
-                <p><em>This is a protected page. Only logged-in users can see this content.</em></p>
-            </body>
-            </html>
-            """
+            # Parse cookies
+            cookies = parse_cookies()
+            session_id = cookies.get('SESSIONID')
+            
+            debug_log(f"SESSION ID FROM COOKIE: '{session_id}'")
+            
+            if not session_id:
+                debug_log("NO SESSION COOKIE - REDIRECTING TO LOGIN")
+                send_response("", [
+                    "Location: /cgi-bin/session_manager.py?action=login"
+                ], "302 Found")
+                return
+            
+            # Validate session
+            session_manager = SessionManager()
+            session_data = session_manager.get_session(session_id)
+            
+            if not session_data:
+                debug_log("INVALID SESSION - REDIRECTING TO LOGIN")
+                send_response("", [
+                    "Location: /cgi-bin/session_manager.py?action=login"
+                ], "302 Found")
+                return
+            
+            # Show profile
+            username = session_data['username']
+            debug_log(f"SHOWING PROFILE FOR USER: {username}")
+            
+            html = f"""<!DOCTYPE html>
+<html>
+<head><title>Profile - {username}</title></head>
+<body>
+    <h1>🎉 Welcome, {username}!</h1>
+    <h2>✅ SESSION LOGIN SUCCESS!</h2>
+    
+    <h3>Session Info:</h3>
+    <ul>
+        <li>Session ID: {session_id[:16]}...</li>
+        <li>Username: {username}</li>
+        <li>Login Time: {time.ctime(session_data['created'])}</li>
+    </ul>
+    
+    <h3>Navigation:</h3>
+    <p>
+        <a href="/cgi-bin/session_manager.py">Home</a> |
+        <a href="/cgi-bin/session_manager.py?action=logout">Logout</a>
+    </p>
+    
+    <hr>
+    <p><em>This is a protected page - only accessible with valid session!</em></p>
+</body>
+</html>"""
             send_response(html)
         
+        elif action == 'logout':
+            debug_log("PROCESSING LOGOUT")
+            
+            cookies = parse_cookies()
+            session_id = cookies.get('SESSIONID')
+            
+            if session_id:
+                session_manager = SessionManager()
+                if session_id in session_manager.sessions:
+                    del session_manager.sessions[session_id]
+                    session_manager._save_sessions()
+                    debug_log(f"DESTROYED SESSION: {session_id}")
+            
+            # Expire cookie
+            expire_cookie = "SESSIONID=; Path=/; Max-Age=0"
+            debug_log(f"EXPIRING COOKIE: {expire_cookie}")
+            
+            html = """<!DOCTYPE html>
+<html>
+<head>
+    <title>Logged Out</title>
+    <meta http-equiv="refresh" content="3;url=/cgi-bin/session_manager.py">
+</head>
+<body>
+    <h1>👋 Logged Out</h1>
+    <p>Session destroyed. Redirecting to home...</p>
+    <p><a href="/cgi-bin/session_manager.py">Go Home</a></p>
+</body>
+</html>"""
+            
+            send_response(html, [f"Set-Cookie: {expire_cookie}"])
+        
         else:
-            debug_log("Displaying home page")
-            current_user = get_current_user()
+            debug_log("SHOWING HOME PAGE")
             
-            html = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Webserv - Session Demo</title>
-                <meta charset="utf-8">
-                <style>
-                    body {{ font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }}
-                    .status {{ padding: 15px; border-radius: 5px; margin: 20px 0; }}
-                    .logged-in {{ background: #d4edda; color: #155724; }}
-                    .logged-out {{ background: #f8d7da; color: #721c24; }}
-                    a {{ color: #007cba; text-decoration: none; margin-right: 15px; }}
-                    .demo-info {{ background: #e7f3ff; padding: 15px; border-radius: 5px; margin: 20px 0; }}
-                    .debug {{ background: #f0f0f0; padding: 10px; margin: 10px 0; font-family: monospace; font-size: 12px; }}
-                </style>
-            </head>
-            <body>
-                <h1>Webserv Cookie Session Demo</h1>
-                
-                <div class="status {'logged-in' if current_user else 'logged-out'}">
-                    {'Logged in as: ' + current_user if current_user else 'Not logged in'}
-                </div>
-                
-                <h3>Navigation</h3>
-                <p>
-                    <a href="/cgi-bin/session_manager.py">Home</a>
-                    {f'<a href="/cgi-bin/session_manager.py?action=profile">Profile</a>' if current_user else ''}
-                    {f'<a href="/cgi-bin/session_manager.py?action=logout">Logout</a>' if current_user else '<a href="/cgi-bin/session_manager.py?action=login">Login</a>'}
-                </p>
-                
-                <div class="demo-info">
-                    <h3>Cookie Session Features</h3>
-                    <ul>
-                        <li>Session-based authentication using HTTP cookies</li>
-                        <li>Automatic session expiry (1 hour timeout)</li>
-                        <li>Protected pages (profile requires login)</li>
-                        <li>Session data stored server-side</li>
-                        <li>Secure session ID generation</li>
-                    </ul>
-                </div>
-                
-                <div class="debug">
-                    <h4>DEBUG Information</h4>
-                    <p><strong>Current User:</strong> {current_user or 'None'}</p>
-                    <p><strong>SESSIONID Cookie:</strong> {get_cookies().get('SESSIONID', 'Not found')}</p>
-                    <p><strong>Debug Log:</strong> /tmp/webserv_debug.log</p>
-                </div>
-                
-                <h3>Test Instructions</h3>
-                <ol>
-                    <li>Clear all browser cookies for localhost:8080</li>
-                    <li>Click "Login" and use: <strong>admin / password123</strong></li>
-                    <li>Check browser dev tools for cookies</li>
-                    <li>Visit protected "Profile" page</li>
-                </ol>
-                
-                <hr>
-                <p><em>Debug mode enabled - check /tmp/webserv_debug.log for logs</em></p>
-            </body>
-            </html>
-            """
+            # Check current session
+            cookies = parse_cookies()
+            session_id = cookies.get('SESSIONID')
+            current_user = None
+            
+            if session_id:
+                session_manager = SessionManager()
+                session_data = session_manager.get_session(session_id)
+                if session_data:
+                    current_user = session_data['username']
+                    debug_log(f"CURRENT USER: {current_user}")
+            
+            html = f"""<!DOCTYPE html>
+<html>
+<head><title>Session Manager Diagnostic</title></head>
+<body>
+    <h1>🚀 Session Manager Diagnostic</h1>
+    
+    <h2>Current Status:</h2>
+    <p><strong>{'✅ Logged in as: ' + current_user if current_user else '❌ Not logged in'}</strong></p>
+    
+    <h2>Navigation:</h2>
+    <p>
+        <a href="/cgi-bin/session_manager.py">🏠 Home</a> |
+        {f'<a href="/cgi-bin/session_manager.py?action=profile">👤 Profile</a> |' if current_user else ''}
+        {f'<a href="/cgi-bin/session_manager.py?action=logout">🚪 Logout</a>' if current_user else '<a href="/cgi-bin/session_manager.py?action=login">🔐 Login</a>'}
+    </p>
+    
+    <h2>🔍 Debug Info:</h2>
+    <ul>
+        <li>Session ID: {session_id or 'None'}</li>
+        <li>Total Cookies: {len(cookies)}</li>
+        <li>Raw Cookie String: '{os.environ.get('HTTP_COOKIE', 'None')}'</li>
+        <li>Debug Log: /tmp/webserv_debug.log</li>
+    </ul>
+    
+    <h2>🧪 Test Instructions:</h2>
+    <ol>
+        <li>Click Login and use: <strong>admin / password123</strong></li>
+        <li>Watch the debug log: <code>tail -f /tmp/webserv_debug.log</code></li>
+        <li>Check browser dev tools → Application → Cookies</li>
+    </ol>
+    
+    <hr>
+    <p><em>Check /tmp/webserv_debug.log for detailed session flow</em></p>
+</body>
+</html>"""
+            
             send_response(html)
-            
-        debug_log("=== CGI EXECUTION END ===")
-            
+        
+        debug_log("=" * 60)
+        debug_log("DIAGNOSTIC CGI SESSION MANAGER END")
+        debug_log("=" * 60)
+    
     except Exception as e:
-        debug_log(f"ERROR in CGI execution: {str(e)}")
-        send_response(f"""
-        <html>
-        <body>
-        <h1>Error</h1>
-        <p>An error occurred: {str(e)}</p>
-        <p>Check debug log: /tmp/webserv_debug.log</p>
-        <p><a href="/cgi-bin/session_manager.py">Go to Home</a></p>
-        </body>
-        </html>
-        """, status="500 Internal Server Error")
+        debug_log(f"❌ CRITICAL ERROR: {str(e)}")
+        import traceback
+        debug_log(f"TRACEBACK: {traceback.format_exc()}")
+        
+        html = f"""<!DOCTYPE html>
+<html>
+<head><title>Error</title></head>
+<body>
+    <h1>❌ Error</h1>
+    <p>Error: {str(e)}</p>
+    <p>Check: /tmp/webserv_debug.log</p>
+    <p><a href="/cgi-bin/session_manager.py">Home</a></p>
+</body>
+</html>"""
+        send_response(html, status="500 Internal Server Error")
 
 if __name__ == "__main__":
     main()

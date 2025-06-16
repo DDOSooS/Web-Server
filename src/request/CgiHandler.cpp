@@ -18,6 +18,8 @@
 #include <errno.h>
 #include <fcntl.h>
 
+std::map<int, CgiHandler::CgiProcess> CgiHandler::active_cgis;
+
 CgiHandler::CgiHandler(ClientConnection* client) : _client(client) {}
 
 CgiHandler::~CgiHandler() {}
@@ -136,24 +138,19 @@ void CgiHandler::ProccessRequest(HttpRequest *request, const ServerConfig &serve
     }
     
     try {
-        std::cout << "CGI process started successfully" << std::endl;
-        std::string response = executeCgiScript(request);
-        
-        // Parse CGI output for headers and body
-        std::string headers, body;
-        parseHttpHeaders(response, headers, body);
-        
-        // Set response headers from CGI output
-        setCgiResponseHeaders(request, headers);
-        
-        // Set response body
-        request->GetClientDatat()->http_response->setBuffer(body);
-        
+        if (startCgiProcess(request)) {
+            std::cout << "CGI process started - will complete asynchronously" << std::endl;
+            // Don't set response here - it will be set when CGI completes
+        } else {
+            throw HttpException(500, "Failed to start CGI process", INTERNAL_SERVER_ERROR);
+        }
     } catch (const std::exception &e) {
         std::cerr << "Error in CGI processing: " << e.what() << std::endl;
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
 }
+
+// Replace your setGgiEnv function in CgiHandler.cpp with this:
 
 char** CgiHandler::setGgiEnv(HttpRequest *request) {
     std::vector<std::string> env_vars;
@@ -179,7 +176,7 @@ char** CgiHandler::setGgiEnv(HttpRequest *request) {
             query_string = full_location.substr(q_pos + 1);
         }
     }
-    std::cout << "🔍 Final Query String for CGI: '" << query_string << "'" << std::endl;
+    // REMOVED DEBUG LINE: std::cout << "🔍 Final Query String for CGI: '" << query_string << "'" << std::endl;
     env_vars.push_back("QUERY_STRING=" + query_string);
     
     // Server information
@@ -228,11 +225,6 @@ char** CgiHandler::setGgiEnv(HttpRequest *request) {
                 header_name[i] = std::toupper(header_name[i]);
             }
             env_vars.push_back(header_name + "=" + it->second);
-            
-            // Special handling for important headers
-            if (it->first == "Cookie") {
-                std::cout << "🍪 Setting HTTP_COOKIE: " << it->second << std::endl;
-            }
         }
     }
     
@@ -240,7 +232,7 @@ char** CgiHandler::setGgiEnv(HttpRequest *request) {
     char **env = new char*[env_vars.size() + 1];
     for (size_t i = 0; i < env_vars.size(); ++i) {
         env[i] = strdup(env_vars[i].c_str());
-        std::cout << "ENV[" << i << "]: " << env_vars[i] << std::endl;
+        // REMOVED DEBUG LINE: std::cout << "ENV[" << i << "]: " << env_vars[i] << std::endl;
     }
     env[env_vars.size()] = NULL;
     
@@ -256,7 +248,7 @@ void CgiHandler::cleanupEnvironment(char** env) {
     delete[] env;
 }
 
-std::string CgiHandler::executeCgiScript(HttpRequest *request) {
+bool CgiHandler::startCgiProcess(HttpRequest *request) {
     int pipe_out[2];
     int pipe_in[2];
     
@@ -264,34 +256,30 @@ std::string CgiHandler::executeCgiScript(HttpRequest *request) {
     std::cout << "Creating pipes for CGI execution" << std::endl;
     if (pipe(pipe_in) == -1 || pipe(pipe_out) == -1) {
         std::cerr << "Failed to create pipes: " << strerror(errno) << std::endl;
-        throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
+        return false;
     }
     std::cout << "Pipes created successfully" << std::endl;
     
-    // Validate script and interpreter paths
+    // Validate script and interpreter paths (keep your existing validation code)
     std::string request_path = request->GetLocation();
     size_t question_pos = request_path.find('?');
     if (question_pos != std::string::npos) {
         request_path = request_path.substr(0, question_pos);
     }
     
-    // FIXED: Don't add trailing slash for CGI scripts
     std::string script_path = _client->_server->getServerConfig().get_root() + request_path;
-    // Remove trailing slash if it exists and path is not root
     if (script_path.length() > 1 && script_path[script_path.length() - 1] == '/') {
         script_path = script_path.substr(0, script_path.length() - 1);
     }
     
-    std::cout << "FIXED Script path: " << script_path << std::endl;
+    std::cout << "Script path: " << script_path << std::endl;
     
-    // Validate script exists and is executable
     if (!isValidScriptPath(script_path)) {
         close(pipe_in[0]); close(pipe_in[1]);
         close(pipe_out[0]); close(pipe_out[1]);
-        throw HttpException(404, "Script Not Found or Not Executable", NOT_FOUND);
+        return false;
     }
     
-    // Validate interpreter exists and is executable
     std::string interpreter_path;
     try {
         interpreter_path = getCgiPath(request);
@@ -300,13 +288,13 @@ std::string CgiHandler::executeCgiScript(HttpRequest *request) {
         if (!isValidInterpreterPath(interpreter_path)) {
             close(pipe_in[0]); close(pipe_in[1]);
             close(pipe_out[0]); close(pipe_out[1]);
-            throw HttpException(500, "CGI Interpreter Not Found", INTERNAL_SERVER_ERROR);
+            return false;
         }
     } catch (const std::exception& e) {
-        std::cerr << "❌Exception in getCgiPath: " << e.what() << std::endl;
+        std::cerr << "Exception in getCgiPath: " << e.what() << std::endl;
         close(pipe_in[0]); close(pipe_in[1]);
         close(pipe_out[0]); close(pipe_out[1]);
-        throw HttpException(500, "CGI Configuration Error: " + std::string(e.what()), INTERNAL_SERVER_ERROR);
+        return false;
     }
     
     pid_t cgi_pid = fork();
@@ -314,42 +302,34 @@ std::string CgiHandler::executeCgiScript(HttpRequest *request) {
         close(pipe_out[0]); close(pipe_out[1]);
         close(pipe_in[0]); close(pipe_in[1]);
         std::cerr << "Fork failed: " << strerror(errno) << std::endl;
-        throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
+        return false;
     }
     
     if (cgi_pid == 0) {
-        // Child process
-        close(pipe_out[0]); // Close read end
-        close(pipe_in[1]);  // Close write end
+        // Child process (keep your existing child code exactly the same)
+        close(pipe_out[0]);
+        close(pipe_in[1]);
         
-        // Redirect stdout/stderr to pipe
         dup2(pipe_out[1], STDOUT_FILENO);
         dup2(pipe_out[1], STDERR_FILENO);
         close(pipe_out[1]);
         
-        // Redirect stdin from pipe (for POST data)
         dup2(pipe_in[0], STDIN_FILENO);
         close(pipe_in[0]);
         
-        // Change to script's directory
         std::string script_dir = getDirectoryFromPath(script_path);
         if (chdir(script_dir.c_str()) != 0) {
-            std::cerr << "Failed to change to script directory: " << script_dir 
-                      << " - " << strerror(errno) << std::endl;
+            std::cerr << "Failed to change to script directory: " << script_dir << std::endl;
             exit(1);
         }
         
-        // Get script filename
         std::string script_filename = getFilenameFromPath(script_path);
-        
-        // Set up environment
         char **env = setGgiEnv(request);
         if (!env) {
-            std::cerr << "Error setting CGI environment variables" << std::endl;
+            std::cerr << "Error setting CGI environment variables" << std::endl;  
             exit(1);
         }
         
-        // Prepare execution arguments
         char* argv[] = {
             strdup(interpreter_path.c_str()),
             strdup(script_filename.c_str()),
@@ -360,25 +340,19 @@ std::string CgiHandler::executeCgiScript(HttpRequest *request) {
             cleanupEnvironment(env);
             exit(1);
         }
-        // Execute the CGI script
+        
         execve(interpreter_path.c_str(), argv, env);
         
-        // If we reach here, execve failed
         std::cerr << "CGI exec failed: " << strerror(errno) << std::endl;
-        std::cerr << "Interpreter: " << interpreter_path << std::endl;
-        std::cerr << "Script: " << script_filename << std::endl;
-        std::cerr << "Working dir: " << script_dir << std::endl;
-        
-        // Cleanup and exit
         free(argv[0]);
         free(argv[1]);
         cleanupEnvironment(env);
         exit(1);
     }
     
-    // Parent process
-    close(pipe_out[1]); // Close write end
-    close(pipe_in[0]);  // Close read end
+    // Parent process - NON-BLOCKING VERSION
+    close(pipe_out[1]);
+    close(pipe_in[0]);
     
     // Send POST data if present
     if (request->GetMethod() == "POST" && !request->GetBody().empty()) {
@@ -391,44 +365,26 @@ std::string CgiHandler::executeCgiScript(HttpRequest *request) {
     }
     close(pipe_in[1]);
     
-    // Read output from CGI script
-    std::string result;
-    char buffer[4096];
-    ssize_t bytes_read;
+    // Make pipe non-blocking
+    fcntl(pipe_out[0], F_SETFL, O_NONBLOCK);
     
-    while ((bytes_read = read(pipe_out[0], buffer, sizeof(buffer) - 1)) > 0) {
-        buffer[bytes_read] = '\0';
-        result += buffer;
-    }
+    // Store CGI process info
+    CgiProcess cgi;
+    cgi.pid = cgi_pid;
+    cgi.pipe_fd = pipe_out[0];
+    cgi.start_time = time(NULL);
+    cgi.output = "";
+    cgi.client = _client;
+    cgi.request = request;
     
-    close(pipe_out[0]);
+    active_cgis[pipe_out[0]] = cgi;
     
-    // Wait for child process and check exit status
-    int status;
-    waitpid(cgi_pid, &status, 0);
+    // Add to poll system via WebServer
+    _client->_server->addCgiToPoll(pipe_out[0]);
     
-    if (WIFEXITED(status)) {
-        int exit_code = WEXITSTATUS(status);
-        if (exit_code != 0) {
-            std::cerr << "CGI script exited with code: " << exit_code << std::endl;
-            throw HttpException(500, "CGI Script Error", INTERNAL_SERVER_ERROR);
-        }
-    } else if (WIFSIGNALED(status)) {
-        int signal_num = WTERMSIG(status);
-        std::cerr << "CGI script terminated by signal: " << signal_num << std::endl;
-        throw HttpException(500, "CGI Script Timeout or Error", INTERNAL_SERVER_ERROR);
-    }
-    
-    // Debug: write output to file for debugging
-    std::ofstream outputFile("cgi_out.txt");
-    if (outputFile.is_open()) {
-        outputFile << result;
-        outputFile.close();
-    }
-    
-    return result;
+    std::cout << "Started non-blocking CGI process " << cgi_pid << " on fd " << pipe_out[0] << std::endl;
+    return true;
 }
-
 
 // Helper function to extract PATH_INFO
 std::string CgiHandler::extractPathInfo(const std::string& url) {
