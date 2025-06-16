@@ -28,27 +28,27 @@ class RequestHandler;
 
 class ClientConnection
 {
-public:
-    WebServer*              _server;                // Pointer to the WebServer instance
-    int                     fd;                     // Socket file descriptor
-    std::string             ipAddress;              // Client IP address as string
-    uint16_t                port;                   // Client port number
-    time_t                  connectTime;            // When client connected
-    time_t                  lastActivity;           // Last activity timestamp 
-    HttpRequestBuilder      *builder;
-    HttpResponse            *http_response;
-    HttpRequest             *http_request;
-    HttpHandler             *handler_chain;
-    
-    // Streaming upload members (AFTER handler_chain to match initialization order)
-    bool                    is_streaming_upload;
-    size_t                  total_content_length;
-    size_t                  bytes_received_so_far;
-    std::string             accumulated_body;
-    int                     temp_upload_fd;
-    std::string             temp_upload_path;
-    static int                     redirect_counter;
-    bool                    should_close;
+    public:
+        WebServer*              _server;                // Pointer to the WebServer instance
+        int                     fd;                     // Socket file descriptor
+        std::string             ipAddress;              // Client IP address as string
+        uint16_t                port;                   // Client port number
+        time_t                  connectTime;            // When client connected
+        time_t                  lastActivity;           // Last activity timestamp 
+        HttpRequestBuilder      *builder;
+        HttpResponse            *http_response;
+        HttpRequest             *http_request;
+        HttpHandler             *handler_chain;
+        
+        // Streaming upload members (AFTER handler_chain to match initialization order)
+        bool                    is_streaming_upload;
+        size_t                  total_content_length;
+        size_t                  bytes_received_so_far;
+        std::string             accumulated_body;
+        int                     temp_upload_fd;
+        std::string             temp_upload_path;
+        static int                     redirect_counter;
+        bool                    should_close;
 
     // Constructors and destructor
     ClientConnection(); 
