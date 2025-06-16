@@ -80,7 +80,7 @@ void ClientConnection::GenerateRequest(int fd)
 
     // Parse the raw request string
     HttpRequestBuilder build = HttpRequestBuilder();
-    build.ParseRequest(rawRequest, this->_server->getServerConfig());
+    build.ParseRequest(rawRequest, this->_server->getConfigForClient(this->GetFd()));
 
     // Check if we need to read more data (for POST requests with Content-Length)
     std::string contentLengthStr = build.GetHttpRequest().GetHeader("Content-Length");
@@ -381,7 +381,7 @@ void ClientConnection::ProcessRequest(int fd)
         this->http_response = new HttpResponse(200, emptyHeaders, "text/plain", false, false);
     }
     
-    chain_handler->HandleRequest(this->http_request, this->_server->getServerConfig());
+    chain_handler->HandleRequest(this->http_request, this->_server->getConfigForClient(this->GetFd()));
     std::cout << "END OF PROCESSING THE REQUEST \n";
     if (this->_server != NULL) {
         this->_server->updatePollEvents(fd, POLLOUT);

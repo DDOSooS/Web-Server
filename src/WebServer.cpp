@@ -19,98 +19,165 @@
 #include "../include/request/CgiHandler.hpp" 
 #include "../include/request/RequestHandler.hpp" 
 
-
-WebServer::WebServer():m_socket(0), maxfds(DEFAULT_MAX_CONNECTIONS)
+WebServer::WebServer() : maxfds(DEFAULT_MAX_CONNECTIONS)
 {
     pollfds = new struct pollfd[maxfds];
+    numfds = 0;
 }
 
 WebServer::~WebServer()
 {
-    // delete requestHandler;
     if (pollfds)
     {
         delete[] pollfds;
     }
+    
+    // Close all listening sockets
+    for (size_t i = 0; i < m_sockets.size(); ++i)
+    {
+        if (m_sockets[i] > 0)
+        {
+            close(m_sockets[i]);
+        }
+    }
 }
 
-void WebServer::setServerConfig(ServerConfig& config){
-    this->m_config = config;
-}
-const ServerConfig& WebServer::getServerConfig(){
-    return (this->m_config);
-}
-// Location* WebServer::getLocationForPath(const std::string& path){
-//     // Get all locations from server config
-//     std::vector<Location> locations = m_config.get_locations();
-//     //TODO:@aghergho find the best match
-//     (void)path;
-//     return &(locations[0]);
-// }
-int WebServer::init(ServerConfig& config)
+const std::vector<ServerConfig>& WebServer::getConfigs() const
 {
-    // set configuration
-    this->setServerConfig(config);
-    // Create socket
-    m_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (m_socket <= 0)
+    return m_configs;
+}
+
+const ServerConfig& WebServer::getConfigForSocket(int socket) const
+{
+    std::map<int, int>::const_iterator it = socket_to_config_index.find(socket);
+    if (it != socket_to_config_index.end())
     {
-        perror("socket failed");
+        return m_configs[it->second];
+    }
+    throw std::runtime_error("Socket not found in configuration mapping");
+}
+
+const ServerConfig& WebServer::getConfigForClient(int client_fd) const
+{
+    std::map<int, int>::const_iterator it = client_to_server_index.find(client_fd);
+    if (it != client_to_server_index.end())
+    {
+        return m_configs[it->second];
+    }
+    throw std::runtime_error("Client not found in server mapping");
+}
+
+bool WebServer::isListeningSocket(int fd) const
+{
+    return socket_to_config_index.find(fd) != socket_to_config_index.end();
+}
+
+int WebServer::getServerIndexForSocket(int socket) const
+{
+    std::map<int, int>::const_iterator it = socket_to_config_index.find(socket);
+    if (it != socket_to_config_index.end())
+    {
+        return it->second;
+    }
+    return -1;
+}
+
+int WebServer::init(std::vector<ServerConfig>& configs)
+{
+    if (configs.empty())
+    {
+        std::cerr << "Error: No server configurations provided" << std::endl;
         return -1;
     }
-    // Set socket options for robust port reuse
-    int optval = 1;
-    // Allow immediate reuse of the port (SO_REUSEADDR)
-    if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)))
-    {
-        perror("setsockopt(SO_REUSEADDR) failed");
-        close(m_socket);
-        return -1;
-    }
-    if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval)))
-    {
-        perror("setsockopt(SO_REUSEPORT) failed");
-        // Continue anyway as this is optional
-    }
-    // Bind the socket
-    sockaddr_in hint;
-    hint.sin_family = AF_INET;
-    hint.sin_port = htons(m_config.get_port());
-    if (inet_pton(AF_INET, m_config.get_host().c_str(), &hint.sin_addr) <= 0)
-    {
-        perror("Error: Invalid IP address format");
-        close(m_socket);
-        return -1;
-    }
-    if (bind(m_socket, (struct sockaddr *)&hint, sizeof(hint)) < 0)
-    {
-        perror("bind failed");
-        close(m_socket);
-        return -1;
-    }
-    // Listen
-    if (listen(m_socket, SOMAXCONN) < 0)
-    {
-        perror("listen failed");
-        close(m_socket);
-        return -1;
-    }
+
+    // Store configurations
+    m_configs = configs;
+    m_sockets.resize(configs.size());
+
     // Initialize pollfd structure
     memset(pollfds, 0, sizeof(struct pollfd) * maxfds);
-    pollfds[0].fd = m_socket;
-    pollfds[0].events = POLLIN;
-    numfds = 1;
-    std::cout << "Server " << m_config.get_server_name() << ": 'http://" << m_config.get_host() << ":" << m_config.get_port() << "'" << std::endl;
+
+    // Create listening socket for each server configuration
+    for (size_t i = 0; i < configs.size(); ++i)
+    {
+        // Create socket
+        int server_socket = socket(AF_INET, SOCK_STREAM, 0);
+        if (server_socket <= 0)
+        {
+            perror("socket failed");
+            return -1;
+        }
+
+        // Set socket options for robust port reuse
+        int optval = 1;
+        if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)))
+        {
+            perror("setsockopt(SO_REUSEADDR) failed");
+            close(server_socket);
+            return -1;
+        }
+        if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval)))
+        {
+            perror("setsockopt(SO_REUSEPORT) failed");
+            // Continue anyway as this is optional
+        }
+
+        // Bind the socket
+        sockaddr_in hint;
+        hint.sin_family = AF_INET;
+        hint.sin_port = htons(configs[i].get_port());
+        if (inet_pton(AF_INET, configs[i].get_host().c_str(), &hint.sin_addr) <= 0)
+        {
+            perror("Error: Invalid IP address format");
+            close(server_socket);
+            return -1;
+        }
+
+        if (bind(server_socket, (struct sockaddr *)&hint, sizeof(hint)) < 0)
+        {
+            perror("bind failed");
+            close(server_socket);
+            return -1;
+        }
+
+        // Listen
+        if (listen(server_socket, SOMAXCONN) < 0)
+        {
+            perror("listen failed");
+            close(server_socket);
+            return -1;
+        }
+
+        // Store socket and create mappings
+        m_sockets[i] = server_socket;
+        socket_to_config_index[server_socket] = i;
+
+        // Add to poll set
+        pollfds[numfds].fd = server_socket;
+        pollfds[numfds].events = POLLIN;
+        pollfds[numfds].revents = 0;
+        numfds++;
+
+        std::cout << "Server " << configs[i].get_server_name() 
+                  << ": 'http://" << configs[i].get_host() 
+                  << ":" << configs[i].get_port() << "'" << std::endl;
+    }
+
     return 0;
 }
 
 int WebServer::run()
 {
     bool running = true;
-    time_t last_timeout_check = time(NULL);  
+    time_t last_timeout_check = time(NULL);
 
+    std::cout << "WebServer is running with " << m_configs.size() << " server(s)" << std::endl;
+    for (size_t i = 0; i < m_configs.size(); ++i)
+    {
+        std::cout << "Server '" << m_configs[i].get_server_name() 
+                  << "' is listening on port: " << m_configs[i].get_port() << std::endl;
+    }
 
-    std::cout << "Server '" << m_config.get_server_name() << "' is running on port: " << m_config.get_port() << std::endl;
     // Set error chain handler
     ErrorHandler *errorHandler = new NotFound();
     errorHandler->SetNext(new BadRequest())
@@ -119,6 +186,7 @@ int WebServer::run()
                 ->SetNext(new MethodNotAllowed())
                 ->SetNext(new Forbidden())
                 ->SetNext(new TooManyRedirection());
+
     while (running)
     {
         // ============ CHECK FOR TIME OUT ===============
@@ -128,6 +196,7 @@ int WebServer::run()
             checkCgiTimeouts();
             last_timeout_check = current_time;
         }
+
         int ready = poll(pollfds, numfds, 1000);
         
         if (ready == -1)
@@ -183,8 +252,8 @@ int WebServer::run()
             
             if (pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL))
             {
-                if (fd == m_socket) {
-                    std::cerr << "Error on listening socket!" << std::endl;
+                if (isListeningSocket(fd)) {
+                    std::cerr << "Error on listening socket " << fd << "!" << std::endl;
                     running = false;
                     break;
                 } else {
@@ -195,8 +264,8 @@ int WebServer::run()
 
             if (pollfds[i].revents & POLLIN)
             {
-                if (fd == m_socket) {
-                    acceptNewConnection();
+                if (isListeningSocket(fd)) {
+                    acceptNewConnection(fd);
                 } else
                 {
                     try
@@ -214,7 +283,6 @@ int WebServer::run()
             // Handle outgoing data
             if (pollfds[i].revents & POLLOUT)
             {
-                //std::cout << "START OF SENDING HTTP RESPONSE TO THE CLIENT\n";
                 try {
                     handleClientResponse(fd);
                 }
@@ -223,8 +291,8 @@ int WebServer::run()
                     std::cerr << "Unhandled exception in handleClientResponse: " << e.what() << std::endl;
                     this->updatePollEvents(fd, POLLOUT);
                     Error error(clients[fd], e.GetCode(), e.GetMessage(), e.GetErrorType());
-                    errorHandler->HanldeError(error, this->getServerConfig());
-                    std::cout  << "[DEBUG] : CLOSING CLIENT CONNECITON HAPPENED HERE\n";
+                    errorHandler->HanldeError(error, this->getConfigForClient(fd));
+                    std::cout  << "[DEBUG] : CLOSING CLIENT CONNECTION HAPPENED HERE\n";
                     closeClientConnection(fd);
                 }
             }
@@ -232,20 +300,22 @@ int WebServer::run()
     }
 
     // Clean up before exiting
-    for (int i = 1; i < numfds; i++) {  // Start from 1 to skip the listening socket
-        close(pollfds[i].fd);
+    for (int i = 0; i < numfds; i++) {
+        if (!isListeningSocket(pollfds[i].fd)) {
+            close(pollfds[i].fd);
+        }
     }
 
-    std::cout << "Server '" << m_config.get_server_name() << "' has shut down." << std::endl;
+    std::cout << "WebServer has shut down all servers." << std::endl;
+    delete errorHandler;
     return 0;
 }
 
-// Modified acceptNewConnection
-void WebServer::acceptNewConnection()
+void WebServer::acceptNewConnection(int listening_socket)
 {
     sockaddr_in clientAddr;
     socklen_t addrLen = sizeof(clientAddr);
-    int clientFd = accept(m_socket, (struct sockaddr *)&clientAddr, &addrLen);
+    int clientFd = accept(listening_socket, (struct sockaddr *)&clientAddr, &addrLen);
     if (clientFd < 0)
     {
         perror("accept");
@@ -264,6 +334,15 @@ void WebServer::acceptNewConnection()
     }
 
     try {
+        // Get server index for this listening socket
+        int server_index = getServerIndexForSocket(listening_socket);
+        if (server_index == -1)
+        {
+            std::cerr << "Unable to find server configuration for socket " << listening_socket << std::endl;
+            close(clientFd);
+            return;
+        }
+
         // Create a client connection object first
         ClientConnection conn(clientFd, clientAddr);
         conn._server = this;
@@ -274,19 +353,20 @@ void WebServer::acceptNewConnection()
         pollfds[numfds].revents = 0;
         numfds++;
 
-        // Now store in map after poll is updated
+        // Store mappings
         clients[clientFd] = conn;
-        clients[clientFd].updateActivity(); // Initialize activity timestamp
+        client_to_server_index[clientFd] = server_index;
 
-        std::cout << "Client ip: " << clients[clientFd].ipAddress << " connected" << std::endl;
+        std::cout << "Client ip: " << clients[clientFd].ipAddress 
+                  << " connected to server '" << m_configs[server_index].get_server_name() 
+                  << "'" << std::endl;
     }
     catch (const std::exception& e) {
         std::cerr << "Error creating client connection: " << e.what() << std::endl;
         close(clientFd);
-        // Don't increment numfds as we failed to create the connection
     }
 }
-// Close client connection
+
 void WebServer::closeClientConnection(int clientSocket)
 {
     std::map<int, ClientConnection>::iterator it = clients.find(clientSocket);
@@ -309,6 +389,9 @@ void WebServer::closeClientConnection(int clientSocket)
         // Close socket and remove from clients map
         close(clientSocket);
         clients.erase(it);
+        
+        // Remove from server mapping
+        client_to_server_index.erase(clientSocket);
 
         // Remove from poll set
         for (int i = 0; i < numfds; i++)
@@ -326,6 +409,7 @@ void WebServer::closeClientConnection(int clientSocket)
         std::cerr << "Warning: Attempted to close non-existent client connection: " << clientSocket << std::endl;
     }
 }
+
 void WebServer::updatePollEvents(int fd, short events)
 {
     for (int i = 0; i < numfds; i++)
@@ -371,14 +455,10 @@ void WebServer::handleClientRequest(int fd)
     {
         std::cerr << "HttpException: " << e.what() << std::endl;
 
-        // Handle the exception using the error handler
-        // std::cout << "Error Type: " << (int)(e.GetErrorType()) << std::endl;
-        // std::cout << " Error code :" << e.GetCode() << std::endl;
-
         try
         {
             Error error(client, e.GetCode(), e.GetMessage(), e.GetErrorType());
-            errorHandler->HanldeError(error, this->getServerConfig());
+            errorHandler->HanldeError(error, this->getConfigForClient(fd));
             this->updatePollEvents(fd, POLLOUT);
         }
         catch (std::exception &ex)
@@ -395,73 +475,22 @@ void WebServer::handleClientRequest(int fd)
     delete errorHandler;
 }
 
-// @TO TAKE CARE OF: before any change in the response, check with @abdessalam before making changes
 void WebServer::handleClientResponse(int fd)
 {
-    //check if the client exists in our map
-    //std::cout << "============== (START OF HANDLING CLIENT RESPONSE) ==============\n";
     if (clients.find(fd) == clients.end()) {
         std::cerr << "Client with fd " << fd << " not found in clients map" << std::endl;
         return;
     }
     ClientConnection &client = clients[fd];
-/*
-    if (client.http_response)
-        std::cout << "Client ip: " << client.ipAddress << " is sending response============\n";
-    else
-        std::cout << "Client ip: " << client.ipAddress << "  response (NULLL)============\n";
 
-    if(client.http_request)
-        std::cout << "Client ip: " << client.ipAddress << " is sending request============\n";
-    else
-        std::cout << "Client ip: " << client.ipAddress << "  request (NULLL)============\n";
-
-    // Handle null http_response
-    if (client.http_response == NULL)
-    {
-        std::cerr << "Warning: client.http_response is null for fd " << fd << std::endl;
-        
-        try
-        {
-            // Create a default response for error handling
-            std::map<std::string, std::string> headers;
-            headers["Content-Type"] = "text/html";
-            headers["Connection"] = "close"; // Force connection close on error
-            
-            client.http_response = new HttpResponse(500, headers, "text/html", false, false);
-            if (client.http_response == NULL) {
-                std::cerr << "Failed to allocate HttpResponse" << std::endl;
-                closeClientConnection(fd);
-                return;
-            }
-            client.http_response->setBuffer("<html><body><h1>500 Internal Server Error</h1><p>Invalid response state</p></body></html>");
-            
-            // Send this error response
-            try {
-                client.http_response->sendResponse(fd);
-            } catch (const std::exception& e) {
-                std::cerr << "Error sending error response: " << e.what() << std::endl;
-            } catch (...) {
-                std::cerr << "Unknown error sending error response" << std::endl;
-            }
-        } catch (const std::exception& e) {
-            std::cerr << "Exception creating error response: " << e.what() << std::endl;
-        } catch (...) {
-            std::cerr << "Unknown exception creating error response" << std::endl;
-        }        
-        // Always close the connection when there's an error
-        closeClientConnection(fd);
-        return;
-    }
-    */
     // Check if we have data to send
     if (client.http_response == NULL)
     {
         std::cerr << "Warning: client.http_response is null for fd " << fd << std::endl;
         updatePollEvents(fd, POLLIN);
-        // exit(0);
         return;
     }
+    
     // Check if we have data to send
     if (client.http_response->checkAvailablePacket())
     {
@@ -505,12 +534,10 @@ void WebServer::handleClientResponse(int fd)
             if (client.http_response->isFile())
             {
                 std::cout << "Debug sendfile response11\n";
-                // exit(0);
                 client.http_response->sendResponse(fd);                
             }
             else
             {
-                // std::cout << " -------------------- [Debug] : number of redirections: " << client.redirect_counter << "Is redirection " << client.http_request->IsRedirected() << std::endl;
                 if (client.http_request && client.http_request->IsRedirected())
                 {
                     client.redirect_counter++;
@@ -520,7 +547,7 @@ void WebServer::handleClientResponse(int fd)
                         client.redirect_counter = 0;
                         Error error(client, 429, "Too Many Redirections", TOO_MANY_REDIRECTION);
                         ErrorHandler *errorHandler = new TooManyRedirection();
-                        errorHandler->HanldeError(error, this->getServerConfig());
+                        errorHandler->HanldeError(error, this->getConfigForClient(fd));
                         delete errorHandler;
                         client.should_close = true; 
                     }
@@ -559,9 +586,6 @@ void WebServer::handleClientResponse(int fd)
     }
 }
 
-
-
-
 // ================= CGI TIME OUT MANAGEMENT
 void WebServer::addCgiToPoll(int cgi_fd) {
     if (numfds < maxfds) {
@@ -588,9 +612,6 @@ bool WebServer::isCgiFd(int fd) {
     return CgiHandler::active_cgis.find(fd) != CgiHandler::active_cgis.end();
 }
 
-
-
-
 // ======================== CGI Time Out ========================
 void WebServer::checkCgiTimeouts() {
     time_t current_time = time(NULL);
@@ -600,7 +621,7 @@ void WebServer::checkCgiTimeouts() {
          it != CgiHandler::active_cgis.end(); ++it) {
         
         if (current_time - it->second.start_time > 10) {  // 10 second timeout
-            std::cout << "CGI process " << it->second.pid << " timed out after 30 seconds" << std::endl;
+            std::cout << "CGI process " << it->second.pid << " timed out after 10 seconds" << std::endl;
             
             // Kill the process
             kill(it->second.pid, SIGTERM);
@@ -633,9 +654,7 @@ void WebServer::checkCgiTimeouts() {
     }
 }
 
-
 // ================== CGI Events ==================================
-
 void WebServer::handleCgiEvent(int fd) {
     std::map<int, CgiHandler::CgiProcess>::iterator it = CgiHandler::active_cgis.find(fd);
     if (it == CgiHandler::active_cgis.end()) {
@@ -801,10 +820,6 @@ void WebServer::handleCgiEvent(int fd) {
                     updatePollEvents(cgi.client->GetFd(), POLLOUT);
                 } else {
                     std::cout << "🔍 ERROR: CGI process exited with non-zero code: " << exit_code << std::endl;
-                    // Show some output for debugging
-                    if (cgi.output.length() > 0) {
-                        std::cout << "🔍 CGI output was: " << cgi.output.substr(0, 500) << std::endl;
-                    }
                     
                     std::map<std::string, std::string> error_headers;
                     error_headers["Content-Type"] = "text/html";

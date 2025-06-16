@@ -46,7 +46,7 @@ bool CgiHandler::isCgiRequest(HttpRequest *request) const {
     if (question_pos != std::string::npos) {
         request_path = request_path.substr(0, question_pos);
     }
-    const Location* matching_location = _client->_server->getServerConfig().findBestMatchingLocation(request_path);
+    const Location* matching_location = _client->_server->getConfigForClient(_client->GetFd()).findBestMatchingLocation(request_path);
     
     if (!matching_location) {
         std::cout << "❌No matching location found for: " << request_path << std::endl;
@@ -90,7 +90,7 @@ std::string CgiHandler::getCgiPath(HttpRequest *request) const {
     }
     
     // FIXED: Use the same method as isCgiRequest()
-    const Location* matching_location = _client->_server->getServerConfig().findBestMatchingLocation(request_path);
+    const Location* matching_location = _client->_server->getConfigForClient(_client->GetFd()).findBestMatchingLocation(request_path);
     
     if (!matching_location) {
         std::cerr << "❌No matching location found for CGI path: " << request_path << std::endl;
@@ -181,7 +181,7 @@ char** CgiHandler::setGgiEnv(HttpRequest *request) {
     
     // Server information
     env_vars.push_back("SERVER_NAME=webserv");
-    env_vars.push_back("SERVER_PORT=" + this->to_string(_client->_server->getServerConfig().get_port()));
+    env_vars.push_back("SERVER_PORT=" + this->to_string(_client->_server->getConfigForClient(_client->GetFd()).get_port()));
     env_vars.push_back("SERVER_PROTOCOL=" + request->GetHttpVersion());
     env_vars.push_back("SERVER_SOFTWARE=webserv/1.0");
     env_vars.push_back("GATEWAY_INTERFACE=CGI/1.1");
@@ -191,15 +191,15 @@ char** CgiHandler::setGgiEnv(HttpRequest *request) {
     env_vars.push_back("REMOTE_PORT=" + this->to_string(_client->port));
     
     // Script and document information
-    std::string script_path = _client->_server->getServerConfig().get_root() + request_path;
+    std::string script_path = _client->_server->getConfigForClient(_client->GetFd()).get_root() + request_path;
     env_vars.push_back("SCRIPT_FILENAME=" + script_path);
-    env_vars.push_back("DOCUMENT_ROOT=" + _client->_server->getServerConfig().get_root());
+    env_vars.push_back("DOCUMENT_ROOT=" + _client->_server->getConfigForClient(_client->GetFd()).get_root());
     
     // PATH_INFO and PATH_TRANSLATED
     std::string path_info = extractPathInfo(request->GetLocation());
     if (!path_info.empty()) {
         env_vars.push_back("PATH_INFO=" + path_info);
-        env_vars.push_back("PATH_TRANSLATED=" + _client->_server->getServerConfig().get_root() + path_info);
+        env_vars.push_back("PATH_TRANSLATED=" + _client->_server->getConfigForClient(_client->GetFd()).get_root() + path_info);
     }
     
     // Content information (critical for POST)
@@ -267,7 +267,7 @@ bool CgiHandler::startCgiProcess(HttpRequest *request) {
         request_path = request_path.substr(0, question_pos);
     }
     
-    std::string script_path = _client->_server->getServerConfig().get_root() + request_path;
+    std::string script_path = _client->_server->getConfigForClient(_client->GetFd()).get_root() + request_path;
     if (script_path.length() > 1 && script_path[script_path.length() - 1] == '/') {
         script_path = script_path.substr(0, script_path.length() - 1);
     }
