@@ -20,7 +20,7 @@ OBJ		= $(SRC:.cpp=.o)
 
 # Compiler settings
 CXX		= c++
-CFLAGS	= -Wall -Wextra -std=c++98 -g3 -I$(INC_DIR)
+CFLAGS	= -Wall -Wextra -g3 -I$(INC_DIR)
 LDFLAGS	= -pthread
 RM		= rm -rf
 
