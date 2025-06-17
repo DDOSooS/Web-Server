@@ -19,7 +19,7 @@
 int ClientConnection::redirect_counter = 0;
 
 ClientConnection::ClientConnection(): fd(-1), ipAddress(""), port(0), connectTime(0), lastActivity(0)
-            , builder(NULL), http_response(NULL), http_request(NULL), handler_chain(NULL)
+            , builder(NULL), http_response(NULL), http_request(NULL)
             , is_streaming_upload(false), total_content_length(0), bytes_received_so_far(0), temp_upload_fd(-1), should_close(false)
 {
     this->_server = NULL;
@@ -35,7 +35,6 @@ ClientConnection::ClientConnection(int socketFd, const sockaddr_in& clientAddr) 
     builder(NULL),
     http_response(NULL),
     http_request(NULL),
-    handler_chain(NULL),
     is_streaming_upload(false),
     total_content_length(0),
     bytes_received_so_far(0),
@@ -113,7 +112,8 @@ void ClientConnection::GenerateRequest(int fd)
                 }
                 
                 // Create request object with streaming marker IMMEDIATELY
-                if (this->http_request) {
+                if (this->http_request)
+                {
                     delete this->http_request;
                 }
                 this->http_request = new HttpRequest(build.GetHttpRequest());
@@ -368,27 +368,39 @@ void ClientConnection::ProcessRequest(int fd)
     
     chain_handler = new CgiHandler(this);
     (chain_handler->SetNext(new Get()))->SetNext(new Post())->SetNext(new Delete());
+    
     std::cout << "Available handlers: GET, POST, DELETE" << std::endl;
-
-    if (http_request == NULL) {
+    if (http_request == NULL)
+    {
         std::cerr << "Error: No request to process" << std::endl;
         return;
     }
-
     // Ensure http_response is properly initialized before proceeding
-    if (this->http_response == NULL) {
+    if (this->http_response == NULL)
+    {
         std::map<std::string, std::string> emptyHeaders;
         this->http_response = new HttpResponse(200, emptyHeaders, "text/plain", false, false);
     }
-    
     chain_handler->HandleRequest(this->http_request, this->_server->getConfigForClient(this->GetFd()));
     std::cout << "END OF PROCESSING THE REQUEST \n";
-    if (this->_server != NULL) {
+    if (this->_server != NULL)
+    {
         this->_server->updatePollEvents(fd, POLLOUT);
-    } else {
+    } 
+    else
+    {
         std::cerr << "Error: Server pointer is NULL" << std::endl;
     }
-    delete chain_handler;
+    //clean up the handler chain
+    while (chain_handler->GetNext() != NULL)
+    {
+        RequestHandler *next_handler = chain_handler->GetNext();
+        chain_handler->SetNext(NULL);
+        delete chain_handler; 
+        chain_handler = next_handler; 
+    }
+    if (chain_handler != NULL)
+        delete chain_handler;
 }
 
 ClientConnection::~ClientConnection()

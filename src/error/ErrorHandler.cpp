@@ -15,6 +15,11 @@ const char *    ErrorHandler::what() const throw()
     return "Error Handler Error\n";
 }
 
+ErrorHandler *ErrorHandler::GetNext()
+{
+    return this->nextHandler;
+}
+
 ErrorHandler *ErrorHandler::SetNext(ErrorHandler *handler)
 {
     if (handler)

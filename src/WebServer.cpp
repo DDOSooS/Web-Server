@@ -252,11 +252,14 @@ int WebServer::run()
             
             if (pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL))
             {
-                if (isListeningSocket(fd)) {
+                if (isListeningSocket(fd))
+                {
                     std::cerr << "Error on listening socket " << fd << "!" << std::endl;
                     running = false;
                     break;
-                } else {
+                }
+                else
+                {
                     closeClientConnection(fd);
                 }
                 continue;
@@ -264,9 +267,11 @@ int WebServer::run()
 
             if (pollfds[i].revents & POLLIN)
             {
-                if (isListeningSocket(fd)) {
+                if (isListeningSocket(fd))
+                {
                     acceptNewConnection(fd);
-                } else
+                }
+                else
                 {
                     try
                     {
@@ -283,7 +288,8 @@ int WebServer::run()
             // Handle outgoing data
             if (pollfds[i].revents & POLLOUT)
             {
-                try {
+                try
+                {
                     handleClientResponse(fd);
                 }
                 catch (const HttpException & e)
@@ -300,14 +306,23 @@ int WebServer::run()
     }
 
     // Clean up before exiting
-    for (int i = 0; i < numfds; i++) {
-        if (!isListeningSocket(pollfds[i].fd)) {
+    for (int i = 0; i < numfds; i++)
+    {
+        if (!isListeningSocket(pollfds[i].fd))
+        {
             close(pollfds[i].fd);
         }
     }
-
+    // cleaning error chain handler
+    while (errorHandler->GetNext() != NULL)
+    {
+        ErrorHandler *next = errorHandler->GetNext();
+        delete errorHandler;
+        errorHandler = next;
+    }
+    if (errorHandler)
+        delete errorHandler;
     std::cout << "WebServer has shut down all servers." << std::endl;
-    delete errorHandler;
     return 0;
 }
 
@@ -424,17 +439,15 @@ void WebServer::updatePollEvents(int fd, short events)
 
 void WebServer::handleClientRequest(int fd)
 {
+    std::cout << "============== (START OF HANDLING CLIENT REQUEST) ==============\n";
     clients[fd].updateActivity(); // Update last activity timestamp
 
-
-    std::cout << "============== (START OF HANDLING CLIENT REQUEST) ==============\n";
-
     // Check if client exists
-    if (clients.find(fd) == clients.end()) {
+    if (clients.find(fd) == clients.end())
+    {
         std::cerr << "Client not found for fd " << fd << std::endl;
         return;
     }
-
     ClientConnection &client = clients[fd];
 
     // Set error chain handler
@@ -472,32 +485,39 @@ void WebServer::handleClientRequest(int fd)
         std::cerr << "Unknown exception in handleClientRequest" << std::endl;
         closeClientConnection(fd);
     }
-    delete errorHandler;
+    while (errorHandler->GetNext() != NULL)
+    {
+        ErrorHandler *next = errorHandler->GetNext();
+        errorHandler->SetNext(NULL);
+        delete errorHandler;
+        errorHandler = next;
+    }
+    if (errorHandler)
+        delete errorHandler;
 }
 
 void WebServer::handleClientResponse(int fd)
 {
-    if (clients.find(fd) == clients.end()) {
+    if (clients.find(fd) == clients.end())
+    {
         std::cerr << "Client with fd " << fd << " not found in clients map" << std::endl;
         return;
     }
     ClientConnection &client = clients[fd];
 
-    // Check if we have data to send
     if (client.http_response == NULL)
     {
         std::cerr << "Warning: client.http_response is null for fd " << fd << std::endl;
         updatePollEvents(fd, POLLIN);
         return;
     }
-    
     // Check if we have data to send
     if (client.http_response->checkAvailablePacket())
     {
-        std::cout << "\n\ndata to send for client fd: " << fd << std::endl;        
+        // std::cout << "\n\ndata to send for client fd: " << fd << std::endl;        
          if (client.http_response->isChunked())
             {
-                std::cout << "[Debug] sending chunked response\n";
+                // std::cout << "[Debug] sending chunked response\n";
                 try {
                     client.http_response->sendChunkedResponse(fd);
                     
@@ -508,7 +528,6 @@ void WebServer::handleClientResponse(int fd)
                     {
                         client.http_response->sendChunkedResponse(fd);
                         std::cout << "Chunked response sent completely\n";
-                        
                         if (client.http_response->isKeepAlive())
                         {
                             std::cout << "Resetting request for keep-alive\n";
@@ -533,7 +552,7 @@ void WebServer::handleClientResponse(int fd)
         {
             if (client.http_response->isFile())
             {
-                std::cout << "Debug sendfile response11\n";
+                // std::cout << "Debug sendfile response11\n";
                 client.http_response->sendResponse(fd);                
             }
             else
@@ -557,11 +576,11 @@ void WebServer::handleClientResponse(int fd)
                     std::cout << "Resetting redirect counter to 0\n\n\n";
                     client.redirect_counter = 0; 
                 }
-                std::cout << "Debug sendfile response22\n";
+                // std::cout << "Debug sendfile response22\n";
                 client.http_response->sendChunkedResponse(fd);
                 this->updatePollEvents(fd, POLLIN);
-
-                if (client.should_close) {
+                if (client.should_close)
+                {
                     std::cout << "----Closing connection after error response\n";
                     closeClientConnection(fd);
                     return;
