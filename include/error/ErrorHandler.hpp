@@ -11,6 +11,7 @@ class ErrorHandler
 
     public:
         ErrorHandler();
+        ErrorHandler *          GetNext();
         ErrorHandler *          SetNext(ErrorHandler *);
         virtual void            HanldeError(Error &error, const ServerConfig & /* Server Configuration*/); ;
         virtual const char*     what() const throw();

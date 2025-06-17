@@ -18,7 +18,6 @@
 class HttpRequestBuilder;
 class HttpRequest;
 class HttpResponse;
-class HttpHandler;
 class WebServer;
 class RequestHandler;
 
@@ -38,7 +37,6 @@ class ClientConnection
         HttpRequestBuilder      *builder;
         HttpResponse            *http_response;
         HttpRequest             *http_request;
-        HttpHandler             *handler_chain;
         
         // Streaming upload members (AFTER handler_chain to match initialization order)
         bool                    is_streaming_upload;
@@ -47,25 +45,25 @@ class ClientConnection
         std::string             accumulated_body;
         int                     temp_upload_fd;
         std::string             temp_upload_path;
-        static int                     redirect_counter;
+        static int              redirect_counter;
         bool                    should_close;
 
-    // Constructors and destructor
-    ClientConnection(); 
-    ClientConnection(int socketFd, const sockaddr_in& clientAddr);
-    ~ClientConnection();
-    int GetFd() const ;
-    // Main methods
-    void            GenerateRequest(int fd);
-    void            ProcessRequest(int fd);
-    void            RespondToClient(int fd);
-    void            parseRequest(char *buff);
-    void            updateActivity();
-    bool            isStale(time_t timeoutSec) const;
+        // Constructors and destructor
+        ClientConnection(); 
+        ClientConnection(int socketFd, const sockaddr_in& clientAddr);
+        ~ClientConnection();
+        int GetFd() const ;
+        // Main methods
+        void            GenerateRequest(int fd);
+        void            ProcessRequest(int fd);
+        void            RespondToClient(int fd);
+        void            parseRequest(char *buff);
+        void            updateActivity();
+        bool            isStale(time_t timeoutSec) const;
 
-    // Streaming upload methods
-    bool            isStreamingUpload() const { return is_streaming_upload; }
-    void            initializeStreaming(size_t content_length);
-    bool            continueStreamingRead(int fd);
-    void            finalizeStreaming();
+        // Streaming upload methods
+        bool            isStreamingUpload() const { return is_streaming_upload; }
+        void            initializeStreaming(size_t content_length);
+        bool            continueStreamingRead(int fd);
+        void            finalizeStreaming();
 };
