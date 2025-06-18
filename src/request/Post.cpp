@@ -71,27 +71,47 @@ void Post::ProccessRequest(HttpRequest *request, const ServerConfig &serverConfi
         return;
     }
     
-    if (contentType.find("application/x-www-form-urlencoded") != std::string::npos) {
-        handleUrlEncodedForm(request);
-    } else if (contentType.find("multipart/form-data") != std::string::npos) {
+    // Handle different content types
+    if (contentType.find("multipart/form-data") != std::string::npos) {
         std::string boundary = extractBoundary(contentType);
         if (!boundary.empty()) {
             handleMultipartForm(request, boundary);
         } else {
             setErrorResponse(request, 400, "Invalid multipart boundary");
         }
-    } else {
-        setErrorResponse(request, 415, "Unsupported Media Type - Only form data and file uploads are supported");
+    } 
+    else if (contentType.find("application/x-www-form-urlencoded") != std::string::npos) {
+        handleUrlEncodedForm(request);
+    }
+    else if (contentType.find("text/plain") != std::string::npos) {
+        handlePlainText(request);
+    }
+    else if (contentType.find("application/json") != std::string::npos) {
+        handleJsonData(request);
+    }
+    else {
+        // More detailed error message for unsupported content types
+        std::cout << "Unsupported content type: " << contentType << std::endl;
+        setErrorResponse(request, 415, "Unsupported Media Type. Supported types: multipart/form-data, application/x-www-form-urlencoded, text/plain, application/json");
     }
 }
 
 void Post::handleUrlEncodedForm(HttpRequest *request) {
+    std::cout << "Handling URL-encoded form data" << std::endl;
+    
     std::string body = request->GetBody();
+    std::cout << "Form data: " << body << std::endl;
+    
     std::map<std::string, std::string> formData = parseUrlEncodedForm(body);
     
     std::stringstream response;
-    response << "<!DOCTYPE html><html><head><title>Form Submitted</title></head><body>";
-    response << "<h1>Form Data Received</h1><ul>";
+    response << "<!DOCTYPE html><html><head><title>Form Submitted</title>";
+    response << "<style>body{font-family:system-ui,sans-serif;max-width:800px;margin:0 auto;padding:20px;line-height:1.6}";
+    response << "h1{color:#2c3e50}ul{background:#f8f9fa;padding:20px;border-radius:8px}";
+    response << "li{margin:10px 0}strong{color:#3498db}";
+    response << "a{display:inline-block;margin-top:20px;background:#3498db;color:white;padding:10px 15px;text-decoration:none;border-radius:4px}</style>";
+    response << "</head><body>";
+    response << "<h1>✅ Form Data Received</h1><ul>";
     
     for (std::map<std::string, std::string>::const_iterator it = formData.begin(); 
          it != formData.end(); ++it) {
@@ -101,62 +121,127 @@ void Post::handleUrlEncodedForm(HttpRequest *request) {
     
     response << "</ul><p><a href=\"/\">Back to Home</a></p></body></html>";
     setSuccessResponse(request, response.str());
+    
+    std::cout << "URL-encoded form processed successfully" << std::endl;
 }
+
+void Post::handlePlainText(HttpRequest *request) {
+    std::cout << "Handling plain text data" << std::endl;
+    
+    std::string body = request->GetBody();
+    std::cout << "Text data: " << body << std::endl;
+    
+    std::stringstream response;
+    response << "<!DOCTYPE html><html><head><title>Text Received</title>";
+    response << "<style>body{font-family:system-ui,sans-serif;max-width:800px;margin:0 auto;padding:20px;line-height:1.6}";
+    response << "h1{color:#2c3e50}.text-content{background:#f8f9fa;padding:20px;border-radius:8px;white-space:pre-wrap}";
+    response << "a{display:inline-block;margin-top:20px;background:#3498db;color:white;padding:10px 15px;text-decoration:none;border-radius:4px}</style>";
+    response << "</head><body>";
+    response << "<h1>✅ Text Data Received</h1>";
+    response << "<div class=\"text-content\">" << htmlEscape(body) << "</div>";
+    response << "<p><strong>Content Length:</strong> " << body.size() << " characters</p>";
+    response << "<p><a href=\"/\">Back to Home</a></p></body></html>";
+    
+    setSuccessResponse(request, response.str());
+    
+    std::cout << "Plain text processed successfully" << std::endl;
+}
+
+void Post::handleJsonData(HttpRequest *request) {
+    std::cout << "Handling JSON data" << std::endl;
+    
+    std::string body = request->GetBody();
+    std::cout << "JSON data: " << body << std::endl;
+    
+    std::stringstream response;
+    response << "<!DOCTYPE html><html><head><title>JSON Received</title>";
+    response << "<style>body{font-family:system-ui,sans-serif;max-width:800px;margin:0 auto;padding:20px;line-height:1.6}";
+    response << "h1{color:#2c3e50}.json-content{background:#f8f9fa;padding:20px;border-radius:8px;white-space:pre-wrap;font-family:monospace}";
+    response << "a{display:inline-block;margin-top:20px;background:#3498db;color:white;padding:10px 15px;text-decoration:none;border-radius:4px}</style>";
+    response << "</head><body>";
+    response << "<h1>✅ JSON Data Received</h1>";
+    response << "<div class=\"json-content\">" << htmlEscape(body) << "</div>";
+    response << "<p><strong>Content Length:</strong> " << body.size() << " bytes</p>";
+    response << "<p><a href=\"/\">Back to Home</a></p></body></html>";
+    
+    setSuccessResponse(request, response.str());
+    
+    std::cout << "JSON data processed successfully" << std::endl;
+}
+
+// Add this debug code to your Post.cpp in handleMultipartForm method:
 
 void Post::handleMultipartForm(HttpRequest *request, const std::string &boundary) {
     std::string body = request->GetBody();
     std::cout << "handleMultipartForm called with boundary: " << boundary << std::endl;
     std::cout << "Body size for parsing: " << body.size() << " bytes" << std::endl;
     
+    // DEBUG: Print the first 500 characters of the body to see the structure
+    std::cout << "=== BODY PREVIEW (first 500 chars) ===" << std::endl;
+    std::string preview = body.substr(0, std::min((size_t)500, body.size()));
+    for (size_t i = 0; i < preview.length(); ++i) {
+        char c = preview[i];
+        if (c == '\r') std::cout << "\\r";
+        else if (c == '\n') std::cout << "\\n";
+        else if (c >= 32 && c <= 126) std::cout << c;
+        else std::cout << "[" << (int)c << "]";
+    }
+    std::cout << std::endl << "=== END BODY PREVIEW ===" << std::endl;
+    
+    // DEBUG: Check what the boundary looks like
+    std::cout << "Boundary: '" << boundary << "'" << std::endl;
+    std::cout << "Looking for: '--" << boundary << "'" << std::endl;
+    
+    // DEBUG: Check if boundary exists in body
+    std::string fullBoundary = "--" + boundary;
+    size_t boundaryPos = body.find(fullBoundary);
+    if (boundaryPos != std::string::npos) {
+        std::cout << "Found boundary at position: " << boundaryPos << std::endl;
+    } else {
+        std::cout << "ERROR: Boundary not found in body!" << std::endl;
+        std::cout << "Searching for variations..." << std::endl;
+        
+        // Try different boundary formats
+        if (body.find(boundary) != std::string::npos) {
+            std::cout << "Found boundary without '--' prefix" << std::endl;
+        }
+        if (body.find("\r\n--" + boundary) != std::string::npos) {
+            std::cout << "Found boundary with \\r\\n-- prefix" << std::endl;
+        }
+        if (body.find("\n--" + boundary) != std::string::npos) {
+            std::cout << "Found boundary with \\n-- prefix" << std::endl;
+        }
+        
+        // Print first few boundary-like strings found in body
+        std::cout << "Looking for any '--' sequences in body:" << std::endl;
+        size_t pos = 0;
+        int count = 0;
+        while ((pos = body.find("--", pos)) != std::string::npos && count < 3) {
+            size_t endPos = std::min(pos + 50, body.length());
+            std::string boundaryCandidate = body.substr(pos, endPos - pos);
+            std::cout << "Found '--' at position " << pos << ": '";
+            for (size_t i = 0; i < boundaryCandidate.length(); ++i) {
+                char c = boundaryCandidate[i];
+                if (c == '\r') std::cout << "\\r";
+                else if (c == '\n') std::cout << "\\n";
+                else if (c >= 32 && c <= 126) std::cout << c;
+                else break;
+            }
+            std::cout << "'" << std::endl;
+            pos++;
+            count++;
+        }
+    }
+    
     std::vector<FormPart> parts = parseMultipartForm(body, boundary);
     
     if (parts.empty()) {
+        std::cout << "ERROR: parseMultipartForm returned empty parts!" << std::endl;
         setErrorResponse(request, 400, "No valid parts found in multipart form data");
         return;
     }
     
-    std::stringstream response;
-    response << "<!DOCTYPE html><html><head><title>Upload Result</title></head><body>";
-    response << "<h1>Upload Successful</h1><ul>";
-    
-    bool uploadSuccess = false;
-    
-    for (std::vector<FormPart>::iterator it = parts.begin(); it != parts.end(); ++it) {
-        std::cout << "Processing part: name='" << it->name << "', filename='" << it->filename 
-                 << "', isFile=" << (it->isFile ? "true" : "false") 
-                 << ", body size=" << it->body.size() << std::endl;
-        
-        if (it->isFile && !it->filename.empty()) {
-            std::string uniqueFilename = generateUniqueFilename(it->filename);
-            std::cout << "Saving file: " << it->filename << " as " << uniqueFilename 
-                     << " (" << it->body.size() << " bytes)" << std::endl;
-            
-            if (saveFileInChunks(it->body, uniqueFilename)) {
-                std::cout << "✅ File saved successfully: " << uniqueFilename << std::endl;
-                response << "<li>File <strong>" << htmlEscape(it->filename) 
-                        << "</strong> uploaded successfully (" 
-                        << formatFileSize(it->body.size()) << ")</li>";
-                uploadSuccess = true;
-            } else {
-                std::cout << "❌ Failed to save file: " << uniqueFilename << std::endl;
-                response << "<li>Failed to save file <strong>" 
-                        << htmlEscape(it->filename) << "</strong></li>";
-            }
-        } else if (!it->name.empty()) {
-            response << "<li><strong>" << htmlEscape(it->name) << ":</strong> " 
-                    << htmlEscape(it->body) << "</li>";
-            uploadSuccess = true;
-        }
-    }
-    
-    response << "</ul><p><a href=\"/\">Back to Home</a></p></body></html>";
-    
-    if (uploadSuccess) {
-        std::cout << "Sending success response" << std::endl;
-        setSuccessResponse(request, response.str());
-    } else {
-        setErrorResponse(request, 500, "Failed to process uploaded files");
-    }
+    // Rest of your existing code...
 }
 
 void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_path) {
@@ -689,94 +774,4 @@ std::string Post::htmlEscape(const std::string &input) {
         }
     }
     return result;
-}
-
-std::vector<Post::FormPart> Post::parseMultipartForm(const std::string &body, const std::string &boundary) {
-    std::vector<FormPart> parts;
-    
-    std::string startBoundary = "--" + boundary;
-    std::string endBoundary = "--" + boundary + "--";
-    
-    std::vector<size_t> boundaryPositions;
-    size_t pos = 0;
-    while ((pos = body.find(startBoundary, pos)) != std::string::npos) {
-        boundaryPositions.push_back(pos);
-        pos += startBoundary.length();
-    }
-    
-    for (size_t i = 0; i < boundaryPositions.size(); ++i) {
-        size_t currentPos = boundaryPositions[i] + startBoundary.length();
-        
-        if (currentPos + 1 < body.length() && body[currentPos] == '\r' && body[currentPos + 1] == '\n') {
-            currentPos += 2;
-        } else {
-            continue;
-        }
-        
-        size_t nextBoundaryPos = (i + 1 < boundaryPositions.size()) ? 
-                                boundaryPositions[i + 1] : 
-                                body.find(endBoundary, currentPos);
-        
-        if (nextBoundaryPos == std::string::npos) {
-            nextBoundaryPos = body.length();
-        }
-        
-        std::string partContent = body.substr(currentPos, nextBoundaryPos - currentPos);
-        
-        size_t headerEndPos = partContent.find("\r\n\r\n");
-        if (headerEndPos == std::string::npos) {
-            continue;
-        }
-        
-        std::string headers = partContent.substr(0, headerEndPos);
-        std::string partBody = partContent.substr(headerEndPos + 4); // Skip \r\n\r\n
-        
-        if (partBody.length() >= 2 && 
-            partBody[partBody.length() - 2] == '\r' && 
-            partBody[partBody.length() - 1] == '\n') {
-            partBody = partBody.substr(0, partBody.length() - 2);
-        }
-        
-        FormPart part;
-        
-        size_t contentDispPos = headers.find("Content-Disposition:");
-        if (contentDispPos != std::string::npos) {
-            size_t namePos = headers.find("name=\"", contentDispPos);
-            if (namePos != std::string::npos) {
-                namePos += 6; // Skip "name=""
-                size_t nameEndPos = headers.find("\"", namePos);
-                if (nameEndPos != std::string::npos) {
-                    part.name = headers.substr(namePos, nameEndPos - namePos);
-                }
-            }
-            
-            size_t filenamePos = headers.find("filename=\"", contentDispPos);
-            if (filenamePos != std::string::npos) {
-                filenamePos += 10; // Skip "filename=""
-                size_t filenameEndPos = headers.find("\"", filenamePos);
-                if (filenameEndPos != std::string::npos) {
-                    part.filename = headers.substr(filenamePos, filenameEndPos - filenamePos);
-                    part.isFile = true;
-                }
-            }
-        }
-        
-        size_t contentTypePos = headers.find("Content-Type:");
-        if (contentTypePos != std::string::npos) {
-            contentTypePos += 13; // Skip "Content-Type:"
-            size_t contentTypeEndPos = headers.find("\r\n", contentTypePos);
-            if (contentTypeEndPos != std::string::npos) {
-                while (contentTypePos < contentTypeEndPos && isspace(headers[contentTypePos])) {
-                    contentTypePos++;
-                }
-                part.contentType = headers.substr(contentTypePos, contentTypeEndPos - contentTypePos);
-            }
-        }
-        
-        part.body = partBody;
-        
-        parts.push_back(part);
-    }
-    
-    return parts;
 }
