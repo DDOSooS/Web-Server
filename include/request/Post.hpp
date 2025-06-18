@@ -26,7 +26,8 @@ private:
     
     // Core handlers - ONLY REQUIRED FOR 42
     void handleUrlEncodedForm(HttpRequest *request);
-    void handleMultipartForm(HttpRequest *request, const std::string &boundary);  // Added this missing declaration
+    void handleMultipartForm(HttpRequest *request, const std::string &boundary);
+    void processFormParts(HttpRequest *request, const std::vector<FormPart> &parts);
     void handleStreamingUpload(HttpRequest *request, const std::string &file_path);
     
     void handlePlainText(HttpRequest *request);

@@ -145,10 +145,15 @@ void ClientConnection::GenerateRequest(int fd)
             // CRITICAL FIX: Calculate remaining bytes correctly
             // We need to read (Content-Length - body_bytes_already_read)
             size_t totalBytesRead = rawRequest.length();
+            size_t headerSize = bodyStart; // Header size includes the \r\n\r\n
+            // Calculate how many body bytes we've already read
+            size_t bodyBytesAlreadyRead = totalBytesRead - headerSize;
             size_t remainingTotalBytes = 0;
             
-            if (totalBytesRead < (size_t)contentLength) {
-                remainingTotalBytes = contentLength - totalBytesRead;
+            std::cout << "DEBUG: Total bytes read: " << totalBytesRead << ", Header size: " << headerSize << ", Body bytes already read: " << bodyBytesAlreadyRead << std::endl;
+            
+            if (bodyBytesAlreadyRead < (size_t)contentLength) {
+                remainingTotalBytes = contentLength - bodyBytesAlreadyRead;
                 std::cout << "Need to read " << remainingTotalBytes << " more bytes to complete the request" << std::endl;
                 
                 // Set socket to blocking mode for reliable body reading
@@ -195,21 +200,20 @@ void ClientConnection::GenerateRequest(int fd)
                 // Restore socket flags
                 if (flags != -1) fcntl(fd, F_SETFL, flags);
                 
-                // Combine the initial request with the remaining data
-                std::string completeRequest = rawRequest + remainingData;
+                // Extract the initial body part from the original request
+                std::string initialBody = rawRequest.substr(bodyStart);
                 
-                // Now extract the body from the complete request
-                size_t completeBodyStart = completeRequest.find("\r\n\r\n");
-                if (completeBodyStart != std::string::npos) {
-                    completeBodyStart += 4;
-                    std::string completeBody = completeRequest.substr(completeBodyStart);
-                    build.SetBody(completeBody);
-                    
-                    std::cout << "Complete request assembled: " << completeRequest.length() << " bytes" << std::endl;
-                    std::cout << "Complete body extracted: " << completeBody.length() << " bytes" << std::endl;
-                } else {
-                    std::cerr << "Could not find body separator in complete request" << std::endl;
-                    throw HttpException(400, "Bad Request", BAD_REQUEST);
+                // Combine the initial body with the remaining data
+                std::string completeBody = initialBody + remainingData;
+                build.SetBody(completeBody);
+                
+                std::cout << "Initial body size: " << initialBody.length() << " bytes" << std::endl;
+                std::cout << "Additional data size: " << remainingData.length() << " bytes" << std::endl;
+                std::cout << "Complete body assembled: " << completeBody.length() << " bytes" << std::endl;
+                
+                // Debug output to check content
+                if (completeBody.length() < 1000) {
+                    std::cout << "Body preview: " << completeBody.substr(0, 100) << "..." << std::endl;
                 }
             } else {
                 // All data was received in the initial read
@@ -217,6 +221,11 @@ void ClientConnection::GenerateRequest(int fd)
                 build.SetBody(bodyData);
                 std::cout << "Complete request received in initial read" << std::endl;
                 std::cout << "Body size: " << bodyData.size() << " bytes" << std::endl;
+                
+                // Debug output to check content
+                if (bodyData.length() < 1000) {
+                    std::cout << "Body preview: " << bodyData.substr(0, 100) << "..." << std::endl;
+                }
             }
         } else {
             std::cout << "Could not find body separator (\\r\\n\\r\\n)" << std::endl;
@@ -229,7 +238,8 @@ void ClientConnection::GenerateRequest(int fd)
     this->http_request = new HttpRequest(build.GetHttpRequest());
     this->http_request->SetClientData(this);
     
-    ProcessRequest(fd);
+    // ProcessRequest is now called from WebServer::handleClientRequest
+    // Removed ProcessRequest(fd) call to prevent duplicate processing
 }
 
 void ClientConnection::initializeStreaming(size_t content_length)

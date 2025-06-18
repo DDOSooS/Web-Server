@@ -176,6 +176,9 @@ void Post::handleMultipartForm(HttpRequest *request, const std::string &boundary
     std::cout << "handleMultipartForm called with boundary: " << boundary << std::endl;
     std::cout << "Body size for parsing: " << body.size() << " bytes" << std::endl;
     
+    // Flag to track if we've already processed the upload
+    bool fileProcessed = false;
+    
     // DEBUG: Print the first 500 characters of the body to see the structure
     std::cout << "=== BODY PREVIEW (first 500 chars) ===" << std::endl;
     std::string preview = body.substr(0, std::min((size_t)500, body.size()));
@@ -233,15 +236,165 @@ void Post::handleMultipartForm(HttpRequest *request, const std::string &boundary
         }
     }
     
-    std::vector<FormPart> parts = parseMultipartForm(body, boundary);
-    
-    if (parts.empty()) {
-        std::cout << "ERROR: parseMultipartForm returned empty parts!" << std::endl;
-        setErrorResponse(request, 400, "No valid parts found in multipart form data");
-        return;
+    // Special handling for small files
+    if (body.size() < 1024 * 10) { // Less than 10KB
+        std::cout << "Small file detected, using enhanced parsing for small files" << std::endl;
+        
+        // Check if this is a simple form with just one file
+        size_t contentDispositionPos = body.find("Content-Disposition:");
+        size_t filenamePos = body.find("filename=\"");
+        
+        if (contentDispositionPos != std::string::npos && filenamePos != std::string::npos) {
+            filenamePos += 10; // Skip "filename=""
+            size_t filenameEnd = body.find("\"", filenamePos);
+            
+            if (filenameEnd != std::string::npos) {
+                std::string filename = body.substr(filenamePos, filenameEnd - filenamePos);
+                std::cout << "Detected filename in small file: " << filename << std::endl;
+                
+                // Find the start of the file content (after the double CRLF)
+                size_t contentStart = body.find("\r\n\r\n", filenameEnd);
+                if (contentStart == std::string::npos) {
+                    contentStart = body.find("\n\n", filenameEnd);
+                    if (contentStart != std::string::npos) {
+                        contentStart += 2; // Skip \n\n
+                    }
+                } else {
+                    contentStart += 4; // Skip \r\n\r\n
+                }
+                
+                if (contentStart != std::string::npos) {
+                    // Find the end boundary
+                    std::string endBoundary = "--" + boundary + "--";
+                    size_t contentEnd = body.find(endBoundary, contentStart);
+                    
+                    if (contentEnd == std::string::npos) {
+                        // Try without the trailing --
+                        endBoundary = "--" + boundary;
+                        contentEnd = body.find(endBoundary, contentStart);
+                    }
+                    
+                    if (contentEnd != std::string::npos) {
+                        // Extract the file content
+                        std::string fileContent = body.substr(contentStart, contentEnd - contentStart);
+                        
+                        // Create a form part manually
+                        FormPart part;
+                        part.name = "upload_file"; // Default name
+                        part.filename = filename;
+                        part.isFile = true;
+                        part.body = fileContent;
+                        
+                        // Find content type
+                        size_t contentTypePos = body.find("Content-Type:", contentDispositionPos);
+                        if (contentTypePos != std::string::npos && contentTypePos < contentStart) {
+                            contentTypePos += 13; // Skip "Content-Type:"
+                            size_t contentTypeEnd = body.find("\r\n", contentTypePos);
+                            if (contentTypeEnd == std::string::npos) {
+                                contentTypeEnd = body.find("\n", contentTypePos);
+                            }
+                            
+                            if (contentTypeEnd != std::string::npos) {
+                                part.contentType = body.substr(contentTypePos, contentTypeEnd - contentTypePos);
+                                // Trim whitespace
+                                part.contentType.erase(0, part.contentType.find_first_not_of(" \t"));
+                                part.contentType.erase(part.contentType.find_last_not_of(" \t") + 1);
+                            }
+                        }
+                        
+                        std::vector<FormPart> manualParts;
+                        manualParts.push_back(part);
+                        
+                        std::cout << "Manually created form part for small file:" << std::endl;
+                        std::cout << "  Name: " << part.name << std::endl;
+                        std::cout << "  Filename: " << part.filename << std::endl;
+                        std::cout << "  Content-Type: " << part.contentType << std::endl;
+                        std::cout << "  Content size: " << part.body.size() << " bytes" << std::endl;
+                        
+                        // Process the manually created parts
+                        processFormParts(request, manualParts);
+                        fileProcessed = true;
+                    }
+                }
+            }
+        }
     }
     
-    // Rest of your existing code...
+    // Only proceed with regular parsing if we haven't already processed the file
+    if (!fileProcessed) {
+        std::vector<FormPart> parts = parseMultipartForm(body, boundary);
+        
+        if (parts.empty()) {
+            std::cout << "ERROR: parseMultipartForm returned empty parts!" << std::endl;
+            setErrorResponse(request, 400, "No valid parts found in multipart form data");
+            return;
+        }
+        
+        processFormParts(request, parts);
+    }
+}
+
+// Process form parts and handle file uploads
+void Post::processFormParts(HttpRequest *request, const std::vector<FormPart> &parts) {
+    std::stringstream response;
+    response << "<!DOCTYPE html><html><head><title>Upload Results</title>";
+    response << "<style>body{font-family:system-ui,sans-serif;max-width:800px;margin:0 auto;padding:20px;line-height:1.6}";
+    response << "table{width:100%;border-collapse:collapse;margin:20px 0}";
+    response << "th,td{border:1px solid #ddd;padding:8px;text-align:left}";
+    response << "th{background-color:#f2f2f2}";
+    response << "tr:nth-child(even){background-color:#f9f9f9}";
+    response << "</style></head><body>";
+    response << "<h1>Upload Results</h1>";
+    
+    if (parts.empty()) {
+        response << "<p>No files were uploaded.</p>";
+    } else {
+        response << "<table><tr><th>Field Name</th><th>File Name</th><th>Size</th><th>Status</th></tr>";
+        
+        std::string uploadsDir = getUploadsDirectory();
+        
+        for (size_t i = 0; i < parts.size(); ++i) {
+            const FormPart &part = parts[i];
+            
+            response << "<tr>";
+            response << "<td>" << htmlEscape(part.name) << "</td>";
+            
+            if (part.isFile && !part.filename.empty()) {
+                // Generate a unique filename
+                std::string uniqueFilename = generateUniqueFilename(part.filename);
+                
+                // Save the file - pass only the filename to saveFileInChunks which already adds the uploads directory
+                bool saveSuccess = saveFileInChunks(part.body, uniqueFilename);
+                
+                if (saveSuccess) {
+                    response << "<td>" << htmlEscape(part.filename) << "</td>";
+                    response << "<td>" << formatFileSize(part.body.size()) << "</td>";
+                    response << "<td>Uploaded successfully as " << htmlEscape(uniqueFilename) << "</td>";
+                } else {
+                    response << "<td>" << htmlEscape(part.filename) << "</td>";
+                    response << "<td>" << formatFileSize(part.body.size()) << "</td>";
+                    response << "<td>Failed to save file</td>";
+                }
+            } else {
+                // Regular form field
+                response << "<td>Not a file</td>";
+                response << "<td>" << part.body.size() << " bytes</td>";
+                response << "<td>Form field value: " << htmlEscape(part.body) << "</td>";
+            }
+            
+            response << "</tr>";
+        }
+        
+        response << "</table>";
+    }
+    
+    response << "<p><a href=\"/\">Back to Home</a></p>";
+    response << "</body></html>";
+    
+    request->GetClientDatat()->http_response->setStatusCode(200);
+    request->GetClientDatat()->http_response->setStatusMessage("OK");
+    request->GetClientDatat()->http_response->setContentType("text/html");
+    request->GetClientDatat()->http_response->setBuffer(response.str());
 }
 
 void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_path) {
