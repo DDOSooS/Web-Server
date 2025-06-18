@@ -21,7 +21,7 @@ public:
     Delete();
     ~Delete();
     bool CanHandle(std::string method);
-    void ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig);
+    void ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig);
 };
 
 #endif

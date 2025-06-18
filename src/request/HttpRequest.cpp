@@ -245,86 +245,77 @@ HttpRequest::~HttpRequest()
 
 }
 
-std::string    HttpRequest::GetRelativePath(const Location * cur_location, ClientConnection *client)
+std::string join_path(const std::string& a, const std::string& b)
+{
+    if (a.empty())
+        return b;
+    if (b.empty())
+        return a;
+    std::string result = a;
+    if (!result.empty() && result[result.size() - 1] == '/')
+        result.erase(result.size() - 1);
+    if (!b.empty() && b[0] == '/')
+        return result + b;
+    else
+        return result + "/" + b;
+}
+
+std::string ensure_trailing_slash(const std::string& s)
+{
+    if (!s.empty() && s[s.size() - 1] != '/')
+        return s + '/';
+    return s;
+}
+std::string HttpRequest::GetRelativePath(const Location *cur_location, ClientConnection *client)
 {
     std::string rel_path;
 
-    // in case of no location found, 
+    char cwd[PATH_MAX];
+    if (getcwd(cwd, sizeof(cwd)) == NULL)
+    {
+        std::cerr << "[ ERROR ] : Failed to get current working directory." << std::endl;
+        cwd[0] = '\0';
+    }
     if (!cur_location)
     {
-        rel_path = this->GetClientDatat()->_server->getConfigForClient(this->_client->GetFd()).get_root() + this->GetLocation();
-        if (rel_path[rel_path.length() - 1] != '/')
-            rel_path += '/';
+        rel_path = join_path(join_path(cwd, client->getServerConfig().get_root()), this->GetLocation());
+        rel_path = ensure_trailing_slash(rel_path);
         std::cout << "[ WARNING ] : No matching location found, using server root: " << rel_path << std::endl;
+        std::cout << "[ INFO ] : Current working directory: " << cwd << std::endl;
         return rel_path;
     }
 
-    // in case the location is just a default
-    /*
-    std::cout << "[ DEBUG ] : LOCATION INFOT\n";
-    std::cout << "PATH : " << cur_location->get_path() << std::endl;
-    std::cout << "ROOT LOCATION : " << cur_location->get_root_location() << std::endl;
-    std::cout << "ALIAS : " << cur_location->get_alias() << std::endl;
-    std::cout << "RETURN : " << cur_location->get_return().size() << std::endl;
-    std::cout << "AUTO INDEX : " << (cur_location->get_autoindex() ? "ON" : "OFF") << std::endl;
-    std::cout << "INDEX : " << cur_location->get_index() << std::endl;
-    std::cout << "ALLOW METHODS : ";
-    for (size_t i = 0; i < cur_location->get_allowMethods().size(); i++)
-    {
-        if (i > 0)
-        std::cout << ", ";
-        std::cout <<  cur_location->get_allowMethods()[i];
-    }
-    for (size_t i = 0; i < cur_location->get_return().size(); i++)
-    {
-        if (i > 0)
-        std::cout << ", ";
-        std::cout << "return Redirection  : " << cur_location->get_return()[i];
-    }
-    std::cout << std::endl;
-    std::cout << "CLIENT MAX BODY SIZE : " << cur_location->get_clientMaxBodySize() << std::endl;
-    std::cout << "[====================================================]\n";
-    */
     if (!cur_location->get_return().empty())
-    {        
+    {
         SetIsRedirected(true);
-        std::cout << "\n\n\n-------------------------[ DEBUG ] : [ORIGIN ]Redirecting to : " << cur_location->get_path() << "------" << cur_location->get_return()[1] << "------------------\n\n" << std::endl;
-        // this->SetRedirectCounter(this->GetRedirectCounter() + 1);
+        std::cout << "\n\n\n-------------------------[ DEBUG ] : [ORIGIN ]Redirecting to : " 
+                  << cur_location->get_path() << "------" << cur_location->get_return()[1] 
+                  << "------------------\n\n" << std::endl;
         client->redirect_counter++;
-        /*
-        std::cout << "REDIRECTED TO : " << cur_location->get_return()[0] << std::endl;
-        std::cout << "REDIRECTED TO : " << cur_location->get_return()[1] << std::endl;
-        std::cout << "REQUEST LOCATION : " << request->GetLocation()  << std::endl;
-        */
         rel_path = cur_location->get_return()[1];
+        std::cout << "[ INFO ] : Current working directory: " << cwd << std::endl;
         return rel_path;
     }
     else if (!cur_location->get_alias().empty())
     {
         std::cout << "[ DEBUG ] : Using alias : " << cur_location->get_alias() << std::endl;
-        rel_path = cur_location->get_alias() + GetLocation();
+        rel_path = join_path(join_path(cwd, client->getServerConfig().get_root()), cur_location->get_alias());
     }
     else if (!cur_location->get_root_location().empty())
     {
         std::cout << "[ DEBUG ] : Using root location : " << cur_location->get_root_location() << std::endl;
-        rel_path = cur_location->get_root_location() + this->GetLocation();
+        rel_path = join_path(join_path(join_path(cwd, client->getServerConfig().get_root()), cur_location->get_root_location()), this->GetLocation());
     }
     else if (rel_path.empty())
     {
         std::cerr << "[ WARNING ] : No alias or root location specified, using server root." << std::endl;
-        // If no alias or root location is specified, we use the Server's root path
-        std::cout << "[ Server Root Path :" << this->GetClientDatat()->_server->getConfigForClient(this->_client->GetFd()).get_root() << " ]\n";
-        rel_path = this->GetClientDatat()->_server->getConfigForClient(this->_client->GetFd()).get_root() + this->GetLocation();
+        std::cout << "[ Server Root Path :" << client->getServerConfig().get_root() << " ]\n";
+        rel_path = join_path(join_path(cwd, client->getServerConfig().get_root()), this->GetLocation());
     }
-    if (rel_path[rel_path.length() - 1] != '/')
-    {
-        rel_path += '/';
-    }
-    else
-    {
-        std::cout << "[ DEBUG ] : Relative Path already ends with a slash : !!!!!!!!!!!" << rel_path << std::endl;
-    }
+    rel_path = ensure_trailing_slash(rel_path);
+
     std::cout << "[------------ FInal rel_path :" << rel_path << " ----------------------]\n";
+    std::cout << "[ INFO ] : Current working directory: " << cwd << std::endl;
     return rel_path;
 }
 

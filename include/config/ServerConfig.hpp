@@ -12,6 +12,7 @@
 // Forward declaration
 class Location;
 
+
 class ServerConfig
 {
 private:
@@ -39,11 +40,8 @@ public:
     std::vector<std::string>    get_index() const;
     bool                        get_autoindex() const;
     std::map<short, std::string> get_error_pages() const;
-    std::vector<Location>       get_locations() const;
-    std::string                 get_cwd() const;
+    std::vector<Location> 	   get_locations() const ;
 
-
-    void set_cwd(const std::string& cwd);
     void set_port(std::string param);
     void set_host(std::string param);
     void set_server_name(std::string param);

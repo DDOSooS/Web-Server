@@ -21,9 +21,10 @@ bool Delete::CanHandle(std::string method) {
     return method == "DELETE";
 }
 
-void Delete::ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig) {
+void Delete::ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig) {
     std::cout << "***** DELETE HANDLER CALLED WITH DEBUG *****" << std::endl;
     (void)serverConfig; // Silence unused parameter warning
+    (void)clientConfig; 
     
     std::string location = request->GetLocation();
     std::vector<std::pair<std::string, std::string> > queryParams = request->GetQueryString();

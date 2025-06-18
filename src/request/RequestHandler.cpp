@@ -23,7 +23,7 @@ RequestHandler * RequestHandler::GetNext()
 }
 
 
-void    RequestHandler::HandleRequest(HttpRequest *request, const ServerConfig &serverConfig)
+void    RequestHandler::HandleRequest(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig)
 {
     if (!request)
     {
@@ -51,11 +51,11 @@ void    RequestHandler::HandleRequest(HttpRequest *request, const ServerConfig &
     }
     if (CanHandle(request->GetMethod()))
     {
-        ProccessRequest(request, serverConfig);
+        ProccessRequest(request, serverConfig,clientConfig);
     }
     else if (this->_nextHandler)
     {
-        this->_nextHandler->HandleRequest(request, serverConfig);
+        this->_nextHandler->HandleRequest(request, serverConfig, clientConfig);
     }
     else {
         std::cerr << "No handler for method: " << request->GetMethod() << std::endl;

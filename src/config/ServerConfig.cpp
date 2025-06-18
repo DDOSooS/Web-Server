@@ -87,6 +87,8 @@ std::vector<std::string>		ServerConfig::get_index() const {
     return this->_index;
 }
 
+
+
 bool							ServerConfig::get_autoindex() const {
     return this->_autoindex;
 }
@@ -98,10 +100,6 @@ std::map<short, std::string>	ServerConfig::get_error_pages() const {
 std::vector<Location> 			ServerConfig::get_locations() const {
     return this->_locations;
 }
-
-
-
-
 
 
 void ServerConfig::set_port(std::string param){
@@ -301,3 +299,5 @@ const Location* ServerConfig::findBestMatchingLocation(const std::string& path) 
     
     return best_match ? best_match : findMatchingLocation(path);
 }
+
+

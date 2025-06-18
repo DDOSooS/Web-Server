@@ -437,6 +437,27 @@ void WebServer::updatePollEvents(int fd, short events)
     }
 }
 
+ServerConfig WebServer::getConfigByHost(std::string host)
+{
+    std::cout << "---------------------Searching for config with host: " << host.length() <<host << "=======||||" << std::endl;
+    for (size_t i = 0; i < m_configs.size(); ++i)
+    {
+        // std::cout << "----------------------Checking config: " << m_configs[i].get_host() << std::endl;
+        std::cout << "----------------------Host to match:[" << m_configs[i].get_server_name().length()  << m_configs[i].get_server_name() <<"]" << std::endl;
+        std::cout << "----------------------ORIGANAL Host to match:[" << host << "]" << std::endl;
+        if (m_configs[i].get_server_name() == host)
+        {
+            std::cout << "Found matching server configuration for host: " << host << std::endl;
+            // exit(0);
+            return m_configs[i];
+
+        }
+    }
+    std::cerr << "No matching server configuration found for host: " << host << "|"<< std::endl;
+    // exit(0);
+    return m_configs[0]; // Return the first config if no match found
+}
+
 void WebServer::handleClientRequest(int fd)
 {
     std::cout << "============== (START OF HANDLING CLIENT REQUEST) ==============\n";

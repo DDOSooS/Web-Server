@@ -13,7 +13,7 @@ class Get : public RequestHandler
     public:
         Get();
         bool            CanHandle(std::string method);
-        void            ProccessRequest(HttpRequest *, const ServerConfig &serverConfig);
+        void            ProccessRequest(HttpRequest *, const ServerConfig &serverConfig, ServerConfig clientConfig);
         std::string     IsValidPath( std::string &path);
         bool            IsDir( std::string &path);
         bool            IsFile( std::string &path);

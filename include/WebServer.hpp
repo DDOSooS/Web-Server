@@ -21,6 +21,7 @@
 class CgiHandler;
 
 #define BUFFER_SIZE 4096
+#define PATH_MAX 1024
 
 class RequestHandler;
 class WebServer
@@ -46,6 +47,7 @@ class WebServer
         bool isCgiFd(int fd);
         void handleCgiEvent(int fd);
         void checkCgiTimeouts();
+        ServerConfig getConfigByHost(std::string host);
         
     protected:
         void closeClientConnection(int clientSocket);
