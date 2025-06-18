@@ -62,9 +62,18 @@ std::vector<Post::FormPart> Post::parseMultipartForm(const std::string &body, co
         // Find the next boundary (could be start or end boundary)
         size_t nextBoundaryPos = body.find("\r\n--" + boundary, pos);
         size_t altNextBoundaryPos = body.find("\n--" + boundary, pos);
+        size_t endBoundaryPos = body.find(endBoundary, pos);
         
+        // Check if we found the end boundary directly
+        if (endBoundaryPos != std::string::npos && 
+            (nextBoundaryPos == std::string::npos || endBoundaryPos < nextBoundaryPos) && 
+            (altNextBoundaryPos == std::string::npos || endBoundaryPos < altNextBoundaryPos)) {
+            // We found the end boundary directly
+            nextBoundaryPos = endBoundaryPos;
+            std::cout << "Found end boundary directly at position: " << nextBoundaryPos << std::endl;
+        }
         // Use whichever boundary we find first
-        if (nextBoundaryPos == std::string::npos || 
+        else if (nextBoundaryPos == std::string::npos || 
             (altNextBoundaryPos != std::string::npos && altNextBoundaryPos < nextBoundaryPos)) {
             nextBoundaryPos = altNextBoundaryPos;
             if (nextBoundaryPos != std::string::npos) {
@@ -75,13 +84,32 @@ std::vector<Post::FormPart> Post::parseMultipartForm(const std::string &body, co
         }
         
         if (nextBoundaryPos == std::string::npos) {
-            std::cout << "Could not find next boundary, breaking" << std::endl;
-            break;
+            std::cout << "Could not find next boundary, searching for end boundary" << std::endl;
+            // Last attempt: search for end boundary without CRLF prefix
+            nextBoundaryPos = body.find(endBoundary, pos);
+            if (nextBoundaryPos == std::string::npos) {
+                std::cout << "Could not find end boundary either, breaking" << std::endl;
+                break;
+            } else {
+                std::cout << "Found end boundary at position: " << nextBoundaryPos << std::endl;
+            }
         }
         
         // Extract this part's content
         std::string partContent = body.substr(pos, nextBoundaryPos - pos);
         std::cout << "Part content length: " << partContent.length() << " bytes" << std::endl;
+        
+        // Debug: Show a preview of the part content
+        std::cout << "Part content preview: ";
+        std::string contentPreview = partContent.substr(0, std::min((size_t)50, partContent.size()));
+        for (size_t i = 0; i < contentPreview.length(); ++i) {
+            char c = contentPreview[i];
+            if (c == '\r') std::cout << "\\r";
+            else if (c == '\n') std::cout << "\\n";
+            else if (c >= 32 && c <= 126) std::cout << c;
+            else std::cout << "[" << (int)c << "]";
+        }
+        std::cout << std::endl;
         
         // Find headers/body separator
         size_t headerEndPos = partContent.find("\r\n\r\n");
@@ -172,13 +200,24 @@ std::vector<Post::FormPart> Post::parseMultipartForm(const std::string &body, co
         }
         
         // Move to next part
-        pos = nextBoundaryPos + 2 + boundary.length(); // Skip the boundary
-        
         // Check if this is the end boundary
-        std::string potentialEndBoundary = body.substr(nextBoundaryPos, endBoundary.length());
-        if (potentialEndBoundary == endBoundary) {
-            std::cout << "Found end boundary, stopping parsing" << std::endl;
+        bool isEndBoundary = false;
+        
+        // Check if the current boundary is the end boundary
+        if (nextBoundaryPos + endBoundary.length() <= body.length()) {
+            std::string potentialEndBoundary = body.substr(nextBoundaryPos, endBoundary.length());
+            if (potentialEndBoundary == endBoundary) {
+                std::cout << "Found end boundary, stopping parsing" << std::endl;
+                isEndBoundary = true;
+            }
+        }
+        
+        // Skip the boundary
+        if (isEndBoundary) {
+            pos = nextBoundaryPos + endBoundary.length();
             break;
+        } else {
+            pos = nextBoundaryPos + 2 + boundary.length(); // Skip the boundary
         }
         
         // Skip any CRLF after boundary
