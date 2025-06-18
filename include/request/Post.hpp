@@ -29,6 +29,10 @@ private:
     void handleMultipartForm(HttpRequest *request, const std::string &boundary);  // Added this missing declaration
     void handleStreamingUpload(HttpRequest *request, const std::string &file_path);
     
+    void handlePlainText(HttpRequest *request);
+    void handleJsonData(HttpRequest *request);
+    
+
     // File operations
     bool saveFileInChunks(const std::string &content, const std::string &filename);
     std::string generateUniqueFilename(const std::string &originalName);
