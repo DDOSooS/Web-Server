@@ -1,12 +1,7 @@
 #include "./include/WebServer.hpp"
 #include "./include/config/ConfigParser.hpp"
-#include "./include/error/ErrorHandler.hpp"
-#include "./include/error/BadRequest.hpp"
-#include "./include/error/NotFound.hpp"
-#include "./include/error/InternalServerError.hpp"
-#include "./include/error/MethodNotAllowed.hpp"
-#include "./include/error/NotImplemented.hpp"
-#include "./include/error/Forbidden.hpp"
+#include "./include/config/ServerConfig.hpp"
+
 
 int main(int argc, char *argv[]) {
     bool test_mode = false;
@@ -59,7 +54,7 @@ int main(int argc, char *argv[]) {
             std::cerr << "No server configurations found." << std::endl;
             return 1;
         }
-        
+   
         std::cout << "[DEBUG] *********** Configuration parsing completed successfully" << std::endl;
         
         // Print summary of server configurations
@@ -79,7 +74,7 @@ int main(int argc, char *argv[]) {
             std::cerr << "WebServer initialization failed!" << std::endl;
             return 1;
         }
-        
+
         std::cout << "WebServer initialized successfully with " << configs.size() << " server(s)" << std::endl;
         
         // Run the multi-server WebServer - this will block until the server stops

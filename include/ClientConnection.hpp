@@ -37,6 +37,7 @@ public:
     HttpRequestBuilder      *builder;
     HttpResponse            *http_response;
     HttpRequest             *http_request;
+    ServerConfig            server_config;
     
     // Streaming upload members
     bool                    is_streaming_upload;
@@ -70,6 +71,8 @@ public:
     void initializeStreaming(size_t content_length);
     bool continueStreamingRead(int fd);
     void finalizeStreaming();
+    void setServerConfig(const ServerConfig& config);
+    ServerConfig getServerConfig() const ;
 
 private:
     // Progress display helpers

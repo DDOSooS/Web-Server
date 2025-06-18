@@ -18,7 +18,7 @@ bool Post::CanHandle(std::string method) {
     return method == "POST";
 }
 
-void Post::ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig) {
+void Post::ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig) {
     std::string body = request->GetBody();
     std::string contentType = request->GetHeader("Content-Type");
     std::string contentLength = request->GetHeader("Content-Length");
@@ -29,8 +29,8 @@ void Post::ProccessRequest(HttpRequest *request, const ServerConfig &serverConfi
         std::stringstream ss(contentLength);
         ss >> bodySize;
         
-        if (serverConfig.get_client_max_body_size() > 0 && 
-            bodySize > serverConfig.get_client_max_body_size()) {
+        if (clientConfig.get_client_max_body_size() > 0 && 
+            bodySize > clientConfig.get_client_max_body_size()) {
             setErrorResponse(request, 413, "Request Entity Too Large");
             return;
         }

@@ -41,6 +41,16 @@ ClientConnection::ClientConnection(int socketFd, const sockaddr_in& clientAddr)
     ipAddress = ipStr;
 }
 
+void ClientConnection::setServerConfig(const ServerConfig& config)
+{
+    server_config = config;
+}
+
+ServerConfig ClientConnection::getServerConfig() const
+{
+    return server_config;
+}
+
 ClientConnection::~ClientConnection()
 {
     if (temp_upload_fd != -1) {
@@ -91,7 +101,7 @@ void ClientConnection::GenerateRequest(int fd)
     buffer[bytesRead] = '\0';
     std::string rawRequest(buffer);
     
-    std::cout << "Received request from client " << fd << std::endl;
+    std::cout << "Received request from client " << buffer << std::endl;
 
     HttpRequestBuilder build = HttpRequestBuilder();
     build.ParseRequest(rawRequest, this->_server->getConfigForClient(this->GetFd()));
@@ -129,6 +139,8 @@ void ClientConnection::GenerateRequest(int fd)
                 this->http_request = new HttpRequest(build.GetHttpRequest());
                 this->http_request->SetClientData(this);
                 this->http_request->SetBody("__STREAMING_UPLOAD_FILE:" + temp_upload_path);
+                this->setServerConfig(this->_server->getConfigByHost(this->http_request->GetHeader("Host")));
+
                 
                 if (bytes_received_so_far >= total_content_length) {
                     std::cout << "Upload complete" << std::endl;
@@ -237,7 +249,10 @@ void ClientConnection::GenerateRequest(int fd)
     }
     this->http_request = new HttpRequest(build.GetHttpRequest());
     this->http_request->SetClientData(this);
-    
+    this->setServerConfig(this->_server->getConfigByHost(this->http_request->GetHeader("Host")));
+    std::cout << "Server Root is: " << this->getServerConfig().get_root() << "=============\n\n\n" << std::endl;
+    std::cout << "Server Name is: " << this->getServerConfig().get_server_name() << "=============\n\n\n" << std::endl;
+    // std::cout << "Server Root Location is: " << this->getServerConfig().get_root() << "=============\n\n\n" << std::endl;
     // ProcessRequest is now called from WebServer::handleClientRequest
     // Removed ProcessRequest(fd) call to prevent duplicate processing
 }
@@ -426,7 +441,8 @@ void ClientConnection::ProcessRequest(int fd)
     }
     
     chain_handler->HandleRequest(this->http_request, 
-                                this->_server->getConfigForClient(this->GetFd()));
+                                this->_server->getConfigForClient(this->GetFd()), 
+                                this->server_config);
     
     if (this->_server != NULL) {
         this->_server->updatePollEvents(fd, POLLOUT);

@@ -191,7 +191,6 @@ void HttpRequestBuilder::ParseRequsetHeaders(std::istringstream &iss)
     {
         std::string key;
         std::string value;
-        // Check for end of headers (empty line or \r)
         if (line.empty() || line == "\r") break;
         size_t pos = line.find(":");
         if (pos == std::string::npos)
@@ -200,8 +199,20 @@ void HttpRequestBuilder::ParseRequsetHeaders(std::istringstream &iss)
             throw HttpException(400, "Malformed Header: Missing ':'", BAD_REQUEST);
         }
         key = line.substr(0, pos);
+        // Trim leading whitespace from value
         value = line.substr(pos + 1);
-        value.erase(0, value.find_first_not_of(" \t"));
+        value.erase(0, value.find_first_not_of(" \t\r\n"));
+        // Trim trailing whitespace (safe)
+        size_t endpos = value.find_last_not_of(" \t\r\n");
+        if (endpos != std::string::npos)
+            value.erase(endpos + 1);
+        else
+            value.clear();
+
+        if (!value.empty())
+        {
+            std::cout << "Header Key: [" << key << "] (" << key.length() << "), Value: [" << value << "] (" << value.length() << ")" << std::endl;
+        }
 
         _http_request.SetHeader(key, value);
     }

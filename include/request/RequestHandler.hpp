@@ -16,9 +16,9 @@ class RequestHandler
 	public:
 		RequestHandler();
 		virtual ~RequestHandler();
-		virtual void 		HandleRequest(HttpRequest *request, const ServerConfig &serverConfig);
+		virtual void 		HandleRequest(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig);
 		virtual	bool 		CanHandle(std::string method)=0;
-		virtual void 		ProccessRequest(HttpRequest *request,const ServerConfig &serverConfig)=0;
+		virtual void 		ProccessRequest(HttpRequest *request,const ServerConfig &serverConfig, ServerConfig clientConfig)=0;
 		RequestHandler *	SetNext(RequestHandler *);
 		RequestHandler *	GetNext();
 

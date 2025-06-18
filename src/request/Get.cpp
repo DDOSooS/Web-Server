@@ -246,7 +246,7 @@ std::string Get::CheckIndexFile(const std::string &rel_path, const Location *cur
 }
 
 // @Todo : before making any edit to this function, check the work flow of the processRequest function ~
-void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConfig)
+void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConfig, ServerConfig clientConfig)
 {
     std::string rel_path;
     const Location *cur_location;
@@ -263,8 +263,11 @@ void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConf
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
     // Get the current location from the server configuration
-    cur_location = serverConfig.findBestMatchingLocation(request->GetLocation());
-    std::cout << "[ Debug ] rel LOCATION: " << request->GetLocation() << std::endl; 
+    cur_location = clientConfig.findBestMatchingLocation(request->GetLocation());
+    std::cout << "[ Debug ] rel LOCATION: " << request->GetLocation() << std::endl;
+    std::cout << "[ Debug ] client location server name: " << clientConfig.get_server_name()<< std::endl;
+    std::cout << "[ Debug ] client location server name: " << request->GetClientDatat()->getServerConfig().get_server_name() << std::endl;
+    
     rel_path = request->GetRelativePath(cur_location, request->GetClientDatat());
     if (rel_path.empty())
     {
@@ -282,6 +285,7 @@ void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConf
         std::cout << "[Debug] : Valid Path Found : " << rel_path << std::endl;
     if (IsDir(rel_path))
     {
+        std::cout << "IS DIIIIIIIIIIIIRECTORY !!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
         request->GetClientDatat()->http_response->setStatusCode(200);
         request->GetClientDatat()->http_response->setStatusMessage("OK");
         request->GetClientDatat()->http_response->setContentType("text/html");
@@ -296,7 +300,7 @@ void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConf
         }
         */
         /* check if there is any valid index file from the list of index files !!!*/
-        std::string indexFile = CheckIndexFile(rel_path, cur_location, serverConfig);
+        std::string indexFile = CheckIndexFile(rel_path, cur_location, clientConfig);
         if (!indexFile.empty())
         {
             // I'm supponsing that the default max size of file to be sent at once is 1MB 

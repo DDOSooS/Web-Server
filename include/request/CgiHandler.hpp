@@ -32,7 +32,7 @@ public:
     ~CgiHandler();
 
     bool CanHandle(std::string method);
-    void ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig);
+    void ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig);
 
     bool isCgiRequest(HttpRequest *request) const;
     std::string getCgiPath(HttpRequest *request) const;
