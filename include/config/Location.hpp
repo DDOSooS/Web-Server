@@ -9,6 +9,7 @@ class Location {
 private:
     std::string                 _path;
     std::string                 _root;
+    std::string                 _upload_store;
     bool                        _autoindex;
     std::vector<std::string>    _index;
     std::vector<std::string>     _allow_methods;
@@ -36,9 +37,11 @@ public:
     void set_cgiPath(std::vector<std::string> cgi_paths);
     void set_cgiExt(std::vector<std::string> cgi_exts);
     void set_clientMaxBodySize(std::string client_max_body_size);
+    void set_uploadStore(std::string upload);
 
     std::string                 get_path() const;
     std::string                 get_root_location() const;
+    std::string                 get_uploadStore() const;
     bool                        get_autoindex() const;
     std::vector<std::string>    get_index() const;
     std::vector<std::string>    get_allowMethods() const;
