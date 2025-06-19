@@ -13,7 +13,6 @@ ServerConfig::ServerConfig() {
     this->_locations.clear();
 
     
-    // Initialize common error pages more elegantly
     initializeDefaultErrorPages();
 }
 
@@ -129,12 +128,10 @@ void ServerConfig::set_root(std::string param){
 }
 
 void ServerConfig::set_client_max_body_size(std::string body_size){
-    // Check if parameter is a valid number
     std::string size_str = body_size;
     size_t len = size_str.length();
     char unit = 'B';
     
-    // Check for K, M, G units
     if (len > 0 && std::isalpha(size_str[len - 1])) {
         unit = std::toupper(size_str[len - 1]);
         size_str = size_str.substr(0, len - 1);
@@ -181,7 +178,6 @@ void ServerConfig::set_index(std::vector<std::string> param){
         std::cerr << "config error: set_index requires at least one index file" << std::endl;
         return;
     }
-    // Ensure that the index files are unique
     std::sort(this->_index.begin(), this->_index.end());
     this->_index.erase(std::unique(this->_index.begin(), this->_index.end()), this->_index.end());
 }
@@ -228,17 +224,14 @@ const Location *ServerConfig::findMatchingLocation(const std::string &path) cons
     {
         if (!this->_locations[i].get_path().empty() && this->_locations[i].get_path() == path)
             return &this->_locations[i];
-        // Check for default location "/"
         if (this->_locations[i].get_path() == "/")
         {
             default_location = &this->_locations[i];
         }
     }
-    // If no specific location found, return the default location
     return default_location;
 }
 
-// in C++98  no auto 
 void ServerConfig::print_server_config() const {
     std::cout << "Server Config:" << std::endl;
     std::cout << "  Port: " << this->_port << std::endl;
@@ -260,11 +253,10 @@ void ServerConfig::print_server_config() const {
     }
     std::cout << "  Autoindex: " << (this->_autoindex ? "on" : "off") << std::endl;
 
-   // Print error pages
     std::cout << "  Error Pages: " << this->_error_pages.size() << std::endl;
     for (std::map<short, std::string>::const_iterator it = this->_error_pages.begin(); 
         it != this->_error_pages.end(); ++it) {
-        if (!it->second.empty()) {  // Only print if error page is set
+        if (!it->second.empty()) {
             std::cout << "    Error_page: " << it->first << " --> " << it->second << std::endl;
         }
     }
@@ -276,11 +268,11 @@ void ServerConfig::print_server_config() const {
     if (this->_locations.empty()) {
         std::cout << "  No locations configured." << std::endl;
     }
-    // Print end of server config
+
     std::cout << "End of Server Config" << std::endl;
 }
 
-// find best matching location based on longest prefix match as nginx does
+
 const Location* ServerConfig::findBestMatchingLocation(const std::string& path) const {
     const Location* best_match = NULL;
     size_t best_length = 0;
@@ -289,7 +281,7 @@ const Location* ServerConfig::findBestMatchingLocation(const std::string& path) 
         const Location& loc = this->_locations[i];
         const std::string& loc_path = loc.get_path();
         
-        if (path.find(loc_path) == 0) { // path starts with loc_path
+        if (path.find(loc_path) == 0) {
             if (loc_path.length() > best_length) {
                 best_length = loc_path.length();
                 best_match = &loc;

@@ -30,14 +30,13 @@ const std::vector<std::string>& Block::get_parameters() const {
     return this->parameters;
 }
 
-// Thread-safe and more efficient implementation
 std::vector<std::string> Block::get_directive_params(const std::string& directive_name) const {
     for (size_t i = 0; i < directives.size(); ++i) {
         if (directives[i].name == directive_name) {
             return directives[i].parameters;
         }
     }
-    return std::vector<std::string>(); // Return empty vector by value
+    return std::vector<std::string>();
 }
 
 bool Block::has_directive(const std::string& directive_name) const {
@@ -55,5 +54,5 @@ const Directive* Block::find_directive(const std::string& directive_name) const 
             return &directives[i];
         }
     }
-    return NULL; // C++98 compatible
+    return NULL;
 }

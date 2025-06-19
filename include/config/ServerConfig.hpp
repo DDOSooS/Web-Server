@@ -9,7 +9,7 @@
 #include <string.h>
 #include <iostream>
 #include <unistd.h>
-// Forward declaration
+
 class Location;
 
 
@@ -58,6 +58,6 @@ public:
     void print_server_config() const;
 };
 
-#endif // ServerConfig_HPP
+#endif
 
 
