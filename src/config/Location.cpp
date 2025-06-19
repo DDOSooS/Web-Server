@@ -40,6 +40,8 @@ Location::Location(const Block &location) {
     
     if (!location.parameters.empty()) {
         this->_path = location.parameters[0];
+        //CHECKING IF THE PATH END WITH / OR NOT
+        this->_path = (_path[_path.length() - 1] == '/' ? _path : (_path + "/"));
     }
     
     for (size_t i = 0; i < location.directives.size(); ++i) {
