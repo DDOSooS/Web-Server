@@ -351,7 +351,7 @@ void Post::processFormParts(HttpRequest *request, const std::vector<FormPart> &p
     } else {
         response << "<table><tr><th>Field Name</th><th>File Name</th><th>Size</th><th>Status</th></tr>";
         
-        std::string uploadsDir = getUploadsDirectory();
+        std::string uploadsDir = getUploadsDirectory(request->GetClientDatat()->getServerConfig());
         
         for (size_t i = 0; i < parts.size(); ++i) {
             const FormPart &part = parts[i];
@@ -364,7 +364,7 @@ void Post::processFormParts(HttpRequest *request, const std::vector<FormPart> &p
                 std::string uniqueFilename = generateUniqueFilename(part.filename);
                 
                 // Save the file - pass only the filename to saveFileInChunks which already adds the uploads directory
-                bool saveSuccess = saveFileInChunks(part.body, uniqueFilename);
+                bool saveSuccess = saveFileInChunks(request, part.body, uniqueFilename);
                 
                 if (saveSuccess) {
                     response << "<td>" << htmlEscape(part.filename) << "</td>";
@@ -497,7 +497,7 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
     }
     
     // Generate destination path
-    std::string uploads_dir = getUploadsDirectory();
+    std::string uploads_dir = getUploadsDirectory(request->GetClientDatat()->getServerConfig());
     std::string unique_filename;
     if (!original_filename.empty()) {
         unique_filename = generateUniqueFilename(original_filename);
@@ -669,8 +669,8 @@ std::string Post::formatFileSize(size_t bytes) {
     return ss.str();
 }
 
-bool Post::saveFileInChunks(const std::string &content, const std::string &filename) {
-    std::string uploadsDir = getUploadsDirectory();
+bool Post::saveFileInChunks(HttpRequest *request, const std::string &content, const std::string &filename) {
+    std::string uploadsDir = getUploadsDirectory(request->GetClientDatat()->getServerConfig());
     std::string fullPath = uploadsDir + "/" + filename;
     
     std::cout << "Attempting to save file to: " << fullPath << std::endl;
@@ -757,7 +757,7 @@ std::string Post::generateUniqueFilename(const std::string &originalName) {
     return ss.str();
 }
 
-std::string Post::getUploadsDirectory() {
+std::string Post::getUploadsDirectory(ServerConfig clientConf) {
     static std::string uploadsDir;
     if (uploadsDir.empty()) {
         char cwd[1024];
@@ -766,7 +766,9 @@ std::string Post::getUploadsDirectory() {
         } else {
             uploadsDir = "uploads";
         }
-        
+        const Location *uploadLoc = clientConf.findMatchingLocation("/uploads");
+
+        uploadsDir = uploadLoc->get_uploadStore();
         std::cout << "Uploads directory: " << uploadsDir << std::endl;
         
         // Create directory if it doesn't exist

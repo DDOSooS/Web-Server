@@ -5,6 +5,7 @@
 Location::Location() {
     this->_path = "";
     this->_root = "";
+    this->_upload_store = "";
     this->_autoindex = false;
     this->_alias = "";
     this->_client_max_body_size = 0;
@@ -15,6 +16,7 @@ Location::Location() {
 Location::Location(const Location &other) {
     this->_path = other._path;
     this->_root = other._root;
+    this->_upload_store = other._upload_store;
     this->_autoindex = other._autoindex;
     this->_index = other._index;
     this->_allow_methods = other._allow_methods;
@@ -28,6 +30,7 @@ Location::Location(const Location &other) {
 Location::Location(const Block &location) {
     this->_path = "";
     this->_root = "";
+    this->_upload_store = "";
     this->_autoindex = false;
     this->_alias = "";
     this->_client_max_body_size = 0;
@@ -56,6 +59,8 @@ Location::Location(const Block &location) {
         }
         else if (directive.name == "index" && !directive.parameters.empty()) {
             this->set_index(directive.parameters);
+        }else if (directive.name == "upload_store" && !directive.parameters.empty()) {
+            this->set_uploadStore(directive.parameters[0]);
         }
         else if (directive.name == "allow_methods") {
             this->set_allowMethods(directive.parameters);
@@ -106,6 +111,10 @@ void Location::set_path(const std::string &new_path) {
 
 void Location::set_root_location(std::string new_root){
 	this->_root = new_root;
+}
+
+void Location::set_uploadStore(std::string upload){
+	this->_upload_store = upload;
 }
 
 void Location::set_autoindex(bool new_auto_index){
@@ -225,6 +234,9 @@ std::string Location::get_path() const{
 	return this->_path;
 }
 
+std::string Location::get_uploadStore() const {
+	return this->_upload_store;
+}
 std::string Location::get_root_location() const {
 	return this->_root;
 }

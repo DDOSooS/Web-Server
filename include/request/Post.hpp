@@ -35,9 +35,9 @@ private:
     
 
     // File operations
-    bool saveFileInChunks(const std::string &content, const std::string &filename);
+    bool saveFileInChunks(HttpRequest *, const std::string &content, const std::string &filename);
     std::string generateUniqueFilename(const std::string &originalName);
-    std::string getUploadsDirectory();
+    std::string getUploadsDirectory(ServerConfig clientConfig);
     
     // Parsing utilities
     std::string extractBoundary(const std::string &contentType);

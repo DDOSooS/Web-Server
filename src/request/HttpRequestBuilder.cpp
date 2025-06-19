@@ -289,10 +289,15 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
         {
             throw HttpException(404, "HTTP Version Not Supported", NOT_FOUND);
         }
+        else if (_http_request.GetIsRl() == METHOD_NOT_ALLOWED)
+        {
+            std::cerr << "Method error: '" << _http_request.GetMethod() << "'" << std::endl;
+            throw HttpException(405, "Bad Request - Method Not Allowed", METHOD_NOT_ALLOWED);
+        }
         else if (_http_request.GetIsRl() == REQ_METHOD_ERROR)
         {
             std::cerr << "Method error: '" << _http_request.GetMethod() << "'" << std::endl;
-            throw HttpException(400, "Bad Request - Invalid Method", BAD_REQUEST);
+            throw HttpException(405, "Bad Request - Invalid Method", BAD_REQUEST);
         }
         else if (_http_request.GetIsRl() == REQ_LOCATION_ERROR)
         {
