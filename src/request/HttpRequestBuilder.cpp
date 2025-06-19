@@ -103,6 +103,12 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line,const Server
 
     iss >> method >> path >> http_version;
     TrimPath(path);
+    
+    // Debug the raw request line and parsed components
+    std::cout << "Raw request line: '" << request_line << "'" << std::endl;
+    std::cout << "Decoded request line: '" << decoded_request_line << "'" << std::endl;
+    std::cout << "Parsed method: '" << method << "', path: '" << path << "', version: '" << http_version << "'" << std::endl;
+    
     // check if the request line is a query string ?
     if (path.find("?") != std::string::npos)
     {
@@ -112,7 +118,8 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line,const Server
         std::string query_string = path.substr(pos + 1);
         path = path.substr(0, pos);
         this->_http_request.SetQueryStringStr(query_string);
-        // std::cout << "<><><><><><><><><><<><><><><><><><><> Query String : " << this->_http_request.GetQueryStringStr() << "\n";
+        std::cout << "Extracted query string: '" << query_string << "'" << std::endl;
+        std::cout << "Updated path: '" << path << "'" << std::endl;
         ParseQueryString(query_string);
     }
     _http_request.SetRequestLine(request_line);
@@ -275,16 +282,31 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
     if (_http_request.GetIsRl() != REQ_DONE)
     {
         std::cerr << "Invalid request line" << std::endl;
+        std::cerr << "Debug - Request status: " << _http_request.GetIsRl() << std::endl;
+        std::cerr << "Method: '" << _http_request.GetMethod() << "', Location: '" << _http_request.GetLocation() << "'" << std::endl;
+        
         if (_http_request.GetIsRl() == REQ_HTTP_VERSION_ERROR)
         {
             throw HttpException(404, "HTTP Version Not Supported", NOT_FOUND);
         }
-        else if (_http_request.GetIsRl() == REQ_METHOD_ERROR || _http_request.GetIsRl() == REQ_LOCATION_ERROR)
-            throw HttpException(400, "Bad Request", BAD_REQUEST);
+        else if (_http_request.GetIsRl() == REQ_METHOD_ERROR)
+        {
+            std::cerr << "Method error: '" << _http_request.GetMethod() << "'" << std::endl;
+            throw HttpException(400, "Bad Request - Invalid Method", BAD_REQUEST);
+        }
         else if (_http_request.GetIsRl() == REQ_LOCATION_ERROR)
-            throw HttpException(404, "Not Found", NOT_FOUND);
+        {
+            std::cerr << "Location error: '" << _http_request.GetLocation() << "'" << std::endl;
+            throw HttpException(404, "Not Found - Invalid Location", NOT_FOUND);
+        }
         else if (_http_request.GetIsRl() == REQ_NOT_IMPLEMENTED)
+        {
             throw HttpException(501, "Not Implemented", NOT_IMPLEMENTED);
+        }
+        else
+        {
+            throw HttpException(400, "Bad Request - Unknown Error", BAD_REQUEST);
+        }
         return;
     }
     

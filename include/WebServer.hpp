@@ -41,6 +41,9 @@ class WebServer
         ClientConnection& getClient(int fd) { return clients[fd]; }
         void updatePollEvents(int fd, short events);
         
+        // Debug function for monitoring poll state
+        void debugPollState();
+        
         // Manage CGI time out ============ 
         void addCgiToPoll(int cgi_fd);
         void removeCgiFromPoll(int cgi_fd);
