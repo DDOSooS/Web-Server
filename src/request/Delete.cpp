@@ -18,6 +18,7 @@ Delete::Delete() {}
 Delete::~Delete() {}
 
 bool Delete::CanHandle(std::string method) {
+    std::cout << "Delete::CanHandle called with method: '" << method << "'" << std::endl;
     return method == "DELETE";
 }
 
@@ -26,30 +27,63 @@ void Delete::ProccessRequest(HttpRequest *request, const ServerConfig &serverCon
     (void)serverConfig; // Silence unused parameter warning
     (void)clientConfig; 
     
-    std::string location = request->GetLocation();
-    std::vector<std::pair<std::string, std::string> > queryParams = request->GetQueryString();
-    std::string rawQueryString = request->GetQueryStringStr();
+    // Get the original location and query parameters
+    std::string originalLocation = request->GetLocation();
+    std::cout << "Original location: '" << originalLocation << "'" << std::endl;
     
-    std::cout << "DELETE request to: " << location << std::endl;
+    // Extract query string from location if it contains a question mark
+    std::string location = originalLocation;
+    std::string rawQueryString;
+    size_t questionMarkPos = location.find('?');
+    
+    if (questionMarkPos != std::string::npos) {
+        rawQueryString = location.substr(questionMarkPos + 1);
+        location = location.substr(0, questionMarkPos);
+        request->SetLocation(location); // Update the location in the request object
+        std::cout << "Extracted query string from URL: '" << rawQueryString << "'" << std::endl;
+        std::cout << "Updated location: '" << location << "'" << std::endl;
+    } else {
+        // Try to get query string from request object
+        rawQueryString = request->GetQueryStringStr();
+        std::cout << "Using query string from request object: '" << rawQueryString << "'" << std::endl;
+    }
+    
+    // Get query parameters from vector (usually empty for DELETE requests)
+    std::vector<std::pair<std::string, std::string> > queryParams = request->GetQueryString();
     std::cout << "Query params vector size: " << queryParams.size() << std::endl;
-    std::cout << "Raw query string: '" << rawQueryString << "'" << std::endl;
-
+    
     // Convert query parameters to map for easier handling
     std::map<std::string, std::string> params;
     
-    // MAIN FIX: Always try to parse from raw query string since vector is empty
+    // Parse from raw query string (this is the most reliable method)
     if (!rawQueryString.empty()) {
-        std::cout << "Parsing raw query string manually..." << std::endl;
+        std::cout << "Parsing raw query string manually: '" << rawQueryString << "'" << std::endl;
         params = parseQueryString(rawQueryString);
         std::cout << "Parsed " << params.size() << " parameters from raw string" << std::endl;
         
         for (std::map<std::string, std::string>::iterator it = params.begin(); it != params.end(); ++it) {
             std::cout << "Param: '" << it->first << "' = '" << it->second << "'" << std::endl;
         }
-    } else {
-        // Fallback to vector if raw string is empty
+    } 
+    
+    // Fallback to vector if raw string parsing didn't yield results
+    if (params.empty() && !queryParams.empty()) {
+        std::cout << "Using query parameters from vector as fallback" << std::endl;
         for (std::vector<std::pair<std::string, std::string> >::iterator it = queryParams.begin(); it != queryParams.end(); ++it) {
             params[it->first] = it->second;
+            std::cout << "Vector param: '" << it->first << "' = '" << it->second << "'" << std::endl;
+        }
+    }
+    
+    // If we still have no parameters but we have a query string, try a more aggressive parsing approach
+    if (params.empty() && !rawQueryString.empty()) {
+        std::cout << "Attempting more aggressive query string parsing" << std::endl;
+        size_t equalPos = rawQueryString.find('=');
+        if (equalPos != std::string::npos) {
+            std::string key = urlDecode(rawQueryString.substr(0, equalPos));
+            std::string value = urlDecode(rawQueryString.substr(equalPos + 1));
+            params[key] = value;
+            std::cout << "Parsed parameter using fallback method: '" << key << "' = '" << value << "'" << std::endl;
         }
     }
 
@@ -166,20 +200,79 @@ void Delete::ProccessRequest(HttpRequest *request, const ServerConfig &serverCon
 std::map<std::string, std::string> Delete::parseQueryString(const std::string &queryString) {
     std::map<std::string, std::string> result;
     if (queryString.empty()) {
+        std::cout << "Empty query string, nothing to parse" << std::endl;
         return result;
     }
     
-    std::istringstream stream(queryString);
-    std::string pair;
+    std::cout << "Parsing query string: '" << queryString << "'" << std::endl;
     
-    while (std::getline(stream, pair, '&')) {
-        size_t pos = pair.find('=');
-        if (pos != std::string::npos) {
-            std::string key = urlDecode(pair.substr(0, pos));
-            std::string value = urlDecode(pair.substr(pos + 1));
+    // Trim any leading or trailing whitespace or special characters
+    std::string params = queryString;
+    while (!params.empty() && (params[0] == ' ' || params[0] == '?' || params[0] == '&')) {
+        params.erase(0, 1);
+    }
+    while (!params.empty() && (params[params.length()-1] == ' ' || params[params.length()-1] == '&')) {
+        params.erase(params.length()-1, 1);
+    }
+    
+    if (params.empty()) {
+        std::cout << "Query string contained only special characters, nothing to parse" << std::endl;
+        return result;
+    }
+    
+    std::cout << "Cleaned query string: '" << params << "'" << std::endl;
+    
+    // Handle case where there's only one parameter with no '&'
+    if (params.find('&') == std::string::npos) {
+        size_t equalPos = params.find('=');
+        if (equalPos != std::string::npos) {
+            std::string key = urlDecode(params.substr(0, equalPos));
+            std::string value = urlDecode(params.substr(equalPos + 1));
             result[key] = value;
+            std::cout << "Single parameter parsed: '" << key << "' = '" << value << "'" << std::endl;
+            return result;
         }
     }
+    
+    // Split by '&' character for multiple parameters
+    std::string pair;
+    size_t pos = 0;
+    size_t nextPos;
+    
+    while ((nextPos = params.find('&', pos)) != std::string::npos) {
+        pair = params.substr(pos, nextPos - pos);
+        size_t equalPos = pair.find('=');
+        if (equalPos != std::string::npos) {
+            std::string key = urlDecode(pair.substr(0, equalPos));
+            std::string value = urlDecode(pair.substr(equalPos + 1));
+            result[key] = value;
+            std::cout << "Parsed parameter: '" << key << "' = '" << value << "'" << std::endl;
+        } else if (!pair.empty()) {
+            // Handle parameters with no value
+            std::string key = urlDecode(pair);
+            result[key] = "";
+            std::cout << "Parsed parameter with no value: '" << key << "'" << std::endl;
+        }
+        pos = nextPos + 1;
+    }
+    
+    // Handle the last pair
+    if (pos < params.length()) {
+        pair = params.substr(pos);
+        size_t equalPos = pair.find('=');
+        if (equalPos != std::string::npos) {
+            std::string key = urlDecode(pair.substr(0, equalPos));
+            std::string value = urlDecode(pair.substr(equalPos + 1));
+            result[key] = value;
+            std::cout << "Parsed last parameter: '" << key << "' = '" << value << "'" << std::endl;
+        } else if (!pair.empty()) {
+            // Handle parameters with no value
+            std::string key = urlDecode(pair);
+            result[key] = "";
+            std::cout << "Parsed last parameter with no value: '" << key << "'" << std::endl;
+        }
+    }
+    
     return result;
 }
 

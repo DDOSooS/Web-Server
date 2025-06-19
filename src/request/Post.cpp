@@ -416,7 +416,9 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
         return;
     }
     
-    // Verify file size against Content-Length
+    std::cout << "Temp file found with size: " << file_stat.st_size << " bytes" << std::endl;
+    
+    // Verify file size against Content-Length (but don't be too strict)
     std::string contentLength = request->GetHeader("Content-Length");
     if (!contentLength.empty()) {
         size_t expectedSize = 0;
@@ -426,49 +428,20 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
         std::cout << "Verifying file size: expected " << expectedSize 
                  << " bytes, actual " << file_stat.st_size << " bytes" << std::endl;
         
-        // For multipart uploads, the actual file size will be smaller than Content-Length
-        // due to headers and boundaries, so we allow some flexibility
-        size_t minAcceptableSize = expectedSize * 0.85; // Allow up to 15% overhead for multipart
-        
-        if (file_stat.st_size < minAcceptableSize) {
-            std::cerr << "File size mismatch: expected at least " << minAcceptableSize 
-                     << " bytes, got " << file_stat.st_size << " bytes" << std::endl;
-            std::cerr << "Upload appears to be incomplete. Waiting for more data..." << std::endl;
+        // FIXED: More lenient size checking
+        if (file_stat.st_size > 0) {
+            double percent_complete = (file_stat.st_size * 100.0 / expectedSize);
+            std::cout << "Upload completeness: " << percent_complete << "%" << std::endl;
             
-            // Wait for up to 30 seconds for the file to grow
-            int wait_attempts = 30;
-            bool file_grew = false;
-            
-            while (wait_attempts > 0) {
-                sleep(1); // Wait 1 second
-                struct stat new_stat;
-                if (stat(file_path.c_str(), &new_stat) == 0) {
-                    if (new_stat.st_size > file_stat.st_size) {
-                        std::cout << "File grew to " << new_stat.st_size << " bytes" << std::endl;
-                        file_stat = new_stat;
-                        file_grew = true;
-                        if (file_stat.st_size >= minAcceptableSize) {
-                            std::cout << "File reached acceptable size" << std::endl;
-                            break; // File is now large enough
-                        }
-                    } else if (file_grew) {
-                        // If file grew before but has stopped growing, wait a bit longer
-                        // but reduce the number of remaining attempts
-                        wait_attempts -= 3;
-                    }
-                }
-                wait_attempts--;
-            }
-            
-            // Final check after waiting
-            if (file_stat.st_size < minAcceptableSize) {
-                std::cerr << "Upload incomplete after waiting. Expected at least " << minAcceptableSize 
-                         << " bytes, got only " << file_stat.st_size << " bytes (" 
-                         << (file_stat.st_size * 100 / expectedSize) << "%)" << std::endl;
-                setErrorResponse(request, 400, "Upload file is incomplete or corrupted after waiting");
+            // FIXED: Only reject if file is suspiciously small (less than 50% of expected)
+            if (percent_complete < 50.0 && file_stat.st_size < 1024) {
+                std::cout << "File appears incomplete and very small, waiting for more data" << std::endl;
                 return;
             }
         }
+        
+        // If we reach here, process the file regardless of size percentage
+        std::cout << "Proceeding with file processing" << std::endl;
     }
     
     // Extract original filename and extension from multipart form data
@@ -476,12 +449,11 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
     std::string file_extension = ".bin"; // Default extension
     std::string original_filename;
     
-    // First check if we can extract the original filename from the request
+    // Read the first part of the file to extract metadata
     if (content_type.find("multipart/form-data") != std::string::npos) {
-        // Try to read the first few KB of the file to extract the filename and locate the actual file content
         int source_fd = open(file_path.c_str(), O_RDONLY);
         if (source_fd >= 0) {
-            char buffer[16384]; // Read first 16KB to find Content-Disposition header and content start
+            char buffer[16384]; // Read first 16KB to find Content-Disposition header
             ssize_t bytes_read = read(source_fd, buffer, sizeof(buffer) - 1);
             if (bytes_read > 0) {
                 buffer[bytes_read] = '\0';
@@ -505,10 +477,11 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
                     }
                 }
             }
-            close(source_fd); // Make sure to close the file descriptor
+            close(source_fd);
         }
     }
     
+    // Fallback extension detection based on content type
     if (file_extension == ".bin") {
         if (content_type.find("application/pdf") != std::string::npos) {
             file_extension = ".pdf";
@@ -520,16 +493,10 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
             file_extension = ".txt";
         } else if (content_type.find("application/zip") != std::string::npos) {
             file_extension = ".zip";
-        } else if (content_type.find("application/octet-stream") != std::string::npos) {
-            if (!original_filename.empty()) {
-                size_t ext_pos = original_filename.rfind(".");
-                if (ext_pos != std::string::npos) {
-                    file_extension = original_filename.substr(ext_pos);
-                }
-            }
         }
     }
     
+    // Generate destination path
     std::string uploads_dir = getUploadsDirectory();
     std::string unique_filename;
     if (!original_filename.empty()) {
@@ -539,72 +506,43 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
     }
     std::string dest_path = uploads_dir + "/" + unique_filename;
     
+    // Calculate content offset for multipart data
     off_t content_offset = 0;
     size_t content_length = file_stat.st_size;
     
     if (content_type.find("multipart/form-data") != std::string::npos) {
         int header_fd = open(file_path.c_str(), O_RDONLY);
-        if (header_fd < 0) {
-            std::cerr << "Failed to open source file for header analysis: " << strerror(errno) << std::endl;
-            setErrorResponse(request, 500, "Failed to process uploaded file");
-            return;
-        }
-        
-        char header_buffer[32768]; // 32KB 
-        ssize_t header_bytes_read = read(header_fd, header_buffer, sizeof(header_buffer) - 1);
-        close(header_fd);
-        
-        if (header_bytes_read > 0) {
-            header_buffer[header_bytes_read] = '\0';
-            std::string header_data(header_buffer, header_bytes_read);
+        if (header_fd >= 0) {
+            char header_buffer[32768]; // 32KB 
+            ssize_t header_bytes_read = read(header_fd, header_buffer, sizeof(header_buffer) - 1);
+            close(header_fd);
             
-            // Find the double CRLF that separates headers from content
-            size_t content_start = header_data.find("\r\n\r\n");
-            if (content_start != std::string::npos) {
-                // Skip the double CRLF
-                content_offset = content_start + 4;
+            if (header_bytes_read > 0) {
+                header_buffer[header_bytes_read] = '\0';
+                std::string header_data(header_buffer, header_bytes_read);
                 
-                // Find the boundary string
-                size_t boundary_pos = content_type.find("boundary=");
-                if (boundary_pos != std::string::npos) {
-                    boundary_pos += 9; // Skip "boundary="
-                    std::string boundary;
-                    if (content_type[boundary_pos] == '"') {
-                        // Quoted boundary
-                        boundary_pos++;
-                        size_t boundary_end = content_type.find('"', boundary_pos);
-                        if (boundary_end != std::string::npos) {
-                            boundary = content_type.substr(boundary_pos, boundary_end - boundary_pos);
-                        }
-                    } else {
-                        // Unquoted boundary
-                        size_t boundary_end = content_type.find(';', boundary_pos);
-                        if (boundary_end == std::string::npos) {
-                            boundary_end = content_type.length();
-                        }
-                        boundary = content_type.substr(boundary_pos, boundary_end - boundary_pos);
+                // Find the double CRLF that separates headers from content
+                size_t content_start = header_data.find("\r\n\r\n");
+                if (content_start != std::string::npos) {
+                    content_offset = content_start + 4;
+                    std::cout << "Multipart content starts at offset: " << content_offset << std::endl;
+                    
+                    // Estimate content length (subtract headers and boundary footer)
+                    // For streaming uploads, we'll be more conservative with boundary detection
+                    content_length = file_stat.st_size - content_offset;
+                    
+                    // Try to subtract the approximate size of the closing boundary
+                    if (content_length > 100) {
+                        content_length -= 50; // Conservative estimate for boundary footer
                     }
                     
-                    if (!boundary.empty()) {
-                        std::string end_boundary = "\r\n--" + boundary + "--";
-                        size_t end_pos = header_data.find(end_boundary);
-                        if (end_pos != std::string::npos) {
-                            // Adjust content length to exclude the end boundary
-                            content_length = end_pos - content_offset;
-                        } else {
-                            // If we can't find the end boundary in our buffer, we'll need to
-                            // subtract an estimate for the end boundary from the total file size
-                            content_length = file_stat.st_size - content_offset - (end_boundary.length() + 10);
-                        }
-                    }
+                    std::cout << "Estimated actual content length: " << content_length << std::endl;
                 }
-                
-                std::cout << "Multipart form data: content starts at offset " << content_offset 
-                          << ", estimated content length: " << content_length << std::endl;
             }
         }
     }
     
+    // Open source file
     int source_fd = open(file_path.c_str(), O_RDONLY);
     if (source_fd < 0) {
         std::cerr << "Failed to open source file: " << strerror(errno) << std::endl;
@@ -612,6 +550,7 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
         return;
     }
     
+    // Seek to content start if needed
     if (content_offset > 0) {
         if (lseek(source_fd, content_offset, SEEK_SET) != content_offset) {
             std::cerr << "Failed to seek to content start: " << strerror(errno) << std::endl;
@@ -622,9 +561,9 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
     }
     
     std::cout << "Copying file from " << file_path << " to " << dest_path 
-              << " with extension " << file_extension 
               << " (offset: " << content_offset << ", length: " << content_length << ")" << std::endl;
     
+    // Create destination file
     int dest_fd = open(dest_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (dest_fd < 0) {
         std::cerr << "Failed to create destination file: " << dest_path 
@@ -640,6 +579,8 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
     size_t total_written = 0;
     size_t remaining_content = content_length;
     bool copy_success = true;
+    
+    std::cout << "Starting file copy..." << std::endl;
     
     while (remaining_content > 0 && (bytes_read = read(source_fd, buffer, std::min(sizeof(buffer), remaining_content))) > 0) {
         char* ptr = buffer;
@@ -659,19 +600,30 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
         }
         
         if (!copy_success) break;
+        
+        // Progress indicator for large files
+        if (total_written % (1024 * 1024) == 0 || remaining_content == 0) {
+            std::cout << "Copied " << total_written << " / " << content_length << " bytes" << std::endl;
+        }
     }
     
     close(source_fd);
     close(dest_fd);
     
-    // Delete the temporary file
-    unlink(file_path.c_str());
+    std::cout << "File copy completed. Total written: " << total_written << " bytes" << std::endl;
     
-    if (copy_success && bytes_read >= 0) {
-        std::cout << "Large file upload successful: " << dest_path 
+    // Clean up temporary file
+    if (unlink(file_path.c_str()) == 0) {
+        std::cout << "Temporary file deleted: " << file_path << std::endl;
+    } else {
+        std::cerr << "Failed to delete temporary file: " << file_path << std::endl;
+    }
+    
+    if (copy_success && bytes_read >= 0 && total_written > 0) {
+        std::cout << "✅ UPLOAD SUCCESS: " << dest_path 
                   << " (" << total_written << " bytes)" << std::endl;
         
-        // Mark this upload as processed to prevent duplicate processing
+        // Mark this upload as processed
         request->SetHeader("X-Upload-Processed", "true");
         
         // Create success response
@@ -682,16 +634,18 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
         response << "a{display:inline-block;margin-top:20px;background:#3498db;color:white;padding:10px 15px;text-decoration:none;border-radius:4px}</style>";
         response << "</head><body>";
         response << "<h1><span class='success'>✅</span> File Upload Successful!</h1>";
-        response << "<p><strong>File Type:</strong> " << content_type << "</p>";
-        response << "<p><strong>File Size:</strong> " << formatFileSize(total_written) << "</p>";
+        response << "<p><strong>Original Filename:</strong> " << (original_filename.empty() ? "Unknown" : original_filename) << "</p>";
         response << "<p><strong>Saved As:</strong> " << unique_filename << "</p>";
+        response << "<p><strong>File Size:</strong> " << formatFileSize(total_written) << "</p>";
+        response << "<p><strong>Content Type:</strong> " << content_type << "</p>";
         response << "<p><strong>Upload Method:</strong> Memory-efficient streaming</p>";
+        response << "<p><strong>Saved To:</strong> " << dest_path << "</p>";
         response << "<p><a href=\"/\">← Back to Home</a></p>";
         response << "</body></html>";
         
         setSuccessResponse(request, response.str());
     } else {
-        std::cerr << "Failed to copy file: " << strerror(errno) << std::endl;
+        std::cerr << "❌ UPLOAD FAILED: Copy failed or no data written" << std::endl;
         setErrorResponse(request, 500, "Failed to save upload: " + std::string(strerror(errno)));
     }
 }
