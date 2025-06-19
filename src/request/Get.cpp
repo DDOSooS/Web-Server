@@ -113,6 +113,7 @@ std::string Get::ListingDir(const std::string &path, std::string request_path, c
     << "    .folder { font-weight: bold; font-size : 18px }\n"
     
     << "</style>\n"
+    << "<meta charset=\"UTF-8\">\n"
     << "</head>\n"
     << "<body>\n"
     << "<h1>Index of " << request_path << "</h1>\n"
