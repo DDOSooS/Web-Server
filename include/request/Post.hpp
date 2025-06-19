@@ -28,7 +28,7 @@ private:
     void handleUrlEncodedForm(HttpRequest *request);
     void handleMultipartForm(HttpRequest *request, const std::string &boundary);
     void processFormParts(HttpRequest *request, const std::vector<FormPart> &parts);
-    void handleStreamingUpload(HttpRequest *request, const std::string &file_path);
+    void handleStreamingUpload(HttpRequest *request, const std::string &file_path, bool is_direct_upload = false);
     
     void handlePlainText(HttpRequest *request);
     void handleJsonData(HttpRequest *request);
@@ -37,7 +37,6 @@ private:
     // File operations
     bool saveFileInChunks(HttpRequest *, const std::string &content, const std::string &filename);
     std::string generateUniqueFilename(const std::string &originalName);
-    std::string getUploadsDirectory(ServerConfig clientConfig);
     
     // Parsing utilities
     std::string extractBoundary(const std::string &contentType);
@@ -57,6 +56,9 @@ public:
     
     bool CanHandle(std::string method);
     void ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig);
+    
+    // Made public so ClientConnection can use it
+    std::string getUploadsDirectory(ServerConfig clientConfig);
 };
 
 #endif

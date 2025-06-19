@@ -24,7 +24,9 @@ ClientConnection::ClientConnection()
     : fd(-1), ipAddress(""), port(0), connectTime(0), lastActivity(0),
       builder(NULL), http_response(NULL), http_request(NULL),
       is_streaming_upload(false), total_content_length(0), 
-      bytes_received_so_far(0), temp_upload_fd(-1), should_close(false)
+      bytes_received_so_far(0), temp_upload_fd(-1), should_close(false),
+      filename_detected(false), is_multipart_upload(false), multipart_boundary(""),
+      detected_filename(""), detected_extension(".bin")
 {
     this->_server = NULL;
 }
@@ -34,7 +36,9 @@ ClientConnection::ClientConnection(int socketFd, const sockaddr_in& clientAddr)
       connectTime(time(NULL)), lastActivity(time(NULL)),
       builder(NULL), http_response(NULL), http_request(NULL),
       is_streaming_upload(false), total_content_length(0),
-      bytes_received_so_far(0), temp_upload_fd(-1), should_close(false)
+      bytes_received_so_far(0), temp_upload_fd(-1), should_close(false),
+      filename_detected(false), is_multipart_upload(false), multipart_boundary(""),
+      detected_filename(""), detected_extension(".bin")
 {
     char ipStr[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &(clientAddr.sin_addr), ipStr, INET_ADDRSTRLEN);
@@ -121,23 +125,141 @@ void ClientConnection::GenerateRequest(int fd)
             if (contentLength > MAX_MEMORY_UPLOAD) {
                 std::cout << "Large upload detected, enabling streaming mode" << std::endl;
                 
-                std::string initial_body = rawRequest.substr(bodyStart);
-                initializeStreaming(contentLength);
-                
-                if (!initial_body.empty()) {
-                    write(temp_upload_fd, initial_body.c_str(), initial_body.size());
-                    bytes_received_so_far = initial_body.size();
-                    showProgress();
-                }
-                
+                // Create the HTTP request object first
                 if (this->http_request) {
                     delete this->http_request;
                 }
                 this->http_request = new HttpRequest(build.GetHttpRequest());
                 this->http_request->SetClientData(this);
-                this->http_request->SetBody("__STREAMING_UPLOAD_FILE:" + temp_upload_path);
                 this->setServerConfig(this->_server->getConfigByHost(this->http_request->GetHeader("Host")));
-
+                
+                // Get content type from the request
+                std::string content_type = this->http_request->GetHeader("Content-Type");
+                std::string initial_body = rawRequest.substr(bodyStart);
+                std::string extended_body = initial_body;
+                std::string original_filename;
+                std::string file_extension = ".bin";
+                
+                // For multipart/form-data uploads, we need to extract the boundary and properly parse it
+                if (content_type.find("multipart/form-data") != std::string::npos) {
+                    std::cout << "Processing multipart/form-data upload" << std::endl;
+                    is_multipart_upload = true;
+                    
+                    // Extract boundary from the Content-Type header
+                    size_t boundary_pos = content_type.find("boundary=");
+                    if (boundary_pos != std::string::npos) {
+                        boundary_pos += 9; // Skip "boundary="
+                        
+                        // Handle quoted and unquoted boundaries
+                        if (content_type[boundary_pos] == '"') {
+                            boundary_pos++; // Skip the quote
+                            size_t boundary_end = content_type.find('"', boundary_pos);
+                            if (boundary_end != std::string::npos) {
+                                multipart_boundary = content_type.substr(boundary_pos, boundary_end - boundary_pos);
+                            }
+                        } else {
+                            // Unquoted boundary ends at semicolon or end of string
+                            size_t boundary_end = content_type.find(';', boundary_pos);
+                            if (boundary_end == std::string::npos) {
+                                boundary_end = content_type.length();
+                            }
+                            multipart_boundary = content_type.substr(boundary_pos, boundary_end - boundary_pos);
+                        }
+                        
+                        std::cout << "Found multipart boundary: '" << multipart_boundary << "'" << std::endl;
+                    }
+                    
+                    // If we don't have enough data, read more to get the multipart headers
+                    if (extended_body.find("filename=") == std::string::npos || 
+                        extended_body.find("Content-Disposition:") == std::string::npos) {
+                        
+                        std::cout << "Reading additional data to extract filename..." << std::endl;
+                        
+                        // Read up to 8KB more to get the multipart headers
+                        char extra_buffer[8192];
+                        ssize_t extra_read = recv(fd, extra_buffer, sizeof(extra_buffer) - 1, 0);
+                        if (extra_read > 0) {
+                            extra_buffer[extra_read] = '\0';
+                            extended_body += std::string(extra_buffer, extra_read);
+                            bodyBytesRead += extra_read;
+                            std::cout << "Read additional " << extra_read << " bytes for filename extraction" << std::endl;
+                            std::cout << "Extended body size: " << extended_body.size() << " bytes" << std::endl;
+                        }
+                    }
+                    
+                    // Now try to extract filename from the extended body
+                    size_t content_disposition_pos = extended_body.find("Content-Disposition:");
+                    if (content_disposition_pos != std::string::npos) {
+                        std::cout << "Found Content-Disposition at position: " << content_disposition_pos << std::endl;
+                        
+                        // Look for filename parameter
+                        size_t filename_pos = extended_body.find("filename=\"", content_disposition_pos);
+                        if (filename_pos != std::string::npos) {
+                            filename_pos += 10; // Skip "filename=\""
+                            size_t filename_end = extended_body.find("\"", filename_pos);
+                            if (filename_end != std::string::npos) {
+                                original_filename = extended_body.substr(filename_pos, filename_end - filename_pos);
+                                std::cout << "SUCCESS: Extracted filename: '" << original_filename << "'" << std::endl;
+                                
+                                // Extract extension
+                                size_t dot_pos = original_filename.find_last_of('.');
+                                if (dot_pos != std::string::npos) {
+                                    file_extension = original_filename.substr(dot_pos);
+                                    std::cout << "SUCCESS: Extracted extension: '" << file_extension << "'" << std::endl;
+                                }
+                            }
+                        } else {
+                            std::cout << "ERROR: Could not find filename in Content-Disposition" << std::endl;
+                            
+                            // Debug output
+                            size_t debug_end = std::min(content_disposition_pos + 200, extended_body.size());
+                            std::string debug_section = extended_body.substr(content_disposition_pos, debug_end - content_disposition_pos);
+                            std::cout << "Content-Disposition section: '" << debug_section << "'" << std::endl;
+                        }
+                    } else {
+                        std::cout << "ERROR: Could not find Content-Disposition in body" << std::endl;
+                        
+                        // Show first part of extended body for debugging
+                        std::cout << "First 500 chars of extended body:" << std::endl;
+                        std::string debug_body = extended_body.substr(0, std::min((size_t)500, extended_body.size()));
+                        for (size_t i = 0; i < debug_body.length(); ++i) {
+                            char c = debug_body[i];
+                            if (c == '\r') std::cout << "\\r";
+                            else if (c == '\n') std::cout << "\\n";
+                            else if (c >= 32 && c <= 126) std::cout << c;
+                            else std::cout << "[" << (int)c << "]";
+                        }
+                        std::cout << std::endl;
+                    }
+                }
+                
+                // If still no extension, guess from content type
+                if (file_extension == ".bin" && !content_type.empty()) {
+                    if (content_type.find("video/mp4") != std::string::npos) {
+                        file_extension = ".mp4";
+                    } else if (content_type.find("video/webm") != std::string::npos) {
+                        file_extension = ".webm";
+                    } else if (content_type.find("video/") != std::string::npos) {
+                        file_extension = ".mp4";
+                    } else if (content_type.find("image/jpeg") != std::string::npos) {
+                        file_extension = ".jpg";
+                    } else if (content_type.find("image/png") != std::string::npos) {
+                        file_extension = ".png";
+                    }
+                    std::cout << "Guessed extension from Content-Type: " << file_extension << std::endl;
+                }
+                
+                // Initialize streaming with extracted filename
+                initializeStreamingWithFilename(contentLength, original_filename, file_extension);
+                
+                // Write any data we've already read
+                if (!extended_body.empty()) {
+                    write(temp_upload_fd, extended_body.c_str(), extended_body.size());
+                    bytes_received_so_far = extended_body.size();
+                    showProgress();
+                }
+                
+                this->http_request->SetBody("__STREAMING_UPLOAD_FILE:" + temp_upload_path);
                 
                 if (bytes_received_so_far >= total_content_length) {
                     std::cout << "Upload complete" << std::endl;
@@ -228,34 +350,114 @@ void ClientConnection::GenerateRequest(int fd)
         }
     }
     
+    // Create final HTTP request object
     if (this->http_request) {
         delete this->http_request;
     }
     this->http_request = new HttpRequest(build.GetHttpRequest());
     this->http_request->SetClientData(this);
-    this->setServerConfig(this->_server->getConfigByHost(this->http_request->GetHeader("Host")));
-    std::cout << "Server Root is: " << this->getServerConfig().get_root() << "=============\n\n\n" << std::endl;
+    this->setServerConfig(this->_server->getConfigForClient(this->GetFd()));
+
     std::cout << "Server Name is: " << this->getServerConfig().get_server_name() << "=============\n\n\n" << std::endl;
-    // std::cout << "Server Root Location is: " << this->getServerConfig().get_root() << "=============\n\n\n" << std::endl;
-    // ProcessRequest is now called from WebServer::handleClientRequest
-    // Removed ProcessRequest(fd) call to prevent duplicate processing
+    std::cout << "Server Root is: " << this->getServerConfig().get_root() << "=============\n\n\n" << std::endl;
 }
 
-void ClientConnection::initializeStreaming(size_t content_length)
+
+void ClientConnection::initializeStreamingWithFilename(size_t content_length, const std::string& original_filename, const std::string& file_extension)
 {
     is_streaming_upload = true;
     total_content_length = content_length;
     bytes_received_so_far = 0;
     
-    char temp_template[] = "/tmp/webserver_upload_XXXXXX";
-    temp_upload_fd = mkstemp(temp_template);
-    if (temp_upload_fd == -1) {
-        std::cerr << "Failed to create temporary file" << std::endl;
-        throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
+    // Initialize filename detection state
+    if (!original_filename.empty()) {
+        detected_filename = original_filename;
+        filename_detected = true;
     }
-    temp_upload_path = temp_template;
     
-    std::cout << "Streaming initialized for " << content_length << " bytes" << std::endl;
+    if (file_extension != ".bin") {
+        detected_extension = file_extension;
+        filename_detected = true;
+    }
+    
+    // Get the appropriate uploads directory from Post class
+    Post post_handler;
+    std::string uploads_dir = post_handler.getUploadsDirectory(server_config);
+    
+    // Create a unique filename while preserving the original name
+    std::string base_filename;
+    if (!original_filename.empty()) {
+        // Remove the extension from the original filename to avoid double extensions
+        size_t dot_pos = original_filename.find_last_of('.');
+        if (dot_pos != std::string::npos) {
+            base_filename = original_filename.substr(0, dot_pos);
+        } else {
+            base_filename = original_filename;
+        }
+        
+        // Sanitize the filename (remove problematic characters)
+        for (size_t i = 0; i < base_filename.length(); i++) {
+            char c = base_filename[i];
+            if (c == ' ' || c == '(' || c == ')' || c == '[' || c == ']' || 
+                c == '{' || c == '}' || c == '&' || c == '?' || c == '*' || 
+                c == '<' || c == '>' || c == '|' || c == ':' || c == '\\' || c == '/') {
+                base_filename[i] = '_';
+            }
+        }
+    } else {
+        base_filename = "upload";
+    }
+    
+    // Create a unique filename to avoid collisions
+    std::stringstream ss;
+    ss << time(NULL) << "_" << ipAddress << "_" << port << "_" << base_filename;
+    std::string final_filename = ss.str() + file_extension;
+    
+    temp_upload_path = uploads_dir + "/" + final_filename;
+    
+    std::cout << "Creating file: " << temp_upload_path << std::endl;
+    std::cout << "Original filename: " << (original_filename.empty() ? "Not found" : original_filename) << std::endl;
+    std::cout << "Base filename: " << base_filename << std::endl;
+    std::cout << "File extension: " << file_extension << std::endl;
+    std::cout << "Final filename: " << final_filename << std::endl;
+    
+    // Create the final file directly
+    temp_upload_fd = open(temp_upload_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
+    if (temp_upload_fd == -1) {
+        std::cerr << "Failed to create destination file: " << temp_upload_path
+                 << " (errno: " << errno << ": " << strerror(errno) << ")" << std::endl;
+        
+        // Fallback: If the error is that the file exists, try with a different name
+        if (errno == EEXIST) {
+            ss.str("");  // Clear the stringstream
+            ss << time(NULL) << "_" << ipAddress << "_" << port << "_" << base_filename << "_" << (rand() % 1000);
+            final_filename = ss.str() + file_extension;
+            temp_upload_path = uploads_dir + "/" + final_filename;
+            temp_upload_fd = open(temp_upload_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
+        }
+        
+        // If still failed, try with /tmp as a last resort
+        if (temp_upload_fd == -1) {
+            std::cerr << "Failed to create file in uploads directory, falling back to /tmp" << std::endl;
+            temp_upload_path = "/tmp/" + final_filename;
+            temp_upload_fd = open(temp_upload_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
+            
+            if (temp_upload_fd == -1) {
+                std::cerr << "Failed to create destination file: " << temp_upload_path
+                         << " (errno: " << errno << ": " << strerror(errno) << ")" << std::endl;
+                throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
+            }
+        }
+    }
+    
+    std::cout << "Streaming initialized for " << content_length << " bytes directly to: " << temp_upload_path << std::endl;
+}
+
+void ClientConnection::initializeStreaming(size_t content_length)
+{
+    // This method is now deprecated - use initializeStreamingWithFilename instead
+    // Keeping for compatibility but calling the new method with defaults
+    initializeStreamingWithFilename(content_length, "", ".bin");
 }
 
 // COMPLETELY REWRITTEN: Simple, non-blocking streaming read
@@ -276,6 +478,15 @@ bool ClientConnection::continueStreamingRead(int fd)
     ssize_t chunk_read = recv(fd, chunk_buffer, STREAM_CHUNK_SIZE, MSG_DONTWAIT);
     
     if (chunk_read > 0) {
+        // First, check if we can extract a filename from this chunk (for multipart uploads)
+        // This is important because the filename often comes after streaming has started
+        if (is_multipart_upload && !filename_detected && bytes_received_so_far < 64000) { // Only try in first ~64KB
+            if (tryExtractFilenameFromData(chunk_buffer, chunk_read)) {
+                // If we found a filename with a good extension, update the file
+                updateFileExtensionIfNeeded();
+            }
+        }
+        
         // Got some data - write it to the temp file
         ssize_t written = write(temp_upload_fd, chunk_buffer, chunk_read);
         if (written != chunk_read) {
@@ -369,14 +580,171 @@ void ClientConnection::showProgressBar(double speed_mbps)
     }
 }
 
-// SIMPLIFIED: Remove complex checks
+// Helper method to extract filename from multipart form data during streaming
+bool ClientConnection::tryExtractFilenameFromData(const char* data, size_t length)
+{
+    // If we already found the filename, no need to continue
+    if (filename_detected) {
+        return true;
+    }
+    
+    // Skip if we don't have a boundary or not a multipart upload
+    if (!is_multipart_upload || multipart_boundary.empty()) {
+        return false;
+    }
+    
+    std::string data_chunk(data, std::min(length, (size_t)4096)); // Limit to first 4KB for performance
+    
+    // Look for Content-Disposition header in the data
+    std::string full_boundary = "--" + multipart_boundary;
+    size_t boundary_pos = data_chunk.find(full_boundary);
+    
+    if (boundary_pos != std::string::npos) {
+        size_t content_disposition_pos = data_chunk.find("Content-Disposition:", boundary_pos);
+        if (content_disposition_pos != std::string::npos) {
+            size_t filename_pos = data_chunk.find("filename=\"", content_disposition_pos);
+            if (filename_pos != std::string::npos) {
+                filename_pos += 10; // Skip "filename=\""
+                size_t filename_end = data_chunk.find("\"", filename_pos);
+                if (filename_end != std::string::npos && filename_end > filename_pos) {
+                    detected_filename = data_chunk.substr(filename_pos, filename_end - filename_pos);
+                    std::cout << "Found filename in streaming data: '" << detected_filename << "'" << std::endl;
+                    
+                    // Extract extension
+                    size_t dot_pos = detected_filename.find_last_of('.');
+                    if (dot_pos != std::string::npos) {
+                        detected_extension = detected_filename.substr(dot_pos);
+                        std::cout << "Found file extension: '" << detected_extension << "'" << std::endl;
+                        filename_detected = true;
+                        return true;
+                    }
+                }
+            }
+            
+            // If we found Content-Disposition but no extension yet, check for Content-Type
+            if (!filename_detected) {
+                size_t content_type_pos = data_chunk.find("Content-Type:", content_disposition_pos);
+                if (content_type_pos != std::string::npos) {
+                    size_t content_type_end = data_chunk.find("\r\n", content_type_pos);
+                    if (content_type_end != std::string::npos) {
+                        std::string part_content_type = data_chunk.substr(
+                            content_type_pos + 13, // Skip "Content-Type: "
+                            content_type_end - (content_type_pos + 13)
+                        );
+                        std::cout << "Found part Content-Type: '" << part_content_type << "'" << std::endl;
+                        
+                        // Map common MIME types to extensions
+                        if (part_content_type.find("image/jpeg") != std::string::npos) {
+                            detected_extension = ".jpg";
+                        } else if (part_content_type.find("image/png") != std::string::npos) {
+                            detected_extension = ".png";
+                        } else if (part_content_type.find("image/gif") != std::string::npos) {
+                            detected_extension = ".gif";
+                        } else if (part_content_type.find("image/webp") != std::string::npos) {
+                            detected_extension = ".webp";
+                        } else if (part_content_type.find("video/mp4") != std::string::npos) {
+                            detected_extension = ".mp4";
+                        } else if (part_content_type.find("video/webm") != std::string::npos) {
+                            detected_extension = ".webm";
+                        } else if (part_content_type.find("video/quicktime") != std::string::npos) {
+                            detected_extension = ".mov";
+                        } else if (part_content_type.find("audio/mpeg") != std::string::npos) {
+                            detected_extension = ".mp3";
+                        } else if (part_content_type.find("audio/wav") != std::string::npos) {
+                            detected_extension = ".wav";
+                        } else if (part_content_type.find("audio/ogg") != std::string::npos) {
+                            detected_extension = ".ogg";
+                        } else if (part_content_type.find("application/pdf") != std::string::npos) {
+                            detected_extension = ".pdf";
+                        } else if (part_content_type.find("application/zip") != std::string::npos) {
+                            detected_extension = ".zip";
+                        } else if (part_content_type.find("application/x-iso9660-image") != std::string::npos) {
+                            detected_extension = ".iso";
+                        } else if (part_content_type.find("text/plain") != std::string::npos) {
+                            detected_extension = ".txt";
+                        } else if (part_content_type.find("text/csv") != std::string::npos) {
+                            detected_extension = ".csv";
+                        }
+                        
+                        if (detected_extension != ".bin") {
+                            std::cout << "Determined extension from part Content-Type: '" << detected_extension << "'" << std::endl;
+                            filename_detected = true;
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    return false;
+}
+
+// Update file extension if it has changed
+bool ClientConnection::updateFileExtensionIfNeeded()
+{
+    if (!filename_detected || temp_upload_path.empty() || detected_extension == ".bin") {
+        return false;
+    }
+    
+    std::string current_ext;
+    size_t dot_pos = temp_upload_path.find_last_of('.');
+    if (dot_pos != std::string::npos) {
+        current_ext = temp_upload_path.substr(dot_pos);
+    }
+    
+    // If the extension is already correct, do nothing
+    if (current_ext == detected_extension) {
+        return false;
+    }
+    
+    // We need to rename the file
+    std::cout << "Updating file extension from '" << current_ext << "' to '" << detected_extension << "'" << std::endl;
+    
+    // Construct the new path
+    std::string new_path;
+    if (dot_pos != std::string::npos) {
+        new_path = temp_upload_path.substr(0, dot_pos) + detected_extension;
+    } else {
+        new_path = temp_upload_path + detected_extension;
+    }
+    
+    // Close the current file
+    if (temp_upload_fd != -1) {
+        fsync(temp_upload_fd); // Make sure all data is flushed
+        close(temp_upload_fd);
+        temp_upload_fd = -1;
+    }
+    
+    // Rename the file
+    if (rename(temp_upload_path.c_str(), new_path.c_str()) != 0) {
+        std::cerr << "Failed to rename file from " << temp_upload_path << " to " << new_path
+                 << " (" << strerror(errno) << ")" << std::endl;
+        return false;
+    }
+    
+    // Reopen the file for appending
+    temp_upload_fd = open(new_path.c_str(), O_WRONLY | O_APPEND, 0644);
+    if (temp_upload_fd == -1) {
+        std::cerr << "Failed to reopen renamed file: " << new_path
+                 << " (" << strerror(errno) << ")" << std::endl;
+        return false;
+    }
+    
+    // Update internal state
+    temp_upload_path = new_path;
+    std::cout << "File successfully renamed to: " << new_path << std::endl;
+    return true;
+}
+
+// SIMPLIFIED: Remove complex checks and mark file as directly uploaded
 void ClientConnection::finalizeStreaming()
 {
     if (!is_streaming_upload) {
         return;
     }
     
-    // Close the temp file
+    // Close the final file
     if (temp_upload_fd != -1) {
         close(temp_upload_fd);
         temp_upload_fd = -1;
@@ -384,9 +752,9 @@ void ClientConnection::finalizeStreaming()
     
     std::cout << "Finalizing streaming upload: " << bytes_received_so_far << " bytes" << std::endl;
     
-    // Set the request body to point to our temp file
+    // Set the request body to point to our final file, with a marker indicating it's already in final location
     if (http_request) {
-        http_request->SetBody("__STREAMING_UPLOAD_FILE:" + temp_upload_path);
+        http_request->SetBody("__DIRECT_UPLOAD_FILE:" + temp_upload_path);
     }
     
     // Reset streaming state
