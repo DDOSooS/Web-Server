@@ -22,7 +22,7 @@ class WebServer;
 class RequestHandler;
 
 #define REQUSET_LINE_BUFFER 8000
-#define MAX_MEMORY_UPLOAD 512000  // 1MB threshold
+#define MAX_MEMORY_UPLOAD 512000  // 512KB threshold
 #define STREAM_CHUNK_SIZE 32768    // 32KB chunks
 
 class ClientConnection
@@ -48,6 +48,13 @@ public:
     static int              redirect_counter;
     bool                    should_close;
 
+    // Filename detection members
+    bool                    filename_detected;
+    bool                    is_multipart_upload;
+    std::string             multipart_boundary;
+    std::string             detected_filename;
+    std::string             detected_extension;
+
     // Constructors and destructor
     ClientConnection(); 
     ClientConnection(int socketFd, const sockaddr_in& clientAddr);
@@ -69,10 +76,15 @@ public:
 
     // Streaming upload methods
     void initializeStreaming(size_t content_length);
+    void initializeStreamingWithFilename(size_t content_length, const std::string& original_filename, const std::string& file_extension);
     bool continueStreamingRead(int fd);
     void finalizeStreaming();
     void setServerConfig(const ServerConfig& config);
-    ServerConfig getServerConfig() const ;
+    ServerConfig getServerConfig() const;
+
+    // Helper methods for filename detection
+    bool tryExtractFilenameFromData(const char* data, size_t length);
+    bool updateFileExtensionIfNeeded();
 
 private:
     // Progress display helpers

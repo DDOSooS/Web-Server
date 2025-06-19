@@ -10,6 +10,7 @@
 #include <cerrno>
 #include <fcntl.h>
 #include <set>
+#include <mutex>
 
 Post::Post() {}
 Post::~Post() {}
@@ -42,9 +43,12 @@ void Post::ProccessRequest(HttpRequest *request, const ServerConfig &serverConfi
     std::cout << "Content-Type: " << contentType << std::endl;
     std::cout << "Body size: " << body.size() << " bytes" << std::endl;
     
-    // Handle streaming upload files
-    if (body.find("__STREAMING_UPLOAD_FILE:") != std::string::npos) {
-        std::string marker = "__STREAMING_UPLOAD_FILE:";
+    // Handle streaming or direct upload files
+    if (body.find("__STREAMING_UPLOAD_FILE:") != std::string::npos ||
+        body.find("__DIRECT_UPLOAD_FILE:") != std::string::npos) {
+        
+        bool is_direct_upload = body.find("__DIRECT_UPLOAD_FILE:") != std::string::npos;
+        std::string marker = is_direct_upload ? "__DIRECT_UPLOAD_FILE:" : "__STREAMING_UPLOAD_FILE:";
         size_t marker_pos = body.find(marker);
         std::string file_path = body.substr(marker_pos + marker.length());
         
@@ -58,8 +62,8 @@ void Post::ProccessRequest(HttpRequest *request, const ServerConfig &serverConfi
             return;
         }
         
-        // Process the upload
-        handleStreamingUpload(request, file_path);
+        // Process the upload with the direct upload flag
+        handleStreamingUpload(request, file_path, is_direct_upload);
         
         // Mark this file as processed to prevent duplicate processing
         processed_files.insert(file_path);
@@ -173,7 +177,17 @@ void Post::handleJsonData(HttpRequest *request) {
 
 void Post::handleMultipartForm(HttpRequest *request, const std::string &boundary) {
     std::string body = request->GetBody();
+    
+    // ✅ ADD THIS CHECK TO PREVENT DUPLICATE PROCESSING
+    if (body.find("__DIRECT_UPLOAD_FILE:") != std::string::npos ||
+        body.find("__STREAMING_UPLOAD_FILE:") != std::string::npos) {
+        std::cout << "File already processed via streaming, skipping multipart processing" << std::endl;
+        setSuccessResponse(request, "File uploaded successfully");
+        return;
+    }
+    
     std::cout << "handleMultipartForm called with boundary: " << boundary << std::endl;
+
     std::cout << "Body size for parsing: " << body.size() << " bytes" << std::endl;
     
     // Flag to track if we've already processed the upload
@@ -397,8 +411,9 @@ void Post::processFormParts(HttpRequest *request, const std::vector<FormPart> &p
     request->GetClientDatat()->http_response->setBuffer(response.str());
 }
 
-void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_path) {
-    std::cout << "Handling streaming upload from: " << file_path << std::endl;
+void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_path, bool is_direct_upload) {
+    std::string upload_type = is_direct_upload ? "direct" : "streaming";
+    std::cout << "Handling " << upload_type << " upload from: " << file_path << std::endl;
     
     // Check if this upload has already been processed
     std::string alreadyProcessed = request->GetHeader("X-Upload-Processed");
@@ -408,7 +423,7 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
         return;
     }
     
-    // Check if temp file exists
+    // Check if temp file exists and get its stats
     struct stat file_stat;
     if (stat(file_path.c_str(), &file_stat) == -1) {
         std::cerr << "Upload file not found: " << file_path << " (errno: " << errno << ")" << std::endl;
@@ -420,6 +435,10 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
     
     // Verify file size against Content-Length (but don't be too strict)
     std::string contentLength = request->GetHeader("Content-Length");
+    std::string content_type = request->GetHeader("Content-Type");
+    
+    std::cout << "Content-Type: " << content_type << std::endl;
+    
     if (!contentLength.empty()) {
         size_t expectedSize = 0;
         std::stringstream ss(contentLength);
@@ -428,198 +447,270 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
         std::cout << "Verifying file size: expected " << expectedSize 
                  << " bytes, actual " << file_stat.st_size << " bytes" << std::endl;
         
-        // FIXED: More lenient size checking
+        // More lenient size checking
         if (file_stat.st_size > 0) {
             double percent_complete = (file_stat.st_size * 100.0 / expectedSize);
             std::cout << "Upload completeness: " << percent_complete << "%" << std::endl;
             
-            // FIXED: Only reject if file is suspiciously small (less than 50% of expected)
+            // Only reject if file is suspiciously small (less than 50% of expected)
             if (percent_complete < 50.0 && file_stat.st_size < 1024) {
                 std::cout << "File appears incomplete and very small, waiting for more data" << std::endl;
+                setErrorResponse(request, 202, "Upload incomplete, please retry");
+                return;
+            }
+        }
+    }
+    
+    // Extract filename from Content-Disposition header if available
+    std::string content_disposition = request->GetHeader("Content-Disposition");
+    std::string original_filename;
+    std::string file_extension;
+    
+    if (!content_disposition.empty()) {
+        size_t filename_pos = content_disposition.find("filename=\"");
+        if (filename_pos != std::string::npos) {
+            size_t start = filename_pos + 10; // Length of "filename=\""
+            size_t end = content_disposition.find('"', start);
+            if (end != std::string::npos) {
+                original_filename = content_disposition.substr(start, end - start);
+                
+                // Try to determine file extension from Content-Type or original filename
+                if (!original_filename.empty()) {
+                    // Extract extension from original filename if available
+                    size_t dot_pos = original_filename.find_last_of('.');
+                    if (dot_pos != std::string::npos) {
+                        file_extension = original_filename.substr(dot_pos);
+                    }
+                }
+                
+                // If extension is still empty, try to guess from content-type
+                if (file_extension.empty()) {
+                    if (content_type.find("image/jpeg") != std::string::npos) {
+                        file_extension = ".jpg";
+                    } else if (content_type.find("image/png") != std::string::npos) {
+                        file_extension = ".png";
+                    } else if (content_type.find("image/gif") != std::string::npos) {
+                        file_extension = ".gif";
+                    } else if (content_type.find("text/html") != std::string::npos) {
+                        file_extension = ".html";
+                    } else if (content_type.find("text/css") != std::string::npos) {
+                        file_extension = ".css";
+                    } else if (content_type.find("application/javascript") != std::string::npos) {
+                        file_extension = ".js";
+                    } else if (content_type.find("application/json") != std::string::npos) {
+                        file_extension = ".json";
+                    } else if (content_type.find("application/pdf") != std::string::npos) {
+                        file_extension = ".pdf";
+                    } else if (content_type.find("application/zip") != std::string::npos) {
+                        file_extension = ".zip";
+                    } else if (content_type.find("video/mp4") != std::string::npos) {
+                        file_extension = ".mp4";
+                    } else if (content_type.find("video/webm") != std::string::npos) {
+                        file_extension = ".webm";
+                    } else if (content_type.find("video/") != std::string::npos) {
+                        file_extension = ".mp4"; // Default for videos
+                    } else if (content_type.find("audio/") != std::string::npos) {
+                        file_extension = ".mp3"; // Default for audio
+                    } else {
+                        file_extension = ".bin"; // Default extension
+                    }
+                }
+                
+                std::cout << "Original filename: " << original_filename << std::endl;
+            }
+        }
+    }
+    
+    std::string dest_path;
+    std::string unique_filename;
+    
+    if (is_direct_upload) {
+        // For direct uploads, the file is already at its final destination
+        dest_path = file_path;
+        
+        // Extract the filename from the path
+        size_t last_slash = dest_path.find_last_of('/');
+        if (last_slash != std::string::npos) {
+            unique_filename = dest_path.substr(last_slash + 1);
+        } else {
+            unique_filename = dest_path;
+        }
+        
+        std::cout << "Direct upload already at final destination: " << dest_path << std::endl;
+    } else {
+        // For traditional uploads, determine destination as before
+        std::string uploads_dir = getUploadsDirectory(request->GetClientDatat()->getServerConfig());
+        
+        if (!original_filename.empty()) {
+            unique_filename = generateUniqueFilename(original_filename);
+        } else {
+            unique_filename = generateUniqueFilename("upload" + file_extension);
+        }
+        dest_path = uploads_dir + "/" + unique_filename;
+    }
+    
+// Calculate content offset for multipart data (FOR DIRECT UPLOADS)
+off_t content_offset = 0;
+size_t content_length = file_stat.st_size;
+
+if (is_direct_upload && content_type.find("multipart/form-data") != std::string::npos) {
+    std::cout << "Direct upload needs multipart header cleanup" << std::endl;
+    
+    // Read the file to find where actual content starts
+    int header_fd = open(file_path.c_str(), O_RDONLY);
+    if (header_fd >= 0) {
+        char header_buffer[8192]; // 8KB should be enough for headers
+        ssize_t header_bytes_read = read(header_fd, header_buffer, sizeof(header_buffer) - 1);
+        close(header_fd);
+        
+        if (header_bytes_read > 0) {
+            header_buffer[header_bytes_read] = '\0';
+            std::string header_data(header_buffer, header_bytes_read);
+            
+            // Find where the actual file content starts (after multipart headers)
+            size_t content_start = header_data.find("\r\n\r\n");
+            if (content_start != std::string::npos) {
+                content_offset = content_start + 4;
+                std::cout << "Found multipart content start at offset: " << content_offset << std::endl;
+                
+                // Clean the file by removing the multipart headers
+                std::string clean_path = file_path + ".clean";
+                int source_fd = open(file_path.c_str(), O_RDONLY);
+                int dest_fd = open(clean_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                
+                if (source_fd >= 0 && dest_fd >= 0) {
+                    lseek(source_fd, content_offset, SEEK_SET);
+                    
+                    char buffer[8192];
+                    ssize_t bytes_read;
+                    size_t total_copied = 0;
+                    
+                    while ((bytes_read = read(source_fd, buffer, sizeof(buffer))) > 0) {
+                        write(dest_fd, buffer, bytes_read);
+                        total_copied += bytes_read;
+                    }
+                    
+                    close(source_fd);
+                    close(dest_fd);
+                    
+                    // Replace the original file with the clean one
+                    if (rename(clean_path.c_str(), file_path.c_str()) == 0) {
+                        std::cout << "Successfully cleaned multipart headers, removed " << content_offset << " bytes" << std::endl;
+                        content_length = total_copied;
+                    }
+                }
+            }
+        }
+    }
+}
+    
+    bool copy_success = true;
+    size_t total_written = 0;
+    
+    if (is_direct_upload) {
+        // Skip file copying for direct uploads
+        std::cout << "Direct upload - skipping file copy operation" << std::endl;
+        
+        // Get the file size as total_written
+        total_written = file_stat.st_size;
+        copy_success = true;
+    } else {
+        // Traditional upload - copy from temp file to destination
+        
+        // Open source file
+        int source_fd = open(file_path.c_str(), O_RDONLY);
+        if (source_fd < 0) {
+            std::cerr << "Failed to open source file: " << strerror(errno) << std::endl;
+            setErrorResponse(request, 500, "Failed to process uploaded file");
+            return;
+        }
+        
+        // Seek to content start if needed
+        if (content_offset > 0) {
+            if (lseek(source_fd, content_offset, SEEK_SET) != content_offset) {
+                std::cerr << "Failed to seek to content start: " << strerror(errno) << std::endl;
+                close(source_fd);
+                setErrorResponse(request, 500, "Failed to process uploaded file");
                 return;
             }
         }
         
-        // If we reach here, process the file regardless of size percentage
-        std::cout << "Proceeding with file processing" << std::endl;
-    }
-    
-    // Extract original filename and extension from multipart form data
-    std::string content_type = request->GetHeader("Content-Type");
-    std::string file_extension = ".bin"; // Default extension
-    std::string original_filename;
-    
-    // Read the first part of the file to extract metadata
-    if (content_type.find("multipart/form-data") != std::string::npos) {
-        int source_fd = open(file_path.c_str(), O_RDONLY);
-        if (source_fd >= 0) {
-            char buffer[16384]; // Read first 16KB to find Content-Disposition header
-            ssize_t bytes_read = read(source_fd, buffer, sizeof(buffer) - 1);
-            if (bytes_read > 0) {
-                buffer[bytes_read] = '\0';
-                std::string header_data(buffer);
-                
-                // Look for Content-Disposition header with filename
-                size_t filename_pos = header_data.find("filename=\"");
-                if (filename_pos != std::string::npos) {
-                    filename_pos += 10; // Skip "filename=\""
-                    size_t filename_end = header_data.find("\"", filename_pos);
-                    if (filename_end != std::string::npos) {
-                        original_filename = header_data.substr(filename_pos, filename_end - filename_pos);
-                        std::cout << "Original filename detected: " << original_filename << std::endl;
-                        
-                        // Extract extension from original filename
-                        size_t ext_pos = original_filename.rfind(".");
-                        if (ext_pos != std::string::npos) {
-                            file_extension = original_filename.substr(ext_pos);
-                            std::cout << "Using file extension: " << file_extension << std::endl;
-                        }
-                    }
-                }
-            }
+        std::cout << "Copying file from " << file_path << " to " << dest_path 
+                  << " (offset: " << content_offset << ", length: " << content_length << ")" << std::endl;
+        
+        // Get uploads directory for traditional uploads
+        std::string uploads_dir = getUploadsDirectory(request->GetClientDatat()->getServerConfig());
+        
+        // Create destination file with exclusive flag to prevent concurrent writes to same file
+        int dest_fd = open(dest_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
+        
+        // If file already exists (EEXIST), generate a new unique name and try again
+        if (dest_fd < 0 && errno == EEXIST) {
+            std::cout << "File already exists, generating new unique name" << std::endl;
+            unique_filename = generateUniqueFilename(unique_filename); // Generate a new unique name
+            dest_path = uploads_dir + "/" + unique_filename;
+            dest_fd = open(dest_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
+        }
+        
+        if (dest_fd < 0) {
+            std::cerr << "Failed to create destination file: " << dest_path 
+                     << " (errno: " << errno << ": " << strerror(errno) << ")" << std::endl;
             close(source_fd);
-        }
-    }
-    
-    // Fallback extension detection based on content type
-    if (file_extension == ".bin") {
-        if (content_type.find("application/pdf") != std::string::npos) {
-            file_extension = ".pdf";
-        } else if (content_type.find("image/jpeg") != std::string::npos) {
-            file_extension = ".jpg";
-        } else if (content_type.find("image/png") != std::string::npos) {
-            file_extension = ".png";
-        } else if (content_type.find("text/plain") != std::string::npos) {
-            file_extension = ".txt";
-        } else if (content_type.find("application/zip") != std::string::npos) {
-            file_extension = ".zip";
-        }
-    }
-    
-    // Generate destination path
-    std::string uploads_dir = getUploadsDirectory(request->GetClientDatat()->getServerConfig());
-    std::string unique_filename;
-    if (!original_filename.empty()) {
-        unique_filename = generateUniqueFilename(original_filename);
-    } else {
-        unique_filename = generateUniqueFilename("upload" + file_extension);
-    }
-    std::string dest_path = uploads_dir + "/" + unique_filename;
-    
-    // Calculate content offset for multipart data
-    off_t content_offset = 0;
-    size_t content_length = file_stat.st_size;
-    
-    if (content_type.find("multipart/form-data") != std::string::npos) {
-        int header_fd = open(file_path.c_str(), O_RDONLY);
-        if (header_fd >= 0) {
-            char header_buffer[32768]; // 32KB 
-            ssize_t header_bytes_read = read(header_fd, header_buffer, sizeof(header_buffer) - 1);
-            close(header_fd);
-            
-            if (header_bytes_read > 0) {
-                header_buffer[header_bytes_read] = '\0';
-                std::string header_data(header_buffer, header_bytes_read);
-                
-                // Find the double CRLF that separates headers from content
-                size_t content_start = header_data.find("\r\n\r\n");
-                if (content_start != std::string::npos) {
-                    content_offset = content_start + 4;
-                    std::cout << "Multipart content starts at offset: " << content_offset << std::endl;
-                    
-                    // Estimate content length (subtract headers and boundary footer)
-                    // For streaming uploads, we'll be more conservative with boundary detection
-                    content_length = file_stat.st_size - content_offset;
-                    
-                    // Try to subtract the approximate size of the closing boundary
-                    if (content_length > 100) {
-                        content_length -= 50; // Conservative estimate for boundary footer
-                    }
-                    
-                    std::cout << "Estimated actual content length: " << content_length << std::endl;
-                }
-            }
-        }
-    }
-    
-    // Open source file
-    int source_fd = open(file_path.c_str(), O_RDONLY);
-    if (source_fd < 0) {
-        std::cerr << "Failed to open source file: " << strerror(errno) << std::endl;
-        setErrorResponse(request, 500, "Failed to process uploaded file");
-        return;
-    }
-    
-    // Seek to content start if needed
-    if (content_offset > 0) {
-        if (lseek(source_fd, content_offset, SEEK_SET) != content_offset) {
-            std::cerr << "Failed to seek to content start: " << strerror(errno) << std::endl;
-            close(source_fd);
-            setErrorResponse(request, 500, "Failed to process uploaded file");
+            setErrorResponse(request, 500, "Failed to save upload: " + std::string(strerror(errno)));
             return;
         }
-    }
-    
-    std::cout << "Copying file from " << file_path << " to " << dest_path 
-              << " (offset: " << content_offset << ", length: " << content_length << ")" << std::endl;
-    
-    // Create destination file
-    int dest_fd = open(dest_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (dest_fd < 0) {
-        std::cerr << "Failed to create destination file: " << dest_path 
-                 << " (errno: " << errno << ")" << std::endl;
-        close(source_fd);
-        setErrorResponse(request, 500, "Failed to save upload");
-        return;
-    }
-    
-    // Copy file contents
-    char buffer[8192];
-    ssize_t bytes_read, bytes_written;
-    size_t total_written = 0;
-    size_t remaining_content = content_length;
-    bool copy_success = true;
-    
-    std::cout << "Starting file copy..." << std::endl;
-    
-    while (remaining_content > 0 && (bytes_read = read(source_fd, buffer, std::min(sizeof(buffer), remaining_content))) > 0) {
-        char* ptr = buffer;
-        size_t remaining_chunk = bytes_read;
         
-        while (remaining_chunk > 0) {
-            bytes_written = write(dest_fd, ptr, remaining_chunk);
-            if (bytes_written <= 0) {
-                std::cerr << "Write error: " << strerror(errno) << std::endl;
-                copy_success = false;
-                break;
+        // Copy file contents
+        char buffer[8192];
+        ssize_t bytes_read, bytes_written;
+        size_t remaining_content = content_length;
+        
+        std::cout << "Starting file copy..." << std::endl;
+        
+        while (remaining_content > 0 && (bytes_read = read(source_fd, buffer, std::min(sizeof(buffer), remaining_content))) > 0) {
+            char* ptr = buffer;
+            size_t remaining_chunk = bytes_read;
+            
+            while (remaining_chunk > 0) {
+                bytes_written = write(dest_fd, ptr, remaining_chunk);
+                if (bytes_written <= 0) {
+                    std::cerr << "Write error: " << strerror(errno) << std::endl;
+                    copy_success = false;
+                    break;
+                }
+                ptr += bytes_written;
+                remaining_chunk -= bytes_written;
+                total_written += bytes_written;
+                remaining_content -= bytes_written;
             }
-            ptr += bytes_written;
-            remaining_chunk -= bytes_written;
-            total_written += bytes_written;
-            remaining_content -= bytes_written;
+            
+            if (!copy_success) break;
+            
+            // Progress indicator for large files
+            if (total_written % (1024 * 1024) == 0 || remaining_content == 0) {
+                std::cout << "Copied " << total_written << " / " << content_length << " bytes" << std::endl;
+            }
         }
         
-        if (!copy_success) break;
+        close(source_fd);
+        close(dest_fd);
         
-        // Progress indicator for large files
-        if (total_written % (1024 * 1024) == 0 || remaining_content == 0) {
-            std::cout << "Copied " << total_written << " / " << content_length << " bytes" << std::endl;
+        std::cout << "File copy completed. Total written: " << total_written << " bytes" << std::endl;
+        
+        // Clean up temporary file - use a mutex to prevent concurrent access issues
+        static std::mutex temp_file_mutex;
+        {
+            std::lock_guard<std::mutex> lock(temp_file_mutex);
+            if (unlink(file_path.c_str()) == 0) {
+                std::cout << "Temporary file deleted: " << file_path << std::endl;
+            } else {
+                std::cerr << "Failed to delete temporary file: " << file_path 
+                         << " (errno: " << errno << ": " << strerror(errno) << ")" << std::endl;
+            }
         }
     }
     
-    close(source_fd);
-    close(dest_fd);
-    
-    std::cout << "File copy completed. Total written: " << total_written << " bytes" << std::endl;
-    
-    // Clean up temporary file
-    if (unlink(file_path.c_str()) == 0) {
-        std::cout << "Temporary file deleted: " << file_path << std::endl;
-    } else {
-        std::cerr << "Failed to delete temporary file: " << file_path << std::endl;
-    }
-    
-    if (copy_success && bytes_read >= 0 && total_written > 0) {
+    if (copy_success && (!is_direct_upload || total_written > 0)) {
         std::cout << "✅ UPLOAD SUCCESS: " << dest_path 
                   << " (" << total_written << " bytes)" << std::endl;
         
@@ -638,7 +729,7 @@ void Post::handleStreamingUpload(HttpRequest *request, const std::string &file_p
         response << "<p><strong>Saved As:</strong> " << unique_filename << "</p>";
         response << "<p><strong>File Size:</strong> " << formatFileSize(total_written) << "</p>";
         response << "<p><strong>Content Type:</strong> " << content_type << "</p>";
-        response << "<p><strong>Upload Method:</strong> Memory-efficient streaming</p>";
+        response << "<p><strong>Upload Method:</strong> " << (is_direct_upload ? "Direct streaming (optimized)" : "Memory-efficient streaming") << "</p>";
         response << "<p><strong>Saved To:</strong> " << dest_path << "</p>";
         response << "<p><a href=\"/\">← Back to Home</a></p>";
         response << "</body></html>";
@@ -758,33 +849,139 @@ std::string Post::generateUniqueFilename(const std::string &originalName) {
 }
 
 std::string Post::getUploadsDirectory(ServerConfig clientConf) {
-    static std::string uploadsDir;
-    if (uploadsDir.empty()) {
+    std::string uploadsDir;
+    bool is_writable = false;
+    
+    // Try different paths in order of preference until we find a writable one
+    
+    // 1. Try the configured upload store from location block
+    const Location *uploadLoc = clientConf.findMatchingLocation("/uploads");
+    if (uploadLoc != NULL) {
+        uploadsDir = uploadLoc->get_uploadStore();
+        std::cout << "Trying configured upload store: " << uploadsDir << std::endl;
+        
+        // Test if it's writable by trying to create a test file
+        std::string test_file = uploadsDir + "/test_write_access";
+        int fd = open(test_file.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
+        if (fd >= 0) {
+            close(fd);
+            unlink(test_file.c_str()); // Clean up test file
+            is_writable = true;
+            std::cout << "Configured upload directory is writable" << std::endl;
+        } else {
+            std::cerr << "Configured upload directory is not writable: " << strerror(errno) << std::endl;
+        }
+    }
+    
+    // 2. If not writable, try the server root + /uploads
+    if (!is_writable) {
+        std::string serverRoot = clientConf.get_root();
+        if (!serverRoot.empty()) {
+            uploadsDir = serverRoot + "/uploads";
+            std::cout << "Trying server root upload directory: " << uploadsDir << std::endl;
+            
+            // Test if it's writable
+            std::string test_file = uploadsDir + "/test_write_access";
+            int fd = open(test_file.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
+            if (fd >= 0) {
+                close(fd);
+                unlink(test_file.c_str()); // Clean up test file
+                is_writable = true;
+                std::cout << "Server root upload directory is writable" << std::endl;
+            } else {
+                std::cerr << "Server root upload directory is not writable: " << strerror(errno) << std::endl;
+            }
+        }
+    }
+    
+    // 3. If not writable, try current working directory
+    if (!is_writable) {
         char cwd[1024];
         if (getcwd(cwd, sizeof(cwd)) != NULL) {
             uploadsDir = std::string(cwd) + "/uploads";
-        } else {
-            uploadsDir = "uploads";
-        }
-        const Location *uploadLoc = clientConf.findMatchingLocation("/uploads");
-
-        uploadsDir = uploadLoc->get_uploadStore();
-        std::cout << "Uploads directory: " << uploadsDir << std::endl;
-        
-        // Create directory if it doesn't exist
-        struct stat st;
-        if (stat(uploadsDir.c_str(), &st) == -1) {
-            std::cout << "Creating uploads directory: " << uploadsDir << std::endl;
-            if (mkdir(uploadsDir.c_str(), 0755) != 0) {
-                std::cerr << "Failed to create uploads directory: " << uploadsDir 
-                         << " (errno: " << errno << ")" << std::endl;
+            std::cout << "Trying current directory upload path: " << uploadsDir << std::endl;
+            
+            // Test if it's writable
+            std::string test_file = uploadsDir + "/test_write_access";
+            int fd = open(test_file.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
+            if (fd >= 0) {
+                close(fd);
+                unlink(test_file.c_str()); // Clean up test file
+                is_writable = true;
+                std::cout << "CWD upload directory is writable" << std::endl;
             } else {
-                std::cout << "Successfully created uploads directory" << std::endl;
+                std::cerr << "CWD upload directory is not writable: " << strerror(errno) << std::endl;
             }
-        } else {
-            std::cout << "Uploads directory already exists" << std::endl;
         }
     }
+    
+    // 4. Final fallback: Use /tmp which should always be writable
+    if (!is_writable) {
+        uploadsDir = "/tmp/webserver_uploads";
+        std::cout << "Using /tmp fallback upload directory: " << uploadsDir << std::endl;
+        is_writable = true; // Assume /tmp is writable
+    }
+    
+    // Create directory path recursively
+    std::string path_to_create = "";
+    std::istringstream pathStream(uploadsDir);
+    std::string segment;
+    
+    // Handle absolute paths
+    if (!uploadsDir.empty() && uploadsDir[0] == '/') {
+        path_to_create = "/";
+    }
+    
+    // Create each directory in the path
+    bool creation_error = false;
+    while (std::getline(pathStream, segment, '/')) {
+        if (segment.empty()) continue;
+        
+        path_to_create += segment + "/";
+        
+        struct stat st;
+        if (stat(path_to_create.c_str(), &st) == -1) {
+            std::cout << "Creating directory: " << path_to_create << std::endl;
+            if (mkdir(path_to_create.c_str(), 0755) != 0) {
+                std::cerr << "Failed to create directory: " << path_to_create 
+                         << " (errno: " << errno << ": " << strerror(errno) << ")" << std::endl;
+                creation_error = true;
+            } else {
+                std::cout << "Successfully created directory: " << path_to_create << std::endl;
+            }
+        }
+    }
+    
+    // If we had errors creating the recursive path, fall back to /tmp
+    if (creation_error && uploadsDir != "/tmp/webserver_uploads") {
+        std::cerr << "Falling back to /tmp directory due to creation errors" << std::endl;
+        uploadsDir = "/tmp/webserver_uploads";
+        
+        // Create /tmp/webserver_uploads
+        struct stat st;
+        if (stat(uploadsDir.c_str(), &st) == -1) {
+            if (mkdir(uploadsDir.c_str(), 0755) != 0) {
+                std::cerr << "Failed to create fallback directory: " << uploadsDir 
+                         << " (errno: " << errno << ": " << strerror(errno) << ")" << std::endl;
+            } else {
+                std::cout << "Successfully created fallback directory: " << uploadsDir << std::endl;
+            }
+        }
+    }
+    
+    // Final verification
+    struct stat st;
+    if (stat(uploadsDir.c_str(), &st) == -1) {
+        std::cerr << "Warning: Upload directory doesn't exist: " << uploadsDir << std::endl;
+        // Last ditch effort - use /tmp directly
+        uploadsDir = "/tmp";
+    } else if (!S_ISDIR(st.st_mode)) {
+        std::cerr << "Warning: Upload path exists but is not a directory: " << uploadsDir << std::endl;
+        // Last ditch effort - use /tmp directly
+        uploadsDir = "/tmp";
+    }
+    
+    std::cout << "Final uploads directory: " << uploadsDir << std::endl;
     return uploadsDir;
 }
 
