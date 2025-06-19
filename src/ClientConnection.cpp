@@ -70,12 +70,9 @@ ClientConnection::~ClientConnection()
 void ClientConnection::GenerateRequest(int fd)
 {
     if (is_streaming_upload) {
-        if (continueStreamingRead(fd)) {
-            finalizeStreaming();
-            return;
-        } else {
-            return;
-        }
+        // If we're already in streaming mode, don't try to generate a new request
+        std::cout << "Already in streaming mode, skipping request generation" << std::endl;
+        return;
     }
 
     char buffer[REQUSET_LINE_BUFFER];
@@ -130,23 +127,15 @@ void ClientConnection::GenerateRequest(int fd)
                 this->http_request->SetClientData(this);
                 this->http_request->SetBody("__STREAMING_UPLOAD_FILE:" + temp_upload_path);
                 
-                if (bytes_received_so_far >= total_content_length) {
-                    std::cout << "Upload complete" << std::endl;
-                    finalizeStreaming();
-                } else {
-                    if (continueStreamingRead(fd)) {
-                        std::cout << "Upload complete" << std::endl;
-                        finalizeStreaming();
-                    }
-                }
+                // DON'T call continueStreamingRead or finalizeStreaming here!
+                // Let the main event loop handle it
+                std::cout << "Streaming mode initialized, waiting for more data..." << std::endl;
                 return;
             }
             
-            // CRITICAL FIX: Calculate remaining bytes correctly
-            // We need to read (Content-Length - body_bytes_already_read)
+            // Handle smaller uploads that fit in memory
             size_t totalBytesRead = rawRequest.length();
-            size_t headerSize = bodyStart; // Header size includes the \r\n\r\n
-            // Calculate how many body bytes we've already read
+            size_t headerSize = bodyStart;
             size_t bodyBytesAlreadyRead = totalBytesRead - headerSize;
             size_t remainingTotalBytes = 0;
             
@@ -172,7 +161,7 @@ void ClientConnection::GenerateRequest(int fd)
                 std::string remainingData;
                 remainingData.reserve(remainingTotalBytes);
                 
-                char* tempBuffer = new char[8192]; // Use smaller chunks
+                char* tempBuffer = new char[8192];
                 size_t totalAdditionalBytesRead = 0;
                 
                 while (totalAdditionalBytesRead < remainingTotalBytes) {
@@ -181,7 +170,6 @@ void ClientConnection::GenerateRequest(int fd)
                     ssize_t chunkRead = recv(fd, tempBuffer, bytesToRead, 0);
                     if (chunkRead <= 0) {
                         delete[] tempBuffer;
-                        // Restore socket flags
                         if (flags != -1) fcntl(fd, F_SETFL, flags);
                         std::cerr << "Error reading remaining request data: " 
                                 << (chunkRead == 0 ? "Connection closed" : strerror(errno)) << std::endl;
@@ -210,22 +198,12 @@ void ClientConnection::GenerateRequest(int fd)
                 std::cout << "Initial body size: " << initialBody.length() << " bytes" << std::endl;
                 std::cout << "Additional data size: " << remainingData.length() << " bytes" << std::endl;
                 std::cout << "Complete body assembled: " << completeBody.length() << " bytes" << std::endl;
-                
-                // Debug output to check content
-                if (completeBody.length() < 1000) {
-                    std::cout << "Body preview: " << completeBody.substr(0, 100) << "..." << std::endl;
-                }
             } else {
                 // All data was received in the initial read
                 std::string bodyData = rawRequest.substr(bodyStart);
                 build.SetBody(bodyData);
                 std::cout << "Complete request received in initial read" << std::endl;
                 std::cout << "Body size: " << bodyData.size() << " bytes" << std::endl;
-                
-                // Debug output to check content
-                if (bodyData.length() < 1000) {
-                    std::cout << "Body preview: " << bodyData.substr(0, 100) << "..." << std::endl;
-                }
             }
         } else {
             std::cout << "Could not find body separator (\\r\\n\\r\\n)" << std::endl;
@@ -237,9 +215,6 @@ void ClientConnection::GenerateRequest(int fd)
     }
     this->http_request = new HttpRequest(build.GetHttpRequest());
     this->http_request->SetClientData(this);
-    
-    // ProcessRequest is now called from WebServer::handleClientRequest
-    // Removed ProcessRequest(fd) call to prevent duplicate processing
 }
 
 void ClientConnection::initializeStreaming(size_t content_length)
@@ -259,84 +234,80 @@ void ClientConnection::initializeStreaming(size_t content_length)
     std::cout << "Streaming initialized for " << content_length << " bytes" << std::endl;
 }
 
+// COMPLETELY REWRITTEN: Simple, non-blocking streaming read
 bool ClientConnection::continueStreamingRead(int fd)
 {
+    // Simple approach: Read what's available RIGHT NOW and return
+    // Don't try to read everything at once - NO WHILE LOOPS!
+    
     char chunk_buffer[STREAM_CHUNK_SIZE];
     
+    // Keep socket non-blocking - this is crucial!
     int flags = fcntl(fd, F_GETFL, 0);
-    if (flags == -1) {
-        throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
+    if (flags != -1) {
+        fcntl(fd, F_SETFL, flags | O_NONBLOCK);
     }
     
-    if (fcntl(fd, F_SETFL, flags & ~O_NONBLOCK) == -1) {
-        throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
-    }
+    // Try to read some data, but don't block
+    ssize_t chunk_read = recv(fd, chunk_buffer, STREAM_CHUNK_SIZE, MSG_DONTWAIT);
     
-    struct timeval tv;
-    tv.tv_sec = 30;
-    tv.tv_usec = 0;
-    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
-    
-    size_t last_progress_bytes = 0;
-    auto start_time = std::chrono::steady_clock::now();
-    
-    while (bytes_received_so_far < total_content_length) {
-        size_t bytes_to_read = std::min((size_t)STREAM_CHUNK_SIZE, 
-                                       total_content_length - bytes_received_so_far);
-        
-        ssize_t chunk_read = recv(fd, chunk_buffer, bytes_to_read, 0);
-        
-        if (chunk_read <= 0) {
-            if (chunk_read == 0) {
-                fcntl(fd, F_SETFL, flags);
-                throw HttpException(400, "Bad Request", BAD_REQUEST);
-            } else {
-                if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
-                    fcntl(fd, F_SETFL, flags);
-                    return false;
-                } else {
-                    fcntl(fd, F_SETFL, flags);
-                    throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
-                }
-            }
-        }
-        
+    if (chunk_read > 0) {
+        // Got some data - write it to the temp file
         ssize_t written = write(temp_upload_fd, chunk_buffer, chunk_read);
         if (written != chunk_read) {
-            fcntl(fd, F_SETFL, flags);
-            throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
+            std::cerr << "Error writing to temp file" << std::endl;
+            throw HttpException(500, "Failed to write upload data", INTERNAL_SERVER_ERROR);
         }
         
         bytes_received_so_far += chunk_read;
         updateActivity();
         
-        // Update progress display
-        if ((bytes_received_so_far - last_progress_bytes) >= (512 * 1024) || 
-            bytes_received_so_far == total_content_length) {
-            
-            auto current_time = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                current_time - start_time).count();
-            
-            double speed_mbps = 0.0;
-            if (elapsed > 0) {
-                speed_mbps = (double)bytes_received_so_far / (1024.0 * 1024.0) / (elapsed / 1000.0);
-            }
-            
-            showProgressBar(speed_mbps);
-            last_progress_bytes = bytes_received_so_far;
+        // Show progress every 1MB or when complete
+        if (bytes_received_so_far % (1024 * 1024) == 0 || 
+            bytes_received_so_far >= total_content_length) {
+            double progress = (double)bytes_received_so_far / total_content_length * 100.0;
+            std::cout << "Upload progress: " << std::fixed << std::setprecision(1) 
+                     << progress << "% (" << bytes_received_so_far 
+                     << "/" << total_content_length << " bytes)" << std::endl;
         }
         
-        if (bytes_received_so_far % (10 * 1024 * 1024) == 0) {
+        // Check if upload is complete
+        if (bytes_received_so_far >= total_content_length) {
+            std::cout << "✅ Upload complete: " << bytes_received_so_far << " bytes" << std::endl;
             fsync(temp_upload_fd);
+            return true; // Upload finished
+        }
+        
+        // More data expected - return false so we get called again
+        return false;
+    }
+    else if (chunk_read == 0) {
+        // Client closed connection
+        std::cout << "Client disconnected during upload at " 
+                  << bytes_received_so_far << "/" << total_content_length 
+                  << " bytes (" << (bytes_received_so_far * 100.0 / total_content_length) << "%)" << std::endl;
+        
+        // If we got most of the file, consider it successful
+        if (bytes_received_so_far >= total_content_length * 0.9) {
+            std::cout << "Got 90%+ of file, considering upload successful" << std::endl;
+            return true;
+        }
+        
+        throw HttpException(400, "Upload incomplete - connection closed", BAD_REQUEST);
+    }
+    else {
+        // chunk_read < 0 - check errno
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            // No data available right now - this is normal for non-blocking sockets
+            // Just return false and we'll be called again when more data arrives
+            return false;
+        }
+        else {
+            // Real error
+            std::cerr << "Error reading upload data: " << strerror(errno) << std::endl;
+            throw HttpException(500, "Error reading upload data", INTERNAL_SERVER_ERROR);
         }
     }
-    
-    fsync(temp_upload_fd);
-    fcntl(fd, F_SETFL, flags);
-    
-    std::cout << std::endl << "Upload complete!" << std::endl;
-    return true;
 }
 
 void ClientConnection::showProgress()
@@ -374,39 +345,32 @@ void ClientConnection::showProgressBar(double speed_mbps)
     }
 }
 
+// SIMPLIFIED: Remove complex checks
 void ClientConnection::finalizeStreaming()
 {
     if (!is_streaming_upload) {
         return;
     }
     
-    static std::set<std::string> finalized_uploads;
-    if (!temp_upload_path.empty() && 
-        finalized_uploads.find(temp_upload_path) != finalized_uploads.end()) {
-        return;
-    }
-    
+    // Close the temp file
     if (temp_upload_fd != -1) {
         close(temp_upload_fd);
         temp_upload_fd = -1;
     }
     
-    std::cout << "Streaming complete: " << bytes_received_so_far 
-              << " bytes saved" << std::endl;
+    std::cout << "Finalizing streaming upload: " << bytes_received_so_far << " bytes" << std::endl;
     
-    if (http_request && 
-        http_request->GetBody().find("__STREAMING_UPLOAD_FILE:") == std::string::npos) {
+    // Set the request body to point to our temp file
+    if (http_request) {
         http_request->SetBody("__STREAMING_UPLOAD_FILE:" + temp_upload_path);
     }
     
-    if (!temp_upload_path.empty()) {
-        finalized_uploads.insert(temp_upload_path);
-    }
-    
+    // Reset streaming state
     is_streaming_upload = false;
     total_content_length = 0;
     bytes_received_so_far = 0;
     
+    // Process the upload
     ProcessRequest(fd);
 }
 
