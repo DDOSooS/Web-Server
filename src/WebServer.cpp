@@ -19,36 +19,25 @@
 #include "../include/request/CgiHandler.hpp" 
 #include "../include/request/RequestHandler.hpp" 
 
-WebServer::WebServer() : maxfds(DEFAULT_MAX_CONNECTIONS)
-{
+WebServer::WebServer() : maxfds(DEFAULT_MAX_CONNECTIONS) {
     pollfds = new struct pollfd[maxfds];
     numfds = 0;
 }
 
-WebServer::~WebServer()
-{
+WebServer::~WebServer() {
     if (pollfds)
-    {
         delete[] pollfds;
-    }
-    
-    // Close all listening sockets
-    for (size_t i = 0; i < m_sockets.size(); ++i)
-    {
+    for (size_t i = 0; i < m_sockets.size(); ++i) {
         if (m_sockets[i] > 0)
-        {
             close(m_sockets[i]);
-        }
     }
 }
 
-const std::vector<ServerConfig>& WebServer::getConfigs() const
-{
+const std::vector<ServerConfig>& WebServer::getConfigs() const {
     return m_configs;
 }
 
-const ServerConfig& WebServer::getConfigForSocket(int socket) const
-{
+const ServerConfig& WebServer::getConfigForSocket(int socket) const {
     std::map<int, int>::const_iterator it = socket_to_config_index.find(socket);
     if (it != socket_to_config_index.end())
     {
@@ -57,8 +46,7 @@ const ServerConfig& WebServer::getConfigForSocket(int socket) const
     throw std::runtime_error("Socket not found in configuration mapping");
 }
 
-const ServerConfig& WebServer::getConfigForClient(int client_fd) const
-{
+const ServerConfig& WebServer::getConfigForClient(int client_fd) const {
     std::map<int, int>::const_iterator it = client_to_server_index.find(client_fd);
     if (it != client_to_server_index.end())
     {
@@ -67,13 +55,11 @@ const ServerConfig& WebServer::getConfigForClient(int client_fd) const
     throw std::runtime_error("Client not found in server mapping");
 }
 
-bool WebServer::isListeningSocket(int fd) const
-{
+bool WebServer::isListeningSocket(int fd) const {
     return socket_to_config_index.find(fd) != socket_to_config_index.end();
 }
 
-int WebServer::getServerIndexForSocket(int socket) const
-{
+int WebServer::getServerIndexForSocket(int socket) const {
     std::map<int, int>::const_iterator it = socket_to_config_index.find(socket);
     if (it != socket_to_config_index.end())
     {
@@ -82,8 +68,7 @@ int WebServer::getServerIndexForSocket(int socket) const
     return -1;
 }
 
-int WebServer::init(std::vector<ServerConfig>& configs)
-{
+int WebServer::init(std::vector<ServerConfig>& configs) {
     if (configs.empty())
     {
         std::cerr << "Error: No server configurations provided" << std::endl;
@@ -191,8 +176,7 @@ void WebServer::debugPollState() {
     std::cout << "=================================" << std::endl;
 }
 
-int WebServer::run()
-{
+int WebServer::run() {
     bool running = true;
     time_t last_timeout_check = time(NULL);
 
@@ -380,8 +364,7 @@ int WebServer::run()
     return 0;
 }
 
-void WebServer::acceptNewConnection(int listening_socket)
-{
+void WebServer::acceptNewConnection(int listening_socket) {
     sockaddr_in clientAddr;
     socklen_t addrLen = sizeof(clientAddr);
     int clientFd = accept(listening_socket, (struct sockaddr *)&clientAddr, &addrLen);
@@ -440,8 +423,7 @@ void WebServer::acceptNewConnection(int listening_socket)
     }
 }
 
-void WebServer::closeClientConnection(int clientSocket)
-{
+void WebServer::closeClientConnection(int clientSocket) {
     std::map<int, ClientConnection>::iterator it = clients.find(clientSocket);
     if (it != clients.end())
     {
@@ -485,8 +467,7 @@ void WebServer::closeClientConnection(int clientSocket)
     }
 }
 
-void WebServer::updatePollEvents(int fd, short events)
-{
+void WebServer::updatePollEvents(int fd, short events) {
     for (int i = 0; i < numfds; i++)
     {
         if (pollfds[i].fd == fd)
@@ -502,8 +483,7 @@ void WebServer::updatePollEvents(int fd, short events)
     std::cerr << "[EVENT ERROR] fd=" << fd << " not found in poll array!" << std::endl;
 }
 
-ServerConfig WebServer::getConfigByHost(std::string host)
-{
+ServerConfig WebServer::getConfigByHost(std::string host) {
     std::cout << "---------------------Searching for config with host: " << host.length() <<host << "=======||||" << std::endl;
     for (size_t i = 0; i < m_configs.size(); ++i)
     {
@@ -523,8 +503,7 @@ ServerConfig WebServer::getConfigByHost(std::string host)
     return m_configs[0]; // Return the first config if no match found
 }
 
-void WebServer::handleClientRequest(int fd)
-{
+void WebServer::handleClientRequest(int fd) {
     std::cout << "============== (START OF HANDLING CLIENT REQUEST) ==============\n";
     clients[fd].updateActivity(); // Update last activity timestamp
 
@@ -593,8 +572,7 @@ void WebServer::handleClientRequest(int fd)
         delete errorHandler;
 }
 
-void WebServer::handleClientResponse(int fd)
-{
+void WebServer::handleClientResponse(int fd) {
     if (clients.find(fd) == clients.end())
     {
         std::cerr << "Client with fd " << fd << " not found in clients map" << std::endl;

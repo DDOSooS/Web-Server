@@ -16,4 +16,4 @@ public:
     std::vector<std::string> parameters;
 };
 
-#endif // DIRECTIVE_HPP
+#endif

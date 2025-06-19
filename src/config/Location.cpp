@@ -26,7 +26,6 @@ Location::Location(const Location &other) {
 }
 
 Location::Location(const Block &location) {
-    // Initialize with defaults
     this->_path = "";
     this->_root = "";
     this->_autoindex = false;
@@ -36,12 +35,10 @@ Location::Location(const Block &location) {
     this->_cgi_path.clear();
 
     
-    // Set path from block parameters
     if (!location.parameters.empty()) {
         this->_path = location.parameters[0];
     }
     
-    // Process directives
     for (size_t i = 0; i < location.directives.size(); ++i) {
         const Directive& directive = location.directives[i];
         
@@ -124,7 +121,6 @@ void Location::set_index(std::vector<std::string>  new_index){
         return;
     }
     
-    // Clear existing methods and add new ones
     this->_index.clear();
     for (size_t i = 0; i < new_index.size(); ++i) {
         std::string index = new_index[i];
@@ -141,7 +137,6 @@ void Location::set_allowMethods(const std::vector<std::string> &methods) {
         return;
     }
     
-    // Clear existing methods and add new ones
     this->_allow_methods.clear();
     for (size_t i = 0; i < methods.size(); ++i) {
         std::string method = methods[i];
@@ -158,7 +153,6 @@ void Location::set_allowMethods(const std::vector<std::string> &methods) {
 
 bool Location::is_method_allowed(const std::string& method) const {
     if (_allow_methods.empty()) {
-        // Default: allow only GET and HEAD if no methods specified
         return (method == "GET" || method == "HEAD");
     }
     
@@ -166,17 +160,14 @@ bool Location::is_method_allowed(const std::string& method) const {
            != _allow_methods.end();
 }
 
-// GET POST- DELETE- PUT- HEAD-
 void Location::set_return(const std::vector<std::string> &new_return){
     if (new_return.size() < 2) {
         std::cerr << "config error: set_return requires at least two parameters" << std::endl;
         return;
     }
-    // Clear existing return values and add new ones
     this->_return.clear();
     for (size_t i = 0; i < new_return.size(); ++i) {
         this->_return.push_back(new_return[i]);
-        // std::cout << "Return value added: [ " << new_return[i] << "  ]" << std::endl;
     }
 }
 
@@ -193,12 +184,10 @@ void Location::set_cgiExt(std::vector<std::string> cgi_exts){
 }
 
 void Location::set_clientMaxBodySize(std::string body_size){
-    // Check if parameter is a valid number
     std::string size_str = body_size;
     size_t len = size_str.length();
     char unit = 'B';
     
-    // Check for K, M, G units
     if (len > 0 && std::isalpha(size_str[len - 1])) {
         unit = std::toupper(size_str[len - 1]);
         size_str = size_str.substr(0, len - 1);
@@ -212,7 +201,6 @@ void Location::set_clientMaxBodySize(std::string body_size){
         return;
     }
     
-    // Apply multiplier based on unit
     switch (unit) {
         case 'K':
             result *= 1024;
@@ -273,7 +261,6 @@ std::vector<std::string>	Location::get_cgiExt() const {
 unsigned long Location::get_clientMaxBodySize() const {
 	return this->_client_max_body_size;
 }
-// void Location::print_location_config() const in c++ 98
 void Location::print_location_config() const {
     std::cout << "Location Config:" << std::endl;
     std::cout << "  Path: " << this->_path << std::endl;
@@ -304,7 +291,6 @@ void Location::print_location_config() const {
         } else if (method == "HEAD") {
             std::cout << "HEAD-";
         }
-        // Print the method without the trailing '+' or '-'
         else {
             std::cout << method;
         }
