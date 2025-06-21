@@ -220,9 +220,18 @@ const Location *ServerConfig::findMatchingLocation(const std::string &path) cons
 {
     const Location *default_location = NULL;
     
+    std::cout << "[DEBUG] Searching for matching location for path: " << path << std::endl;
+    std::string tmp_path;
+
+    tmp_path = path;
+    if (tmp_path[tmp_path.length() - 1] != '/')
+    {
+        tmp_path += '/';
+    }
     for (size_t i = 0; i < this->_locations.size(); i++)
     {
-        if (!this->_locations[i].get_path().empty() && this->_locations[i].get_path() == path)
+        std::cout << "[DEBUG] Checking location: " << this->_locations[i].get_path() << std::endl << std::endl;
+        if (!this->_locations[i].get_path().empty() && this->_locations[i].get_path() == tmp_path)
             return &this->_locations[i];
         if (this->_locations[i].get_path() == "/")
         {

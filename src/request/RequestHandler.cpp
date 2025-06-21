@@ -40,6 +40,7 @@ void    RequestHandler::HandleRequest(HttpRequest *request, const ServerConfig &
     /* check for redirection */
     std::string rel_path;
     // std::cout << "RequestHandler::HandleRequest=================" << std::endl;
+    std::cout << "[DEBUG] Handling request for location: " << request->GetLocation() << std::endl;
      const Location *cur_location = serverConfig.findMatchingLocation(request->GetLocation());
     rel_path = request->GetRelativePath(cur_location, request->GetClientDatat());
 
