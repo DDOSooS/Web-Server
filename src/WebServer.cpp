@@ -251,7 +251,7 @@ int WebServer::run() {
             if (clients.find(pollfds[i].fd) != clients.end())
             {
                 ClientConnection& conn = clients[pollfds[i].fd];
-                if (conn.isStale(30))
+                if (conn.isStale(3000))
                 { 
                     std::cout << "Client connection timed out, closing connection." << std::endl;
                     closeClientConnection(pollfds[i].fd);
@@ -298,6 +298,7 @@ int WebServer::run() {
                         try {
                             // Simple: just try to read some more data
                             bool upload_complete = clients[fd].continueStreamingRead(fd);
+                            std::cerr << "upload_complete:" << upload_complete << "fd: " << fd << std::endl;
                             
                             if (upload_complete) {
                                 // Upload finished - finalize it
@@ -305,12 +306,12 @@ int WebServer::run() {
                                 clients[fd].finalizeStreaming();
                             }
                             // If not complete, just continue - we'll get called again when more data arrives
-                            continue;
                         } catch (const std::exception& e) {
                             std::cerr << "Exception during streaming upload: " << e.what() << std::endl;
                             closeClientConnection(fd);
                             continue;
                         }
+                        continue;
                     } else {
                         // Regular client request - not streaming
                         try {
