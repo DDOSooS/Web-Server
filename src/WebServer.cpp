@@ -215,10 +215,6 @@ int WebServer::run() {
         
         if (ready == -1)
         {
-            if (errno == EINTR)
-            {
-                continue;
-            }
             perror("poll");
             break;
         }
@@ -226,7 +222,7 @@ int WebServer::run() {
         // =================== Check for new CGI processes ===================================
         std::vector<int> new_cgi_fds;
         for (std::map<int, CgiHandler::CgiProcess>::iterator it = CgiHandler::active_cgis.begin();
-             it != CgiHandler::active_cgis.end(); ++it) {
+            it != CgiHandler::active_cgis.end(); ++it) {
             int cgi_fd = it->first;
             bool found = false;
             for (int i = 0; i < numfds; i++) {
@@ -979,8 +975,8 @@ void WebServer::handleCgiEvent(int fd) {
         close(fd);
         removeCgiFromPoll(fd);
         CgiHandler::active_cgis.erase(it);
-    } else if (bytes < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
-        std::cout << "🔍 ERROR: read() failed: " << strerror(errno) << std::endl;
+    } else if (bytes < 0) {
+        std::cout << "🔍 ERROR: read() failed: " << std::endl;
         
         close(fd);
         removeCgiFromPoll(fd);
