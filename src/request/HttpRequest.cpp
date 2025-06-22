@@ -284,9 +284,19 @@ std::string HttpRequest::GetRelativePath(const Location *cur_location, ClientCon
         std::cout << "[ INFO ] : Current working directory: " << cwd << std::endl;
         return rel_path;
     }
-
+    std::cout << "[ DEBUG ] : Current location path: RETUN------------------" << cur_location->get_return().empty() << std::endl;
+    if (cur_location->get_return().empty())
+    {
+        std::cerr << "[ ERROR ] : Location return is empty." << std::endl;
+        // return "";
+    }
+    else
+    {
+        std::cout << "[ DEBUG ] : Location return isn't empty "  << std::endl;
+    }
     if (!cur_location->get_return().empty())
     {
+        // std::cout << ""
         SetIsRedirected(true);
         std::cout << "\n\n\n-------------------------[ DEBUG ] : [ORIGIN ]Redirecting to : " 
                   << cur_location->get_path() << "------" << cur_location->get_return()[1] 
