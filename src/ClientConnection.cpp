@@ -285,11 +285,11 @@ void ClientConnection::GenerateRequest(int fd)
                 remainingTotalBytes = contentLength - bodyBytesAlreadyRead;
                 std::cout << "Need to read " << remainingTotalBytes << " more bytes to complete the request" << std::endl;
                 
-                // Set socket to blocking mode for reliable body reading
-                int flags = fcntl(fd, F_GETFL, 0);
-                if (flags != -1) {
-                    fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
-                }
+                // // Set socket to blocking mode for reliable body reading
+                // int flags = fcntl(fd, F_GETFL, 0);
+                // if (flags != -1) {
+                //     fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+                // }
                 
                 // Set receive timeout
                 struct timeval tv;
@@ -310,7 +310,7 @@ void ClientConnection::GenerateRequest(int fd)
                     ssize_t chunkRead = recv(fd, tempBuffer, bytesToRead, 0);
                     if (chunkRead <= 0) {
                         delete[] tempBuffer;
-                        if (flags != -1) fcntl(fd, F_SETFL, flags);
+                        //if (flags != -1) fcntl(fd, F_SETFL, flags);
                         std::cerr << "Error reading remaining request data: " 
                                 << (chunkRead == 0 ? "Connection closed" : strerror(errno)) << std::endl;
                         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
@@ -326,7 +326,7 @@ void ClientConnection::GenerateRequest(int fd)
                 delete[] tempBuffer;
                 
                 // Restore socket flags
-                if (flags != -1) fcntl(fd, F_SETFL, flags);
+                //if (flags != -1) fcntl(fd, F_SETFL, flags);
                 
                 // Extract the initial body part from the original request
                 std::string initialBody = rawRequest.substr(bodyStart);
@@ -469,10 +469,10 @@ bool ClientConnection::continueStreamingRead(int fd)
     char chunk_buffer[STREAM_CHUNK_SIZE];
     
     // Keep socket non-blocking - this is crucial!
-    int flags = fcntl(fd, F_GETFL, 0);
-    if (flags != -1) {
-        fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-    }
+    // int flags = fcntl(fd, F_GETFL, 0);
+    // if (flags != -1) {
+    //     fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    // }
     
     // Try to read some data, but don't block
     ssize_t chunk_read = recv(fd, chunk_buffer, STREAM_CHUNK_SIZE, MSG_DONTWAIT);

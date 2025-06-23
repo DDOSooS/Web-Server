@@ -13,7 +13,7 @@ void WebServer::acceptNewConnection()
         return;
     }
     // Set non-blocking
-    fcntl(clientFd, F_SETFL, O_NONBLOCK);
+    //fcntl(clientFd, F_SETFL, O_NONBLOCK);
 
     // Create the ClientConnection object with proper initialization
     ClientConnection clientConn(clientFd, clientAddr);

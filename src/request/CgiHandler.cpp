@@ -310,7 +310,7 @@ bool CgiHandler::startCgiProcess(HttpRequest *request) {
     }
     close(pipe_in[1]);
     
-    fcntl(pipe_out[0], F_SETFL, O_NONBLOCK);
+    //fcntl(pipe_out[0], F_SETFL, O_NONBLOCK);
     
     CgiProcess cgi;
     cgi.pid = cgi_pid;

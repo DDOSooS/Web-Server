@@ -372,7 +372,7 @@ void WebServer::acceptNewConnection(int listening_socket) {
     }
 
     // Set non-blocking
-    fcntl(clientFd, F_SETFL, O_NONBLOCK);
+    //fcntl(clientFd, F_SETFL, O_NONBLOCK);
 
     // Check if we've reached maximum connections (leave buffer for CGI)
     if (numfds >= maxfds - 10)
