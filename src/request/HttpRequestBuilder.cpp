@@ -178,6 +178,7 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line,const Server
     const Location *cur_location = serverConfig.findMatchingLocation(path);
     if (cur_location && !cur_location->is_method_allowed(method))
     {
+        std::cout << "NOT VALID METHOD >>>>>>>>>> " << method <<std::endl;
         _http_request.SetIsRl(REQ_METHOD_ERROR);
         return;
     }

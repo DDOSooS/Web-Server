@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CGI Test Page</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .file-list {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            max-height: 400px;
+            overflow-y: auto;
+            background: #f9f9f9;
+        }
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            margin: 2px 0;
+            background: white;
+            border-radius: 3px;
+            border: 1px solid #eee;
+        }
+        .file-item:hover {
+            background: #f0f0f0;
+        }
+        .file-icon {
+            margin-right: 8px;
+            font-weight: bold;
+        }
+        .file-directory {
+            color: #2196F3;
+        }
+        .file-regular {
+            color: #4CAF50;
+        }
+        .delete-btn {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .delete-btn:hover {
+            background: #d32f2f;
+        }
+        .refresh-btn {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        .refresh-btn:hover {
+            background: #1976D2;
+        }
+        .directory-nav {
+            margin-bottom: 10px;
+            padding: 8px;
+            background: #e3f2fd;
+            border-radius: 4px;
+        }
+        .breadcrumb {
+            color: #1976D2;
+            text-decoration: none;
+            margin-right: 5px;
+        }
+        .breadcrumb:hover {
+            text-decoration: underline;
+        }
+        .loading {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+        }
+        .error-message {
+            color: #f44336;
+            background: #ffebee;
+            padding: 8px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>WebServ CGI Test</h1>
+    
+    <h2>Static File Test</h2>
+    <p>If you can see this page with CSS styling, static files are working!</p>
+    
+    <h2>CGI Tests</h2>
+    
+    <h3>GET Request Tests:</h3>
+    <ul>
+        <li><a href="cgi-bin/main.py">Python CGI Test</a></li>
+        <li><a href="/cgi-bin/info.php">PHP CGI Test</a></li>
+        <li><a href="/cgi-bin/test.cgi">Shell CGI Test</a></li>
+    </ul>
+    
+    <h2>Direct POST Tests</h2>
+    
+    <h3>URL-Encoded Form Test:</h3>
+    <form action="/post-test" method="POST">
+        <label>First Name: <input type="text" name="firstname" value="John"></label><br>
+        <label>Last Name: <input type="text" name="lastname" value="Doe"></label><br>
+        <label>Age: <input type="text" name="age" value="25"></label><br>
+        <label>Comments: <textarea name="comments">This is a test comment...</textarea></label><br>
+        <input type="submit" value="Submit Form Data">
+    </form>
+
+    <h3>File Upload Test:</h3>
+    <form action="/upload" method="POST" enctype="multipart/form-data">
+        <label>Upload File: <input type="file" name="upload_file"></label><br>
+        <label>Description: <input type="text" name="description" value="Test file upload"></label><br>
+        <input type="submit" value="Upload File">
+    </form>
+
+    <h3>Text Test:</h3>
+    <form onsubmit="submitText(event)">
+        <label>Text Data: <textarea id="text-data">This is plain text data for testing.</textarea></label><br>
+        <input type="submit" value="Submit Text">
+    </form>
+
+    <h2>DELETE Tests</h2>
+    
+    <h3>Interactive File/Directory Deletion:</h3>
+    
+    <div class="directory-nav">
+        <strong>Current Directory:</strong> 
+        <span id="current-path">/</span>
+        <button class="refresh-btn" onclick="loadDirectoryListing()">Refresh</button>
+    </div>
+    
+    <div id="file-list" class="file-list">
+        <div class="loading">Loading directory contents...</div>
+    </div>
+    
+    <div id="error-container"></div>
+    
+    <h3>Manual Delete (Advanced):</h3>
+    <form onsubmit="deleteByPath(event)">
+        <label>File/Directory Path: 
+            <input type="text" id="manual-path" placeholder="filename.txt or directory/" style="width: 300px;">
+        </label><br>
+        <small>For directories, include trailing slash (e.g., "uploads/")</small><br>
+        <input type="submit" value="Delete">
+    </form>
+
+    <h3>Quick Test Actions:</h3>
+    <button onclick="createTestFiles()">DIR Create Test Files</button>
+    <button onclick="loadDirectoryListing()">Refresh File List</button>
+
+    <script>
+        let currentDirectory = '/';
+        
+        // Load directory listing on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDirectoryListing();
+        });
+
+        function loadDirectoryListing(path = '/') {
+            currentDirectory = path;
+            document.getElementById('current-path').textContent = path;
+            document.getElementById('file-list').innerHTML = '<div class="loading">Loading directory contents...</div>';
+            document.getElementById('error-container').innerHTML = '';
+            
+            // Use GET request to list directory contents
+            // This assumes your server can handle GET requests to directories and return JSON
+            fetch(path, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.text();
+            })
+            .then(html => {
+                // Parse HTML response to extract file listings
+                parseDirectoryListing(html, path);
+            })
+            .catch(error => {
+                console.error('Error loading directory:', error);
+                // Fallback: show common files and allow manual entry
+                showFallbackListing();
+            });
+        }
+
+        function parseDirectoryListing(html, path) {
+            // Try to parse directory listing from HTML
+            // This is a simple parser - you might need to adjust based on your server's HTML format
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            const fileListContainer = document.getElementById('file-list');
+            fileListContainer.innerHTML = '';
+            
+            // Look for links in the HTML that represent files
+            const links = doc.querySelectorAll('a[href]');
+            const files = [];
+            
+            links.forEach(link => {
+                const href = link.getAttribute('href');
+                const text = link.textContent.trim();
+                
+                // Skip parent directory and external links
+                if (href === '../' || href.startsWith('http') || href.startsWith('mailto:') || text === '') {
+                    return;
+                }
+                
+                files.push({
+                    name: text,
+                    href: href,
+                    isDirectory: href.endsWith('/')
+                });
+            });
+            
+            if (files.length === 0) {
+                showFallbackListing();
+                return;
+            }
+            
+            // Add parent directory navigation if not at root
+            if (path !== '/') {
+                addFileItem('..', true, true);
+            }
+            
+            // Add each file/directory
+            files.forEach(file => {
+                addFileItem(file.name, file.isDirectory, false, file.href);
+            });
+        }
+
+        function showFallbackListing() {
+            const fileListContainer = document.getElementById('file-list');
+            fileListContainer.innerHTML = `
+                <div class="error-message">
+                    Could not load directory listing automatically. 
+                    Use the manual delete form below or create test files.
+                </div>
+                <div class="file-item">
+                    <span> ? <strong>Tip:</strong> Create test files first, then refresh the list</span>
+                </div>
+            `;
+        }
+
+        function addFileItem(name, isDirectory, isParent, href = null) {
+            const fileListContainer = document.getElementById('file-list');
+            const fileItem = document.createElement('div');
+            fileItem.className = 'file-item';
+            
+            const icon = isDirectory ? 'DIR' : 'FILE';
+            const typeClass = isDirectory ? 'file-directory' : 'file-regular';
+            
+            if (isParent) {
+                fileItem.innerHTML = `
+                    <span class="${typeClass}">
+                        <span class="file-icon">DIR</span>
+                        <span onclick="navigateUp()" style="cursor: pointer; text-decoration: underline;">${name} (Parent Directory)</span>
+                    </span>
+                `;
+            } else {
+                const displayName = isDirectory ? name.replace(/\/$/, '') : name;
+                const deletePath = isDirectory ? `${currentDirectory}${displayName}/` : `${currentDirectory}${displayName}`;
+                
+                fileItem.innerHTML = `
+                    <span class="${typeClass}">
+                        <span class="file-icon">${icon}</span>
+                        <span>${displayName}</span>
+                        ${isDirectory ? ' <em>(directory)</em>' : ''}
+                    </span>
+                    <div>
+                        ${isDirectory ? `<button class="delete-btn" onclick="navigateToDirectory('${displayName}')">Open</button>` : ''}
+                        <button class="delete-btn" onclick="confirmDelete('${deletePath}', '${displayName}', ${isDirectory})">Delete</button>
+                    </div>
+                `;
+            }
+            
+            fileListContainer.appendChild(fileItem);
+        }
+
+        function navigateToDirectory(dirName) {
+            const newPath = currentDirectory === '/' ? `/${dirName}/` : `${currentDirectory}${dirName}/`;
+            loadDirectoryListing(newPath);
+        }
+
+        function navigateUp() {
+            const pathParts = currentDirectory.split('/').filter(part => part !== '');
+            pathParts.pop(); // Remove last directory
+            const newPath = pathParts.length === 0 ? '/' : '/' + pathParts.join('/') + '/';
+            loadDirectoryListing(newPath);
+        }
+
+        function confirmDelete(path, name, isDirectory) {
+            const type = isDirectory ? 'directory' : 'file';
+            const message = `Are you sure you want to delete ${type} "${name}"?${isDirectory ? '\n\nThis will delete all contents recursively!' : ''}`;
+            
+            if (confirm(message)) {
+                performDelete(path, name, type);
+            }
+        }
+
+        function performDelete(path, name, type) {
+            console.log(`Deleting ${type}: ${path}`);
+            
+            fetch(path, {
+                method: 'DELETE'
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert(`Successfully deleted ${type}: ${name}`);
+                    // Refresh the directory listing
+                    loadDirectoryListing(currentDirectory);
+                } else {
+                    return response.text().then(text => {
+                        throw new Error(`HTTP ${response.status}: ${text}`);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Delete failed:', error);
+                alert(`Failed to delete ${type}: ${name}\n\nError: ${error.message}`);
+            });
+        }
+
+        function deleteByPath(event) {
+            event.preventDefault();
+            const path = document.getElementById('manual-path').value.trim();
+            
+            if (!path) {
+                alert('Please enter a file or directory path');
+                return;
+            }
+            
+            const isDirectory = path.endsWith('/');
+            const type = isDirectory ? 'directory' : 'file';
+            const displayPath = path.startsWith('/') ? path : `${currentDirectory}${path}`;
+            
+            confirmDelete(displayPath, path, isDirectory);
+        }
+
+        function createTestFiles() {
+            const testFiles = [
+                { path: '/test-file.txt', content: 'This is a test file for deletion.', type: 'file' },
+                { path: '/another-test.txt', content: 'Another test file.', type: 'file' }
+            ];
+            
+            let promises = [];
+            
+            // Create test files using POST requests
+            testFiles.forEach(file => {
+                promises.push(
+                    fetch(file.path, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'text/plain'
+                        },
+                        body: file.content
+                    }).catch(err => console.log(`Could not create ${file.path}:`, err))
+                );
+            });
+            
+            Promise.allSettled(promises).then(() => {
+                alert('Test files creation attempted. Refreshing directory listing...');
+                loadDirectoryListing(currentDirectory);
+            });
+        }
+
+        function submitText(event) {
+            event.preventDefault();
+            const textData = document.getElementById('text-data').value;
+            
+            fetch('/text-data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain'
+                },
+                body: textData
+            })
+            .then(response => response.text())
+            .then(html => {
+                const newWindow = window.open();
+                newWindow.document.write(html);
+            })
+            .catch(error => alert('Error: ' + error));
+        }
+    </script>
+</body>
+</html>

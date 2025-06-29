@@ -166,9 +166,19 @@ bool Location::is_method_allowed(const std::string& method) const {
     if (_allow_methods.empty()) {
         return (method == "GET" || method == "HEAD");
     }
-    
-    return std::find(_allow_methods.begin(), _allow_methods.end(), method) 
+    std::cout << "Trying to find this method >>>>>>>> " << method << std::endl;
+    for(std::vector<std::string>::const_iterator it = _allow_methods.begin(); it != _allow_methods.end(); ++it) {
+        if (*it == method) {
+            std::cout << *it << " Found" << std::endl;
+        }
+        std::cout << *it << std::endl;
+
+    }
+    bool find = std::find(_allow_methods.begin(), _allow_methods.end(), method) 
            != _allow_methods.end();
+    std::string str = find ? "": "Not";
+    std::cout <<  find<< str << " -> Found" << std::endl;
+    return find;
 }
 
 void Location::set_return(const std::vector<std::string> &new_return){

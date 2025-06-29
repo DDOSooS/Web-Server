@@ -6,7 +6,7 @@
 class HttpRequestBuilder
 {
     private:
-        HttpRequest            _http_request;
+    HttpRequest            _http_request;
 
     public:
         HttpRequestBuilder();
