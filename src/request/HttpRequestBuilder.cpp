@@ -196,6 +196,7 @@ void HttpRequestBuilder::ParseRequsetHeaders(std::istringstream &iss)
 
     while (std::getline(iss, line))
     {
+        std::cout << "REQUEST HEADER LINE: [" << line  << std::endl;
         std::string key;
         std::string value;
         if (line.empty() || line == "\r") break;
@@ -209,12 +210,12 @@ void HttpRequestBuilder::ParseRequsetHeaders(std::istringstream &iss)
         // Trim leading whitespace from value
         value = line.substr(pos + 1);
         value.erase(0, value.find_first_not_of(" \t\r\n"));
-        // Trim trailing whitespace (safe)
-        size_t endpos = value.find_last_not_of(" \t\r\n");
-        if (endpos != std::string::npos)
-            value.erase(endpos + 1);
-        else
-            value.clear();
+        // // Trim trailing whitespace (safe)
+        // size_t endpos = value.find_last_not_of(" \t\r\n");
+        // if (endpos != std::string::npos)
+        //     value.erase(endpos + 1);
+        // else
+        //     value.clear();
 
         if (!value.empty())
         {
@@ -232,53 +233,24 @@ void HttpRequestBuilder::ParseRequestBody(std::string &body)
 }
 
 
-void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig &serverConfig)
+void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig &serverConfig, int socketFd)
 {
     std::cout << "Parsing the Request !!!!!!!!!\n";
     
-    // Split the raw request into lines
-    if (rawRequest.find("\r\n") == std::string::npos && rawRequest.find("/r/n/r/n") == std::string::npos)
+    if (rawRequest.find("\r\n") == std::string::npos && rawRequest.find("\n") == std::string::npos)
     {
-        std::cerr << "Invalid request format" << std::endl;
+        std::cerr << "Invalid request format NO CRLF EXIST " << std::endl;
         throw HttpException(400, "Bad Request", BAD_REQUEST);
     }
     std::cout << "Crlf Test is BEING PASSED WELL!!!\n";
     
-    // Find the separation between headers and body
-    size_t bodyStart = rawRequest.find("\r\n\r\n");
-    if (bodyStart == std::string::npos)
-    {
-        bodyStart = rawRequest.find("\n\n");
-        if (bodyStart != std::string::npos)
-        {
-            bodyStart += 2;
-        }
-    }
-    else
-    {
-        bodyStart += 4;
-    }
-    
-    std::string headersPart;
-    std::string bodyPart;
-    
-    if (bodyStart != std::string::npos)
-    {
-        headersPart = rawRequest.substr(0, bodyStart - 4);
-        bodyPart = rawRequest.substr(bodyStart);
-    }
-    else
-    {
-        headersPart = rawRequest;
-        bodyPart = "";
-    }
-    
-    std::istringstream iss(headersPart);
+    std::istringstream iss(rawRequest);
     std::string line;
 
     // Parse request line
     std::getline(iss, line);
     ParseRequestLine(line, serverConfig);
+    //i should find more optimization for error handling here
     if (_http_request.GetIsRl() != REQ_DONE)
     {
         std::cerr << "Invalid request line" << std::endl;
@@ -289,15 +261,10 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
         {
             throw HttpException(404, "HTTP Version Not Supported", NOT_FOUND);
         }
-        else if (_http_request.GetIsRl() == METHOD_NOT_ALLOWED)
+        else if (_http_request.GetIsRl() == METHOD_NOT_ALLOWED || _http_request.GetIsRl() == REQ_METHOD_ERROR)
         {
             std::cerr << "Method error: '" << _http_request.GetMethod() << "'" << std::endl;
             throw HttpException(405, "Bad Request - Method Not Allowed", METHOD_NOT_ALLOWED);
-        }
-        else if (_http_request.GetIsRl() == REQ_METHOD_ERROR)
-        {
-            std::cerr << "Method error: '" << _http_request.GetMethod() << "'" << std::endl;
-            throw HttpException(405, "Bad Request - Invalid Method", BAD_REQUEST);
         }
         else if (_http_request.GetIsRl() == REQ_LOCATION_ERROR)
         {
@@ -315,8 +282,63 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
         return;
     }
     
+    // in case if we didn't find the end of the request's headers
+    // we should read until we reach the end of the headers
+    size_t header_start;
+    size_t first_line_end;
+    
+    first_line_end = rawRequest.find("\r\n");
+    if (first_line_end != std::string::npos)
+        header_start = first_line_end + 2;
+    else
+    {
+        first_line_end = rawRequest.find("\n");
+        header_start = first_line_end + 1;
+    }
+    while(rawRequest.find("\r\n\r\n") == std::string::npos && rawRequest.find("\n\n") == std::string::npos)
+    {
+        char buffer[REQUSET_BUFFER];
+        ssize_t bytesRead = recv(socketFd, buffer, sizeof(buffer) - 1, 0);
+        if (bytesRead < 0)
+        {
+            std::cerr << "Failed to read more headers from socket" << std::endl;
+            throw HttpException(400, "Bad Request - Failed to read headers", BAD_REQUEST);
+        }
+        if (bytesRead == 0)
+        {
+            std::cerr << "No more data to read from socket" << std::endl;
+            break; 
+        }
+        buffer[bytesRead] = '\0';
+        rawRequest += std::string(buffer);
+    }
+    // checking if the request header is a valid one or not
+    if (rawRequest.find("\r\n\r\n") == std::string::npos && rawRequest.find("\n\n") == std::string::npos)
+    {
+        std::cerr << "Invalid request format - no CRLF found" << std::endl;
+        throw HttpException(400, "Bad Request - No CRLF found", BAD_REQUEST);
+    }
+    size_t header_end;
+    size_t body_start;
+    if (rawRequest.find("\r\n\r\n") != std::string::npos)
+    {
+        header_end = rawRequest.find("\r\n\r\n");
+        body_start = header_end + 4; // Move past the CRLF
+    }
+    else
+    {
+        header_end = rawRequest.find("\n\n");
+        body_start = header_end + 2;
+    }
+    std::string headersPart = rawRequest.substr(header_start , header_end - header_start);
+
+    std::istringstream is(headersPart);
+    std::cout << "Headers part size: " << headersPart.size() << std::endl;
+    std::cout << "Headers part content: [" << headersPart << "]" << std::endl;
+    std::cout << "-- END OF HEADERS --" << std::endl << std::endl;
     // Parse headers
-    ParseRequsetHeaders(iss);
+    ParseRequsetHeaders(is);
+    //i should find more optimization for error handling here
     if (_http_request.GetStatus() != PARSER)
     {
         std::cerr << "Invalid headers" << std::endl;
@@ -330,50 +352,77 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
             throw HttpException(501, "Not Implemented", NOT_IMPLEMENTED);
         return;
     }
+    std::cout << "END OF HEADERS PARSING !!!!!!!!!!!!\n";
 
-    // FIXED: Handle body parsing correctly
-    std::string contentLength = _http_request.GetHeader("Content-Length");
-    if (!contentLength.empty())
+    /*
+        Remplimeinting Post Method
+        Body parsing
+        - If Content-Length is present, read the body up to that length
+        - if the transfer encoding is chunked, read chunks until the end
+        - if it's multipart/form-data, parse the body accordingly
+        - if no body is present, just set the body return response with 200 status code .
+    */
+
+    // checking if there any body part left in the request
+    if (_http_request.HasHeader("Content-Length") || _http_request.HasHeader("Transfer-Encoding"))
     {
-        size_t expectedLength;
-        std::stringstream ss(contentLength);
-        ss >> expectedLength;
+        std::string bodyPart = rawRequest.substr(body_start);
+        std::cout << "Body start position: " << body_start << std::endl;
         
-        if (!bodyPart.empty())
+        // Check if we have Content-Length header
+        size_t expectedLength = 0;
+        if (_http_request.HasHeader("Content-Length"))
         {
-            if (bodyPart.size() >= expectedLength)
+            std::string contentLengthStr = _http_request.GetHeader("Content-Length");
+            expectedLength = atol(contentLengthStr.c_str());
+            std::cout << "Expected body length: " << expectedLength << " bytes" << std::endl;
+        }
+        
+        // Read additional data if body is incomplete
+        while ((expectedLength > 0 && bodyPart.size() < expectedLength) || 
+               (expectedLength == 0 && bodyPart.empty()))
+        {
+            char buffer[REQUSET_BUFFER];
+            ssize_t byte_read = recv(socketFd, buffer, REQUSET_BUFFER - 1, 0);
+            
+            if (byte_read < 0)
             {
-                // We have the complete body in the initial read
-                bodyPart = bodyPart.substr(0, expectedLength);
-                ParseRequestBody(bodyPart);
-                std::cout << "Complete body received: " << bodyPart.size() << " bytes" << std::endl;
+                std::cerr << "Failed to read body from socket" << std::endl;
+                throw HttpException(500, "Internal Server Error - Failed to read body", INTERNAL_SERVER_ERROR);
+            }
+            else if (byte_read == 0)
+            {
+                std::cout << "No more body data available from socket" << std::endl;
+                break;  // No more data available
             }
             else
             {
-                // CRITICAL FIX: Don't set incomplete body!
-                // Let ClientConnection handle reading the rest
-                std::cout << "Body incomplete: got " << bodyPart.size() 
-                         << " bytes, expected " << expectedLength 
-                         << " - will read remaining data" << std::endl;
-                // Don't call ParseRequestBody here - let ClientConnection handle it
+                // ✅ FIXED: Use size-explicit string constructor
+                bodyPart += std::string(buffer, byte_read);
+                std::cout << "Read additional " << byte_read << " bytes, total: " 
+                         << bodyPart.size() << " bytes" << std::endl;
+                
+                // Break if we have no expected length and got some data
+                if (expectedLength == 0) break;
             }
         }
-        else if (expectedLength > 0)
+        
+        // Validate against Content-Length
+        if (expectedLength > 0 && bodyPart.size() > expectedLength)
         {
-            std::cout << "No body in initial read, expecting " << expectedLength << " bytes" << std::endl;
-            // Don't set body - let ClientConnection handle reading it
+            bodyPart = bodyPart.substr(0, expectedLength);  // Truncate excess
+            std::cout << "Truncated body to Content-Length: " << expectedLength << " bytes" << std::endl;
         }
-    }
-    else if (!bodyPart.empty())
-    {
-        // No Content-Length but we have body data - set it
-        ParseRequestBody(bodyPart);
-        std::cout << "Body set without Content-Length: " << bodyPart.size() << " bytes" << std::endl;
+        
+        _http_request.SetBody(bodyPart);
+        std::cout << "Final body size: " << bodyPart.size() << " bytes" << std::endl;
     }
     else
     {
-        std::cout << "No body found in request" << std::endl;
+        std::cout << "No body expected in request" << std::endl;
+        _http_request.SetBody("");
     }
+    std::cout << "Request parsing completed successfully!" << std::endl;
 }
 
 /* build the http request   */

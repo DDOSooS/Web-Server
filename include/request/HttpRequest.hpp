@@ -29,7 +29,20 @@ enum RequestLineStatus
     REQ_DONE
 };
 
-
+/*
+    body_size;
+    remain_bytes;
+    recv_bytes;
+    body_start;
+    /*
+    checking post type
+      - multipart form-data
+      - json data
+      - chunked data
+      - url encoded data
+      - text data
+    /*
+*/
 class HttpRequest
 {
     private:
@@ -49,13 +62,20 @@ class HttpRequest
         bool                                                _are_header_parsed;
         bool                                                _is_redirected; // Flag to indicate if the request is redirected or not
         bool                                                _processed; // Flag to indicate if the request has been processed
-
+        size_t                                              _remaine_bytes;
+        size_t                                              _recv_bytes;
+        size_t                                              _body_start;
+        size_t                                              _body_size;
+        std::string                                         _upload_file_path;
+        bool                                                _is_streaming_upload;
+        
 
     public:
         HttpRequest();
         HttpRequest(HttpRequest const &);
         bool                                            FindHeader(std::string, std::string);
         std::string                                     GetHeader(std::string )const;
+        bool                                            HasHeader(std::string key) const;
         std::map<std::string, std::string>              GetHeaders()const;
         std::string                                     GetRequestLine() const;
         std::string                                     GetHttpVersion() const;
@@ -72,9 +92,17 @@ class HttpRequest
         bool                                            IsProcessed() const;
         std::string                                     GetRelativePath(const Location * cur_location, ClientConnection *client);  ;
         int                                             GetRedirectCounter() const;
+        size_t                                          GetRemaineBytes() const;
+        size_t                                          GetRecvBytes() const;
+        size_t                                          GetBodyStart() const;
+        size_t                                          GetBodySize() const;
 
         
         void                                            SetRedirectCounter(int);
+        void                                            SetRemaineBytes(size_t);
+        void                                            SetRecvBytes(size_t);
+        void                                            SetBodyStart(size_t);
+        void                                            SetBodySize(size_t);
         void                                            SetIsRedirected(bool);
         void                                            SetProcessed(bool);
         void                                            SetQueryStringStr(std::string);

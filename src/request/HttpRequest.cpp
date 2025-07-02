@@ -24,16 +24,26 @@ HttpRequest::HttpRequest(HttpRequest const &src)
     _is_redirected = src._is_redirected;
     _processed = src._processed;
     _client = src._client;
+    _remaine_bytes = src._remaine_bytes;
+    _recv_bytes = src._recv_bytes;
+    _body_start = src._body_start;
+    _body_size = src._body_size;
 }
 
 bool HttpRequest::FindHeader(std::string key, std::string value)
 {
     std::map<std::string, std::string>::iterator it = _headers.find(key);
     if (it != _headers.end())
-    {
+    {   
         return it->second == value;
     }
     return false;
+}
+
+bool HttpRequest::HasHeader(std::string key) const
+{
+    std::map<std::string, std::string>::const_iterator it = _headers.find(key);
+    return it != _headers.end();
 }
 
 std::string HttpRequest::GetHeader(std::string key) const
@@ -89,6 +99,46 @@ void HttpRequest::SetMethod(std::string method)
 void HttpRequest::SetStatus(enum RequestStatus status)
 {
     _status = status;
+}
+
+size_t HttpRequest::GetRemaineBytes() const
+{
+    return _remaine_bytes;
+}
+
+void HttpRequest::SetRemaineBytes(size_t remaine_bytes)
+{
+    _remaine_bytes = remaine_bytes;
+}
+
+size_t HttpRequest::GetRecvBytes() const
+{
+    return _recv_bytes;
+}
+
+void HttpRequest::SetRecvBytes(size_t recv_bytes)
+{
+    _recv_bytes = recv_bytes;
+}
+
+size_t HttpRequest::GetBodyStart() const
+{
+    return _body_start;
+}
+
+void HttpRequest::SetBodyStart(size_t body_start)
+{
+    _body_start = body_start;
+}
+
+size_t HttpRequest::GetBodySize() const
+{
+    return _body_size;
+}
+
+void HttpRequest::SetBodySize(size_t body_size)
+{
+    _body_size = body_size;
 }
 
 
@@ -233,6 +283,10 @@ void HttpRequest::ResetRequest()
     _is_redirected = false;
     _processed = false;
     _client = NULL;
+    _remaine_bytes = 0;
+    _recv_bytes = 0;
+    _body_start = 0;
+    _body_size = 0;
 }
 
 bool HttpRequest::IsValidRequest() const

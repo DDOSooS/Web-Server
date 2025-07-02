@@ -22,6 +22,7 @@
 WebServer::WebServer() : maxfds(DEFAULT_MAX_CONNECTIONS) {
     pollfds = new struct pollfd[maxfds];
     numfds = 0;
+    _active_events = 0;
 }
 
 WebServer::~WebServer() {
@@ -66,6 +67,16 @@ int WebServer::getServerIndexForSocket(int socket) const {
         return it->second;
     }
     return -1;
+}
+
+void WebServer::setActiveEvents(int events)
+{
+    _active_events = events;
+}
+
+int WebServer::getActiveEvents() const
+{
+    return _active_events;
 }
 
 int WebServer::init(std::vector<ServerConfig>& configs) {
@@ -151,32 +162,33 @@ int WebServer::init(std::vector<ServerConfig>& configs) {
     return 0;
 }
 
-// Debug function to monitor poll state
-void WebServer::debugPollState() {
-    std::cout << "=== POLL DEBUG (numfds=" << numfds << "/" << maxfds << ") ===" << std::endl;
-    for (int i = 0; i < numfds; i++) {
-        std::cout << "  [" << i << "] fd=" << pollfds[i].fd 
-                  << " events=" << pollfds[i].events 
-                  << " revents=" << pollfds[i].revents;
+// // Debug function to monitor poll state
+// void WebServer::debugPollState() {
+//     std::cout << "=== POLL DEBUG (numfds=" << numfds << "/" << maxfds << ") ===" << std::endl;
+//     for (int i = 0; i < numfds; i++) {
+//         std::cout << "  [" << i << "] fd=" << pollfds[i].fd 
+//                   << " events=" << pollfds[i].events 
+//                   << " revents=" << pollfds[i].revents;
         
-        if (clients.find(pollfds[i].fd) != clients.end()) {
-            std::cout << " (CLIENT)";
-            if (clients[pollfds[i].fd].isStreamingUpload()) {
-                std::cout << " [STREAMING]";
-            }
-        } else if (isListeningSocket(pollfds[i].fd)) {
-            std::cout << " (LISTENING)";
-        } else if (isCgiFd(pollfds[i].fd)) {
-            std::cout << " (CGI)";
-        } else {
-            std::cout << " (UNKNOWN!)";
-        }
-        std::cout << std::endl;
-    }
-    std::cout << "=================================" << std::endl;
-}
+//         if (clients.find(pollfds[i].fd) != clients.end()) {
+//             std::cout << " (CLIENT)";
+//             if (clients[pollfds[i].fd].isStreamingUpload()) {
+//                 std::cout << " [STREAMING]";
+//             }
+//         } else if (isListeningSocket(pollfds[i].fd)) {
+//             std::cout << " (LISTENING)";
+//         } else if (isCgiFd(pollfds[i].fd)) {
+//             std::cout << " (CGI)";
+//         } else {
+//             std::cout << " (UNKNOWN!)";
+//         }
+//         std::cout << std::endl;
+//     }
+//     std::cout << "=================================" << std::endl;
+// }
 
-int WebServer::run() {
+int WebServer::run()
+{
     bool running = true;
     time_t last_timeout_check = time(NULL);
 
@@ -205,23 +217,12 @@ int WebServer::run() {
             checkCgiTimeouts();
             last_timeout_check = current_time;
         }
-
         // Debug when getting close to poll limit
-        if (numfds > maxfds * 0.8) {
-            debugPollState();
-        }
-
+        // if (numfds > maxfds * 0.8) {
+        //     debugPollState();
+        // }
         int ready = poll(pollfds, numfds, 1000);
-        
-        if (ready == -1)
-        {
-            if (errno == EINTR)
-            {
-                continue;
-            }
-            perror("poll");
-            break;
-        }
+        setActiveEvents(ready);
 
         // =================== Check for new CGI processes ===================================
         std::vector<int> new_cgi_fds;
@@ -241,10 +242,11 @@ int WebServer::run() {
         }
         
         // Add new CGI file descriptors safely
-        for (std::vector<int>::iterator it = new_cgi_fds.begin(); it != new_cgi_fds.end(); ++it) {
+        for (std::vector<int>::iterator it = new_cgi_fds.begin(); it != new_cgi_fds.end(); ++it)
+        {
             addCgiToPoll(*it);
         }
-
+        // =================== END Check for new CGI processes ===================================
         for (int i = 0; i < numfds; i++)
         {
             // ==> checking time out for client connections <==
@@ -258,25 +260,36 @@ int WebServer::run() {
                     continue;
                 }
             }
+            /*
+                revents = 0      // Nothing happened
+                revents = 1      // POLLIN (data to read)
+                revents = 4      // POLLOUT (ready to write)
+                revents = 5      // POLLIN | POLLOUT (both!)
+                revents = 8      // POLLERR (error occurred)
+                revents = 16     // POLLHUP (connection closed)
+            */
             if (pollfds[i].revents == 0)
                 continue;
             int fd = pollfds[i].fd;
 
             // ========================================= handle CGI events first:
-            if (isCgiFd(fd)) {
+            if (isCgiFd(fd))
+            {
                 if (pollfds[i].revents & (POLLIN | POLLHUP | POLLERR)) {
                     handleCgiEvent(fd);
                 }
                 continue;
             }
+            // ========================================= END handle CGI events
             
+            // ??????????????
             if (pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL))
             {
                 if (isListeningSocket(fd))
                 {
                     std::cerr << "Error on listening socket " << fd << "!" << std::endl;
                     running = false;
-                    break;
+                    break; // To check for the condition that server must never exit
                 }
                 else
                 {
@@ -284,43 +297,46 @@ int WebServer::run() {
                 }
                 continue;
             }
-
+            // ??????????????
+            // Handle incoming data
             if (pollfds[i].revents & POLLIN)
             {
                 if (isListeningSocket(fd))
-                {
                     acceptNewConnection(fd);
-                }
                 else
                 {
-                    // Check if client is in streaming upload mode
-                    if (clients.find(fd) != clients.end() && clients[fd].isStreamingUpload()) {
-                        try {
-                            // Simple: just try to read some more data
-                            bool upload_complete = clients[fd].continueStreamingRead(fd);
-                            std::cerr << "upload_complete:" << upload_complete << "fd: " << fd << std::endl;
-                            
-                            if (upload_complete) {
-                                // Upload finished - finalize it
-                                std::cout << "Finalizing completed upload..." << std::endl;
-                                clients[fd].finalizeStreaming();
+                    /*
+                        // Check if client is in streaming upload mode
+                        if (clients.find(fd) != clients.end() && clients[fd].isStreamingUpload()) {
+                            try {
+                                // Simple: just try to read some more data
+                                bool upload_complete = clients[fd].continueStreamingRead(fd);
+                                std::cerr << "upload_complete:" << upload_complete << "fd: " << fd << std::endl;
+                                
+                                if (upload_complete) {
+                                    // Upload finished - finalize it
+                                    std::cout << "Finalizing completed upload..." << std::endl;
+                                    clients[fd].finalizeStreaming();
+                                }
+                                // If not complete, just continue - we'll get called again when more data arrives
+                            } catch (const std::exception& e) {
+                                std::cerr << "Exception during streaming upload: " << e.what() << std::endl;
+                                closeClientConnection(fd);
+                                continue;
                             }
-                            // If not complete, just continue - we'll get called again when more data arrives
-                        } catch (const std::exception& e) {
-                            std::cerr << "Exception during streaming upload: " << e.what() << std::endl;
-                            closeClientConnection(fd);
                             continue;
-                        }
-                        continue;
-                    } else {
-                        // Regular client request - not streaming
-                        try {
-                            handleClientRequest(fd);
+                        } else {
+                            // Regular client request - not streaming
+                    */
+                    handleClientRequest(fd);
+                    /*
+                        try
+                            {
                         } catch (const std::exception& e) {
                             std::cerr << "Unhandled exception in handleClientRequest: " << e.what() << std::endl;
                             closeClientConnection(fd);
-                        }
-                    }
+                            continue;}
+                    */
                 }
             }
 
@@ -365,7 +381,8 @@ int WebServer::run() {
     return 0;
 }
 
-void WebServer::acceptNewConnection(int listening_socket) {
+void WebServer::acceptNewConnection(int listening_socket)
+{
     sockaddr_in clientAddr;
     socklen_t addrLen = sizeof(clientAddr);
     int clientFd = accept(listening_socket, (struct sockaddr *)&clientAddr, &addrLen);
@@ -424,7 +441,8 @@ void WebServer::acceptNewConnection(int listening_socket) {
     }
 }
 
-void WebServer::closeClientConnection(int clientSocket) {
+void WebServer::closeClientConnection(int clientSocket)
+{
     std::map<int, ClientConnection>::iterator it = clients.find(clientSocket);
     if (it != clients.end())
     {
@@ -454,7 +472,7 @@ void WebServer::closeClientConnection(int clientSocket) {
         {
             if (pollfds[i].fd == clientSocket)
             {
-                // Move last element to this position
+                // Move last element to this position ?? what does happens to the last element? pollfds[numfds - 1] will be moved to pollfds[i]? or not?
                 pollfds[i] = pollfds[numfds - 1];
                 numfds--;
                 std::cout << "[EVENT] Removed client fd=" << clientSocket << " from poll (numfds=" << numfds << ")" << std::endl;
@@ -504,19 +522,25 @@ ServerConfig WebServer::getConfigByHost(std::string host) {
     return m_configs[0]; // Return the first config if no match found
 }
 
-void WebServer::handleClientRequest(int fd) {
-    std::cout << "============== (START OF HANDLING CLIENT REQUEST) ==============\n";
-    clients[fd].updateActivity(); // Update last activity timestamp
 
-    // Check if client exists
-    if (clients.find(fd) == clients.end())
-    {
-        std::cerr << "Client not found for fd " << fd << std::endl;
-        return;
-    }
+/*
+    handling http request
+    -> if it's a new request, generate it and process it
+    -> if we are completing uploading process, we will not generate a new request 
+    we will just process the request 
+    -- we need to check if the request is in streaming mode that mean that the request is not bein Null 
+    
+*/
+void WebServer::handleClientRequest(int fd)
+{
+    // excpetion handling management should be reviewd
+
+    std::cout << "============== (START OF HANDLING CLIENT REQUEST) ==============\n";
+    
+    clients[fd].updateActivity();
+
     ClientConnection &client = clients[fd];
 
-    // Set error chain handler
     ErrorHandler *errorHandler = new NotFound();
     errorHandler->SetNext(new BadRequest())
                 ->SetNext(new InternalServerError())
@@ -526,23 +550,12 @@ void WebServer::handleClientRequest(int fd) {
                 ->SetNext(new TooManyRedirection());
     try
     {
-        // Generate and process the request
-        client.GenerateRequest(fd);
-        
-        // Only process if it's not a streaming upload
-        if (!client.isStreamingUpload()) {
-            client.ProcessRequest(fd);
-            // If we get here successfully, set up for response
-            this->updatePollEvents(fd, POLLOUT);
-        } else {
-            // For streaming uploads, keep listening for more data
-            std::cout << "Streaming upload started, waiting for data..." << std::endl;
-        }
+        client.GenerateRequest(fd);        
+        client.ProcessRequest(fd);
     }
     catch(HttpException &e)
     {
         std::cerr << "HttpException: " << e.what() << std::endl;
-
         try
         {
             Error error(client, e.GetCode(), e.GetMessage(), e.GetErrorType());
@@ -573,12 +586,8 @@ void WebServer::handleClientRequest(int fd) {
         delete errorHandler;
 }
 
-void WebServer::handleClientResponse(int fd) {
-    if (clients.find(fd) == clients.end())
-    {
-        std::cerr << "Client with fd " << fd << " not found in clients map" << std::endl;
-        return;
-    }
+void WebServer::handleClientResponse(int fd)
+{
     ClientConnection &client = clients[fd];
 
     if (client.http_response == NULL)
@@ -615,7 +624,7 @@ void WebServer::handleClientResponse(int fd) {
                         std::cout << "Closing connection after chunked response\n";
                         closeClientConnection(fd);
                     }
-                    return; // IMPORTANT: Return here to avoid further processing
+                    return;
                 }
             }
             catch (const HttpException& e)
@@ -628,9 +637,7 @@ void WebServer::handleClientResponse(int fd) {
         else
         {
             if (client.http_response->isFile())
-            {
                 client.http_response->sendResponse(fd);                
-            }
             else
             {
                 if (client.http_request && client.http_request->IsRedirected())
@@ -648,13 +655,8 @@ void WebServer::handleClientResponse(int fd) {
                     }
                 }
                 else
-                {
-                    std::cout << "Resetting redirect counter to 0\n\n\n";
                     client.redirect_counter = 0; 
-                }
-                
                 client.http_response->sendChunkedResponse(fd);
-                
                 if (client.should_close)
                 {
                     std::cout << "----Closing connection after error response\n";
@@ -682,7 +684,6 @@ void WebServer::handleClientResponse(int fd) {
     }
     else
     {
-        // No data available - switch back to reading
         std::cout << "No data available for fd=" << fd << ", switching to POLLIN\n";
         updatePollEvents(fd, POLLIN);
     }

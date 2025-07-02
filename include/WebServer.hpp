@@ -51,6 +51,8 @@ class WebServer
         void handleCgiEvent(int fd);
         void checkCgiTimeouts();
         ServerConfig getConfigByHost(std::string host);
+        void setActiveEvents(int );
+        int  getActiveEvents() const;
         
     protected:
         void closeClientConnection(int clientSocket);
@@ -70,6 +72,7 @@ class WebServer
         int                                 maxfds, numfds;
         std::map<int, ClientConnection>     clients;                // Map of fd to ClientConnection
         CgiHandler                          *cgiHandler;            // Pointer to the CGI handler
+        int                                 _active_events;           
 };
 
 #endif
