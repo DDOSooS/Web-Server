@@ -1,3 +1,18 @@
 .vscode
 .o
-.exe
+.exe# Upload files
+www/uploads/
+uploads/
+tmp/
+
+# Video files
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.wmv
+*.flv
+*.webm
+
+# Keep directory structure
+!www/uploads/.gitkeep
