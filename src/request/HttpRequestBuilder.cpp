@@ -211,12 +211,11 @@ void HttpRequestBuilder::ParseRequsetHeaders(std::istringstream &iss)
         value = line.substr(pos + 1);
         value.erase(0, value.find_first_not_of(" \t\r\n"));
         // // Trim trailing whitespace (safe)
-        // size_t endpos = value.find_last_not_of(" \t\r\n");
-        // if (endpos != std::string::npos)
-        //     value.erase(endpos + 1);
-        // else
-        //     value.clear();
-
+        size_t endpos = value.find_last_not_of(" \t\r\n");
+        if (endpos != std::string::npos)
+            value.erase(endpos + 1);
+        else
+            value.clear();
         if (!value.empty())
         {
             std::cout << "Header Key: [" << key << "] (" << key.length() << "), Value: [" << value << "] (" << value.length() << ")" << std::endl;
@@ -397,20 +396,16 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
             }
             else
             {
-                // ✅ FIXED: Use size-explicit string constructor
                 bodyPart += std::string(buffer, byte_read);
                 std::cout << "Read additional " << byte_read << " bytes, total: " 
                          << bodyPart.size() << " bytes" << std::endl;
-                
-                // Break if we have no expected length and got some data
-                if (expectedLength == 0) break;
+                if (expectedLength == 0)
+                    break;
             }
         }
-        
-        // Validate against Content-Length
         if (expectedLength > 0 && bodyPart.size() > expectedLength)
         {
-            bodyPart = bodyPart.substr(0, expectedLength);  // Truncate excess
+            bodyPart = bodyPart.substr(0, expectedLength);
             std::cout << "Truncated body to Content-Length: " << expectedLength << " bytes" << std::endl;
         }
         
@@ -422,6 +417,8 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
         std::cout << "No body expected in request" << std::endl;
         _http_request.SetBody("");
     }
+    // Set the socket file descriptor
+    _http_request.SetSocketFd(socketFd);
     std::cout << "Request parsing completed successfully!" << std::endl;
 }
 

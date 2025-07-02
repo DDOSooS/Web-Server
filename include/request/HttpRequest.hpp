@@ -47,6 +47,7 @@ class HttpRequest
 {
     private:
         ClientConnection *                                  _client;
+        int                                                 _socket_fd;
         std::string                                         _request_line;
         std::string                                         _http_version;
         std::string                                         _method;
@@ -96,8 +97,9 @@ class HttpRequest
         size_t                                          GetRecvBytes() const;
         size_t                                          GetBodyStart() const;
         size_t                                          GetBodySize() const;
+        int                                             GetSocketFd() const;
 
-        
+        void                                            SetSocketFd(int);
         void                                            SetRedirectCounter(int);
         void                                            SetRemaineBytes(size_t);
         void                                            SetRecvBytes(size_t);

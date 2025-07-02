@@ -28,6 +28,9 @@ HttpRequest::HttpRequest(HttpRequest const &src)
     _recv_bytes = src._recv_bytes;
     _body_start = src._body_start;
     _body_size = src._body_size;
+    _socket_fd = src._socket_fd;
+    _upload_file_path = src._upload_file_path;
+    _is_streaming_upload = src._is_streaming_upload;
 }
 
 bool HttpRequest::FindHeader(std::string key, std::string value)
@@ -86,6 +89,10 @@ std::string HttpRequest::GetBody() const
     return _body;
 }
 
+int HttpRequest::GetSocketFd() const
+{
+    return _socket_fd;
+}
 std::string HttpRequest::GetLocation() const
 {
     return _location;
@@ -153,6 +160,11 @@ size_t  GetFileSize(std::string &file)
         return 0;
     }
     return _stat_info.st_size;
+}
+
+void HttpRequest::SetSocketFd(int socket_fd)
+{
+    _socket_fd = socket_fd;
 }
 
 void HttpRequest::SetRequestLine(std::string request_line)
@@ -287,6 +299,9 @@ void HttpRequest::ResetRequest()
     _recv_bytes = 0;
     _body_start = 0;
     _body_size = 0;
+    _socket_fd = -1;
+    _upload_file_path = "";
+    _is_streaming_upload = false;
 }
 
 bool HttpRequest::IsValidRequest() const
