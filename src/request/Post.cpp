@@ -64,11 +64,11 @@ void    Post::ProccessRequest(HttpRequest *request, const ServerConfig &serverCo
     }
     // check if the content length exceeds the maximum allowed size To do @@@
     // getting the file name and the file extension
-    if (request->GetHeader("Content-Type").find("multipart/form-data") != std::string::npos)
-    {
-        handleMultipartFormData(request, serverConfig, clientConfig);
-    }
-    else if (request->GetHeader("Content-Type") == "application/x-www-form-urlencoded")
+    // if (request->GetHeader("Content-Type").find("multipart/form-data") != std::string::npos)
+    // {
+    //     handleMultipartFormData(request, serverConfig, clientConfig);
+    // }
+     if (request->GetHeader("Content-Type") == "application/x-www-form-urlencoded")
     {
         std::cout << "Handling application/x-www-form-urlencoded data" << std::endl;
         handleUrlEncodedData(request, serverConfig, clientConfig);
@@ -101,4 +101,86 @@ void Post::hanleTextPlainData(HttpRequest *request, const ServerConfig &serverCo
     request->GetClientDatat()->_server->updatePollEvents(request->GetSocketFd() ,POLLOUT);
 }
 
+std::string UrlDecode(const std::string &req_line)
+{
+    std::string decoded;
+
+    for (size_t i = 0; i < req_line.size(); i++)
+    {
+        if (req_line[i] == '%' && i + 2 < req_line.size())
+        {
+            int hexChar;
+            if (sscanf(req_line.substr(i+1,3).c_str(), "%x", &hexChar) == 1)
+            {
+                decoded += static_cast<char>(hexChar);
+                i += 2;
+            }
+            else
+                decoded += req_line[i];
+        }
+        else if (req_line[i] == '+')
+            decoded += ' ';
+        else
+            decoded += req_line[i];
+    }
+    return decoded;
+}
+void Post::handleUrlEncodedData(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig)
+{
+    std::string body = request->GetBody();
+    // std::cout << "Received application/x-www-form-urlencoded data: " << body << std::endl;
+
+    // Process the URL-encoded data
+    std::unordered_map<std::string, std::string> formData;
+    for (size_t i = 0; i < body.size(); ++i)
+    {
+        size_t pos = body.find_first_of('&', i);
+        if (pos == std::string::npos)
+        {
+            pos = body.find('=', i);
+            if (pos != std::string::npos)
+            {
+                formData[body.substr(i, pos - i)] = UrlDecode (body.substr(pos + 1));
+            }
+            else
+            {
+                formData[body.substr(i)] = "";
+            }
+            break; 
+        }
+        std::string input_field = body.substr(i, pos - i);
+        std::cout << input_field << std::endl;
+        // exit(1);
+        size_t tmp_pos = input_field.find('=');
+        if (tmp_pos != std::string::npos)
+            formData[input_field.substr(0, tmp_pos)] = UrlDecode(input_field.substr(tmp_pos + 1, pos - tmp_pos - 1));
+        else
+            formData[input_field] = "";
+        
+        i = pos; 
+    }
+    std::cout << "===============" << std::endl;
+    for (const auto& pair : formData)
+    {
+        std::cout << "Key: " << pair.first << ", Value: " << pair.second << std::endl;
+    }
+    // std::cout << "Body content: " << body << std::endl;
+    std::stringstream ss(body);
+
+    ss << "<html><body>";
+    ss << "<h1>Form Data Received</h1>";
+    ss << "<table border='1'><tr><th>Key</th><th>Value</th></tr>";
+    for (const auto& pair : formData)
+    {
+        ss << "<tr><td>" << pair.first << "</td><td>" << pair.second << "</td></tr>";
+    }
+    ss << "</table>";
+    ss << "</body></html>";
+    body = ss.str();
+    request->GetClientDatat()->http_response->setStatusCode(200);
+    request->GetClientDatat()->http_response->setStatusMessage("OK");
+    request->GetClientDatat()->http_response->setBuffer(body);
+    request->GetClientDatat()->http_response->setContentType("text/html");
+    request->GetClientDatat()->_server->updatePollEvents(request->GetSocketFd() ,POLLOUT);
+}
 
