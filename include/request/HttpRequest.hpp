@@ -53,6 +53,7 @@ class HttpRequest
         std::string                                         _method;
         std::string                                         _location;
         std::string                                         _buffer;
+        std::vector<char>                                   _body_vec;
         std::string                                         _body;
         std::map<std::string, std::string>                  _headers;
         std::vector<std::pair<std::string, std::string> >   _query_string;
@@ -69,6 +70,7 @@ class HttpRequest
         size_t                                              _body_size;
         std::string                                         _upload_file_path;
         bool                                                _is_streaming_upload;
+        int                                                 _upload_file_type; // binary, text, etc.
         
 
     public:
@@ -80,7 +82,8 @@ class HttpRequest
         std::map<std::string, std::string>              GetHeaders()const;
         std::string                                     GetRequestLine() const;
         std::string                                     GetHttpVersion() const;
-        std::string                                     GetBody() const;
+        std::vector<char>                               GetBodyAsBin() const;
+        std::string                                     GetBodyAsStr() const;
         std::vector<std::pair<std::string, std::string> > GetQueryString() const;
         bool                                            GetIsCrlf() const;
         RequestLineStatus                               GetIsRl() const;
@@ -98,8 +101,11 @@ class HttpRequest
         size_t                                          GetBodyStart() const;
         size_t                                          GetBodySize() const;
         int                                             GetSocketFd() const;
+        std::string                                     GetUploadFilePath() const;
 
         void                                            SetSocketFd(int);
+        void                                            SetUploadFilePath(std::string);
+        void                                            SetIsStreamingUpload(bool);
         void                                            SetRedirectCounter(int);
         void                                            SetRemaineBytes(size_t);
         void                                            SetRecvBytes(size_t);
@@ -114,7 +120,8 @@ class HttpRequest
         void                                            SetHttpVersion(std::string);
         void                                            SetLocation(std::string);
         void                                            SetHeader(std::string, std::string);
-        void                                            SetBody(std::string);
+        void                                            SetBodyAsBin(std::vector<char> );
+        void                                            SetBodyAsStr(std::string );
         void                                            SetBuffer(std::string);
         void                                            SetIsCrlf(bool);
         void                                            SetIsRl(RequestLineStatus);
@@ -126,6 +133,8 @@ class HttpRequest
         bool                                            IsValidRequest() const;
         void                                            handleRedirect(const Location * cur_location , std::string &rel_path);
         std::string                                     GetRedirectionMessage(int status_code) const;
+        bool                                            IsStreamingUpload() const;
+        int                                             GetUploadFileType() const;
         ~HttpRequest();
 };
 

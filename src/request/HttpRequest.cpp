@@ -31,6 +31,7 @@ HttpRequest::HttpRequest(HttpRequest const &src)
     _socket_fd = src._socket_fd;
     _upload_file_path = src._upload_file_path;
     _is_streaming_upload = src._is_streaming_upload;
+    _upload_file_type = src._upload_file_type; // binary, text, etc.
 }
 
 bool HttpRequest::FindHeader(std::string key, std::string value)
@@ -84,9 +85,14 @@ std::string    HttpRequest::GetMethod() const
     return this->_method;
 }
 
-std::string HttpRequest::GetBody() const
+std::string HttpRequest::GetBodyAsStr() const
 {
     return _body;
+}
+
+std::vector<char> HttpRequest::GetBodyAsBin() const
+{
+    return _body_vec;
 }
 
 int HttpRequest::GetSocketFd() const
@@ -101,6 +107,11 @@ std::string HttpRequest::GetLocation() const
 void HttpRequest::SetMethod(std::string method)
 {
     _method = method;
+}
+
+void HttpRequest::SetUploadFilePath(std::string upload_file_path)
+{
+    _upload_file_path = upload_file_path;
 }
 
 void HttpRequest::SetStatus(enum RequestStatus status)
@@ -125,7 +136,7 @@ size_t HttpRequest::GetRecvBytes() const
 
 void HttpRequest::SetRecvBytes(size_t recv_bytes)
 {
-    _recv_bytes = recv_bytes;
+    _recv_bytes += recv_bytes;
 }
 
 size_t HttpRequest::GetBodyStart() const
@@ -219,6 +230,10 @@ enum RequestStatus HttpRequest::GetStatus() const
     return _status;
 }
 
+bool HttpRequest::IsStreamingUpload() const
+{
+    return _is_streaming_upload;
+}
 
 
 void    HttpRequest::SetClientData(ClientConnection *client)
@@ -231,9 +246,17 @@ void HttpRequest::SetHeader(std::string key, std::string value)
     _headers[key] = value;
 }
 
-void HttpRequest::SetBody(std::string body)
+void HttpRequest::SetBodyAsBin(std::vector<char> body)
+{
+    // Convert vector<char> to std::string
+    _body_vec = body;
+    _body.assign(body.begin(), body.end());
+}
+
+void HttpRequest::SetBodyAsStr(std::string body)
 {
     _body = body;
+    _body_vec.assign(body.begin(), body.end());
 }
 
 void HttpRequest::SetQueryString(std::vector<std::pair<std::string, std::string> > query)
@@ -302,6 +325,7 @@ void HttpRequest::ResetRequest()
     _socket_fd = -1;
     _upload_file_path = "";
     _is_streaming_upload = false;
+    _upload_file_type = -1;
 }
 
 bool HttpRequest::IsValidRequest() const
@@ -320,7 +344,9 @@ std::string join_path(const std::string& a, const std::string& b)
         return b;
     if (b.empty())
         return a;
+
     std::string result = a;
+
     if (!result.empty() && result[result.size() - 1] == '/')
         result.erase(result.size() - 1);
     if (!b.empty() && b[0] == '/')
@@ -335,6 +361,17 @@ std::string ensure_trailing_slash(const std::string& s)
         return s + '/';
     return s;
 }
+
+void HttpRequest::SetIsStreamingUpload(bool is_streaming_upload)
+{
+    _is_streaming_upload = is_streaming_upload;
+}
+
+std::string HttpRequest::GetUploadFilePath() const
+{
+    return _upload_file_path;
+}
+
 std::string HttpRequest::GetRelativePath(const Location *cur_location, ClientConnection *client)
 {
     std::string rel_path;
@@ -354,15 +391,6 @@ std::string HttpRequest::GetRelativePath(const Location *cur_location, ClientCon
         return rel_path;
     }
     std::cout << "[ DEBUG ] : Current location path: RETUN------------------" << cur_location->get_return().empty() << std::endl;
-    if (cur_location->get_return().empty())
-    {
-        std::cerr << "[ ERROR ] : Location return is empty." << std::endl;
-        // return "";
-    }
-    else
-    {
-        std::cout << "[ DEBUG ] : Location return isn't empty "  << std::endl;
-    }
     if (!cur_location->get_return().empty())
     {
         // std::cout << ""
@@ -447,10 +475,10 @@ void HttpRequest::handleRedirect(const Location *cur_location, std::string &rel_
         
         this->GetClientDatat()->http_response->setHeader("X-Original-Method", this->GetMethod());
         
-        if (!this->GetBody().empty())
+        if (!this->GetBodyAsStr().empty())
         {
             std::string content_type = this->GetHeader("Content-Type");
-            size_t body_size = this->GetBody().size();
+            size_t body_size = this->GetBodyAsStr().size();
             
             // Performance consideration: Define thresholds based on server capacity
             const size_t MAX_BODY_SIZE_FOR_REDIRECT = 1024 * 1024;      // 1MB - moderate threshold
@@ -525,7 +553,7 @@ void HttpRequest::handleRedirect(const Location *cur_location, std::string &rel_
                     const size_t PREVIEW_SIZE = 1024; // 1KB preview
                     if (body_size > PREVIEW_SIZE)
                     {
-                        std::string preview = this->GetBody().substr(0, PREVIEW_SIZE) + "... [truncated]";
+                        std::string preview = this->GetBodyAsStr().substr(0, PREVIEW_SIZE) + "... [truncated]";
                         this->GetClientDatat()->http_response->setBuffer(preview);
                         this->GetClientDatat()->http_response->setHeader("X-Body-Truncated", "true");
                         std::cout << "[ PERFORMANCE ] : Body truncated for redirect response (preview: " 
@@ -533,13 +561,13 @@ void HttpRequest::handleRedirect(const Location *cur_location, std::string &rel_
                     }
                     else
                     {
-                        this->GetClientDatat()->http_response->setBuffer(this->GetBody());
+                        this->GetClientDatat()->http_response->setBuffer(this->GetBodyAsStr());
                     }
                 }
                 else
                 {
                     // For non-form data, be more conservative about including full body
-                    this->GetClientDatat()->http_response->setBuffer(this->GetBody());
+                    this->GetClientDatat()->http_response->setBuffer(this->GetBodyAsStr());
                 }
                 
                 // Log performance metrics
@@ -549,7 +577,7 @@ void HttpRequest::handleRedirect(const Location *cur_location, std::string &rel_
             else
             {
                 // For small bodies, include normally
-                this->GetClientDatat()->http_response->setBuffer(this->GetBody());
+                this->GetClientDatat()->http_response->setBuffer(this->GetBodyAsStr());
                 std::cout << "[ INFO ] : Including original body in redirect response (" 
                           << body_size << " bytes)" << std::endl;
             }
@@ -580,9 +608,9 @@ void HttpRequest::handleRedirect(const Location *cur_location, std::string &rel_
         this->GetClientDatat()->http_response->setBuffer(" ");
         
         // Still log if original request had large body for monitoring
-        if (!this->GetBody().empty())
+        if (!this->GetBodyAsStr().empty())
         {
-            size_t original_body_size = this->GetBody().size();
+            size_t original_body_size = this->GetBodyAsStr().size();
             if (original_body_size > 1024 * 1024) // 1MB
             {
                 std::cout << "[ PERFORMANCE ] : Discarded large body (" << original_body_size 

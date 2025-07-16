@@ -176,7 +176,7 @@ char** CgiHandler::setGgiEnv(HttpRequest *request) {
         if (!content_type.empty()) {
             env_vars.push_back("CONTENT_TYPE=" + content_type);
         }
-        env_vars.push_back("CONTENT_LENGTH=" + this->to_string(request->GetBody().length()));
+        env_vars.push_back("CONTENT_LENGTH=" + this->to_string(request->GetBodyAsStr().length()));
     }
     
     std::map<std::string, std::string> headers = request->GetHeaders();
@@ -303,8 +303,8 @@ bool CgiHandler::startCgiProcess(HttpRequest *request) {
     close(pipe_out[1]);
     close(pipe_in[0]);
     
-    if (request->GetMethod() == "POST" && !request->GetBody().empty()) {
-        const std::string& body = request->GetBody();
+    if (request->GetMethod() == "POST" && !request->GetBodyAsStr().empty()) {
+        const std::string& body = request->GetBodyAsStr();
         ssize_t written = write(pipe_in[1], body.c_str(), body.length());
         if (written != static_cast<ssize_t>(body.length())) {
         }

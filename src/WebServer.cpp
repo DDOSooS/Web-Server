@@ -19,22 +19,26 @@
 #include "../include/request/CgiHandler.hpp" 
 #include "../include/request/RequestHandler.hpp" 
 
-WebServer::WebServer() : maxfds(DEFAULT_MAX_CONNECTIONS) {
+WebServer::WebServer() : maxfds(DEFAULT_MAX_CONNECTIONS)
+{
     pollfds = new struct pollfd[maxfds];
     numfds = 0;
     _active_events = 0;
 }
 
-WebServer::~WebServer() {
+WebServer::~WebServer()
+{
     if (pollfds)
         delete[] pollfds;
-    for (size_t i = 0; i < m_sockets.size(); ++i) {
+    for (size_t i = 0; i < m_sockets.size(); ++i)
+    {
         if (m_sockets[i] > 0)
             close(m_sockets[i]);
     }
 }
 
-const std::vector<ServerConfig>& WebServer::getConfigs() const {
+const std::vector<ServerConfig>& WebServer::getConfigs() const
+{
     return m_configs;
 }
 
@@ -79,7 +83,8 @@ int WebServer::getActiveEvents() const
     return _active_events;
 }
 
-int WebServer::init(std::vector<ServerConfig>& configs) {
+int WebServer::init(std::vector<ServerConfig>& configs)
+{
     if (configs.empty())
     {
         std::cerr << "Error: No server configurations provided" << std::endl;
@@ -217,28 +222,29 @@ int WebServer::run()
             checkCgiTimeouts();
             last_timeout_check = current_time;
         }
-        // Debug when getting close to poll limit
-        // if (numfds > maxfds * 0.8) {
-        //     debugPollState();
-        // }
+
         int ready = poll(pollfds, numfds, 1000);
         setActiveEvents(ready);
 
         // =================== Check for new CGI processes ===================================
         std::vector<int> new_cgi_fds;
         for (std::map<int, CgiHandler::CgiProcess>::iterator it = CgiHandler::active_cgis.begin();
-             it != CgiHandler::active_cgis.end(); ++it) {
-            int cgi_fd = it->first;
-            bool found = false;
-            for (int i = 0; i < numfds; i++) {
-                if (pollfds[i].fd == cgi_fd) {
-                    found = true;
-                    break;
+             it != CgiHandler::active_cgis.end(); ++it)
+            {
+                int cgi_fd = it->first;
+                bool found = false;
+                for (int i = 0; i < numfds; i++)
+                {
+                    if (pollfds[i].fd == cgi_fd)
+                    {
+                        found = true;
+                        break;
+                    }
                 }
-            }
-            if (!found) {
-                new_cgi_fds.push_back(cgi_fd);
-            }
+                if (!found)
+                {
+                    new_cgi_fds.push_back(cgi_fd);
+                }
         }
         
         // Add new CGI file descriptors safely
@@ -328,15 +334,15 @@ int WebServer::run()
                         } else {
                             // Regular client request - not streaming
                     */
-                    handleClientRequest(fd);
-                    /*
-                        try
-                            {
-                        } catch (const std::exception& e) {
-                            std::cerr << "Unhandled exception in handleClientRequest: " << e.what() << std::endl;
-                            closeClientConnection(fd);
-                            continue;}
-                    */
+                   /*
+                       try
+                           {
+                       } catch (const std::exception& e) {
+                           std::cerr << "Unhandled exception in handleClientRequest: " << e.what() << std::endl;
+                           closeClientConnection(fd);
+                           continue;}
+                   */
+                       handleClientRequest(fd);
                 }
             }
 
@@ -550,7 +556,11 @@ void WebServer::handleClientRequest(int fd)
                 ->SetNext(new TooManyRedirection());
     try
     {
-        client.GenerateRequest(fd);        
+        if (client.http_request == NULL)
+        {
+            std::cout << "Generating new request for fd=" << fd << std::endl;
+            client.GenerateRequest(fd);        
+        }
         client.ProcessRequest(fd);
     }
     catch(HttpException &e)

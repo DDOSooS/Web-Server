@@ -23,7 +23,7 @@ void HttpRequestBuilder::SetLocation(std::string location)
 
 void HttpRequestBuilder::SetBody(std::string body)
 {
-    _http_request.SetBody(body);
+    _http_request.SetBodyAsStr(body);
 }
 
 void HttpRequestBuilder::addHeader(std::string &key, std::string &value)
@@ -228,8 +228,9 @@ void HttpRequestBuilder::ParseRequsetHeaders(std::istringstream &iss)
 void HttpRequestBuilder::ParseRequestBody(std::string &body)
 {
     //handling the body reading part including chunked transfer encoding and multipart form data
-    _http_request.SetBody(body);
+    _http_request.SetBodyAsStr(body);
 }
+
 
 
 void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig &serverConfig, int socketFd)
@@ -249,6 +250,7 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
     // Parse request line
     std::getline(iss, line);
     ParseRequestLine(line, serverConfig);
+
     //i should find more optimization for error handling here
     if (_http_request.GetIsRl() != REQ_DONE)
     {
@@ -322,7 +324,7 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
     if (rawRequest.find("\r\n\r\n") != std::string::npos)
     {
         header_end = rawRequest.find("\r\n\r\n");
-        body_start = header_end + 4; // Move past the CRLF
+        body_start = header_end + 4;
     }
     else
     {
@@ -362,61 +364,47 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
         - if no body is present, just set the body return response with 200 status code .
     */
 
-    // checking if there any body part left in the request
-    if (_http_request.HasHeader("Content-Length") || _http_request.HasHeader("Transfer-Encoding"))
+    if (_http_request.GetMethod() == "POST")
     {
-        std::string bodyPart = rawRequest.substr(body_start);
-        std::cout << "Body start position: " << body_start << std::endl;
-        
-        // Check if we have Content-Length header
-        size_t expectedLength = 0;
         if (_http_request.HasHeader("Content-Length"))
         {
-            std::string contentLengthStr = _http_request.GetHeader("Content-Length");
-            expectedLength = atol(contentLengthStr.c_str());
-            std::cout << "Expected body length: " << expectedLength << " bytes" << std::endl;
+            std::string content_length_str = _http_request.GetHeader("Content-Length");
+            size_t content_length = std::stoul(content_length_str);
+            _http_request.SetBodySize(content_length);
+            _http_request.SetRemaineBytes(content_length);
+            _http_request.SetRecvBytes(0);
         }
-        
-        // Read additional data if body is incomplete
-        while ((expectedLength > 0 && bodyPart.size() < expectedLength) || 
-               (expectedLength == 0 && bodyPart.empty()))
+        else if (!_http_request.HasHeader("Transfer-Encoding") )
+            throw HttpException(400 , "Bad Request - Content-Length or Transfer-Encoding header missing", BAD_REQUEST);
+        if (body_start < rawRequest.size())
+        {
+            _http_request.SetBodyAsStr(rawRequest.substr(body_start));
+        }
+        else if (body_start >= rawRequest.size())
         {
             char buffer[REQUSET_BUFFER];
-            ssize_t byte_read = recv(socketFd, buffer, REQUSET_BUFFER - 1, 0);
-            
-            if (byte_read < 0)
+            ssize_t bytesRead = recv(socketFd, buffer, sizeof(buffer) - 1, 0);
+            if (bytesRead < 0)
             {
                 std::cerr << "Failed to read body from socket" << std::endl;
                 throw HttpException(500, "Internal Server Error - Failed to read body", INTERNAL_SERVER_ERROR);
             }
-            else if (byte_read == 0)
+            if (bytesRead == 0)
             {
-                std::cout << "No more body data available from socket" << std::endl;
-                break;  // No more data available
+                _http_request.SetBodyAsStr("");
+                std::cout << "No body received, setting empty body" << std::endl;
             }
             else
             {
-                bodyPart += std::string(buffer, byte_read);
-                std::cout << "Read additional " << byte_read << " bytes, total: " 
-                         << bodyPart.size() << " bytes" << std::endl;
-                if (expectedLength == 0)
-                    break;
+                buffer[bytesRead] = '\0';
+                _http_request.SetBodyAsStr(std::string(buffer));
+                _http_request.SetRecvBytes(0);
+                _http_request.SetRemaineBytes(_http_request.GetBodySize()) ;
             }
         }
-        if (expectedLength > 0 && bodyPart.size() > expectedLength)
-        {
-            bodyPart = bodyPart.substr(0, expectedLength);
-            std::cout << "Truncated body to Content-Length: " << expectedLength << " bytes" << std::endl;
-        }
-        
-        _http_request.SetBody(bodyPart);
-        std::cout << "Final body size: " << bodyPart.size() << " bytes" << std::endl;
     }
-    else
-    {
-        std::cout << "No body expected in request" << std::endl;
-        _http_request.SetBody("");
-    }
+
+
     // Set the socket file descriptor
     _http_request.SetSocketFd(socketFd);
     std::cout << "Request parsing completed successfully!" << std::endl;
