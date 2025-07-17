@@ -16,8 +16,9 @@ class Post : public RequestHandler
         void handleUrlEncodedData(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig);
         void hanleTextPlainData(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig);
         void writeReamingbody(HttpRequest *request, std::string uploadPath);
-        bool checkBoundary(std::string body, std::string &boundary) const;
-        void    writeToTargetFile(HttpRequest* request,std::string & upload_path, std::string & bounedary);
+        bool checkBoundary(std::string body, std::string boundary) const;
+        void    writeToTargetFile(HttpRequest* request, std::string  bounedary, int flag);
+        void handleFirstCall(HttpRequest *request, std::ofstream &ofs, std::string bounedary);
         void validateLocation(const Location *location);
         void readBodyByChunks(HttpRequest *request);
 };

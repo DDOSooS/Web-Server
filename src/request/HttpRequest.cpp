@@ -109,6 +109,11 @@ void HttpRequest::SetMethod(std::string method)
     _method = method;
 }
 
+void HttpRequest::SetBoundary(std::string boundry)
+{
+    _boundry = boundry;
+}
+
 void HttpRequest::SetUploadFilePath(std::string upload_file_path)
 {
     _upload_file_path = upload_file_path;
@@ -137,6 +142,12 @@ size_t HttpRequest::GetRecvBytes() const
 void HttpRequest::SetRecvBytes(size_t recv_bytes)
 {
     _recv_bytes += recv_bytes;
+}
+
+
+std::string HttpRequest::GetBoundary() const
+{
+    return _boundry;
 }
 
 size_t HttpRequest::GetBodyStart() const

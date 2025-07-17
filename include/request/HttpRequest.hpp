@@ -71,7 +71,7 @@ class HttpRequest
         std::string                                         _upload_file_path;
         bool                                                _is_streaming_upload;
         int                                                 _upload_file_type; // binary, text, etc.
-        
+        std::string                                         _boundry;
 
     public:
         HttpRequest();
@@ -102,7 +102,11 @@ class HttpRequest
         size_t                                          GetBodySize() const;
         int                                             GetSocketFd() const;
         std::string                                     GetUploadFilePath() const;
+        std::string                                     GetBoundary() const;
 
+
+
+        void                                           SetBoundary(std::string boundry);
         void                                            SetSocketFd(int);
         void                                            SetUploadFilePath(std::string);
         void                                            SetIsStreamingUpload(bool);
