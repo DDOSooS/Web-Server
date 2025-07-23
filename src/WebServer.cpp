@@ -311,37 +311,6 @@ int WebServer::run()
                     acceptNewConnection(fd);
                 else
                 {
-                    /*
-                        // Check if client is in streaming upload mode
-                        if (clients.find(fd) != clients.end() && clients[fd].isStreamingUpload()) {
-                            try {
-                                // Simple: just try to read some more data
-                                bool upload_complete = clients[fd].continueStreamingRead(fd);
-                                std::cerr << "upload_complete:" << upload_complete << "fd: " << fd << std::endl;
-                                
-                                if (upload_complete) {
-                                    // Upload finished - finalize it
-                                    std::cout << "Finalizing completed upload..." << std::endl;
-                                    clients[fd].finalizeStreaming();
-                                }
-                                // If not complete, just continue - we'll get called again when more data arrives
-                            } catch (const std::exception& e) {
-                                std::cerr << "Exception during streaming upload: " << e.what() << std::endl;
-                                closeClientConnection(fd);
-                                continue;
-                            }
-                            continue;
-                        } else {
-                            // Regular client request - not streaming
-                    */
-                   /*
-                       try
-                           {
-                       } catch (const std::exception& e) {
-                           std::cerr << "Unhandled exception in handleClientRequest: " << e.what() << std::endl;
-                           closeClientConnection(fd);
-                           continue;}
-                   */
                        handleClientRequest(fd);
                 }
             }

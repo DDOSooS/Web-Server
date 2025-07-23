@@ -1,4 +1,8 @@
 #include "../../include/request/Post.hpp"
+#include <unordered_map>
+
+int Post::counter = 0;
+#include "../../include/request/Post.hpp"
 
 Post::Post()
 {
@@ -537,6 +541,11 @@ void Post::handleMultipartFormData(HttpRequest *request, const ServerConfig &ser
 	*/
     std::cerr << "Handling multipart/form-data size is being approved " << std::endl;
     std::cout << "Location: " << request->GetLocation() << std::endl;
+
+    // std::cout << "--------------------------------" << std::endl;
+    // std::cout << request->GetBodyAsStr() << std::endl;
+    // std::cout << "--------------------------------" << std::endl;
+    // exit(1);
    
     const Location *location = serverConfig.findMatchingLocation(request->GetLocation());
 	if (!request->IsStreamingUpload())
@@ -564,10 +573,8 @@ void Post::handleMultipartFormData(HttpRequest *request, const ServerConfig &ser
 	if (!checkBoundary(request->GetBodyAsStr(), request->GetBoundary()))
 	{
 		//check if we did need more than on call to have the boundary so i should append the body;
-        if (request->IsStreamingUpload())
-            readBodyByChunks(request);
-        else
-		    request->SetIsStreamingUpload(true);
+        readBodyByChunks(request);
+        request->SetIsStreamingUpload(true);
 		return;
 	}
 	else
@@ -624,4 +631,3 @@ void Post::handleMultipartFormData(HttpRequest *request, const ServerConfig &ser
         }
 	}
 }
-

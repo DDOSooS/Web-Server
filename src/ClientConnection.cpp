@@ -83,10 +83,9 @@ Content-Type: image/jpeg
 void ClientConnection::GenerateRequest(int fd)
 {
     char buffer[REQUSET_LINE_BUFFER];
-    // memset(buffer, 0, sizeof(buffer));
-    ssize_t bytesRead = recv(fd, buffer, sizeof(buffer) - 1, 0);
-    
-    if (bytesRead <= 0)
+    size_t bytesRead = recv(fd, buffer, sizeof(buffer) - 1, 0);
+    std::cout << "Socket Fd: " << fd << "=====" << std::endl;
+    if (bytesRead < 0)
     {
         std::cerr << "Error receiving data: "
                   << (bytesRead == 0 ? "Connection closed" : strerror(errno))
@@ -100,13 +99,14 @@ void ClientConnection::GenerateRequest(int fd)
 
     std::string rawRequest(buffer);
     
-    std::cout << "Received request from client " << buffer << std::endl;
+    // std::cout << "Received request from client " << buffer << std::endl;
 
     HttpRequestBuilder build = HttpRequestBuilder();
     build.ParseRequest(rawRequest, this->_server->getConfigForClient(this->GetFd()), fd);
     
     // Create final HTTP request object
-    if (this->http_request) {
+    if (this->http_request)
+    {
         delete this->http_request;
     }
     this->http_request = new HttpRequest(build.GetHttpRequest());
@@ -116,8 +116,6 @@ void ClientConnection::GenerateRequest(int fd)
     std::cout << "Server Name is: " << this->getServerConfig().get_server_name() << "=============\n\n\n" << std::endl;
     std::cout << "Server Root is: " << this->getServerConfig().get_root() << "=============\n\n\n" << std::endl;
 }
-
-
 
 void ClientConnection::ProcessRequest(int fd)
 {

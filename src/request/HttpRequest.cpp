@@ -390,50 +390,50 @@ std::string HttpRequest::GetRelativePath(const Location *cur_location, ClientCon
     char cwd[PATH_MAX];
     if (getcwd(cwd, sizeof(cwd)) == NULL)
     {
-        std::cerr << "[ ERROR ] : Failed to get current working directory." << std::endl;
+        // std::cerr << "[ ERROR ] : Failed to get current working directory." << std::endl;
         cwd[0] = '\0';
     }
     if (!cur_location)
     {
         rel_path = join_path(join_path(cwd, client->getServerConfig().get_root()), this->GetLocation());
         rel_path = ensure_trailing_slash(rel_path);
-        std::cout << "[ WARNING ] : No matching location found, using server root: " << rel_path << std::endl;
-        std::cout << "[ INFO ] : Current working directory: " << cwd << std::endl;
+        // std::cout << "[ WARNING ] : No matching location found, using server root: " << rel_path << std::endl;
+        // std::cout << "[ INFO ] : Current working directory: " << cwd << std::endl;
         return rel_path;
     }
-    std::cout << "[ DEBUG ] : Current location path: RETUN------------------" << cur_location->get_return().empty() << std::endl;
+    // std::cout << "[ DEBUG ] : Current location path: RETUN------------------" << cur_location->get_return().empty() << std::endl;
     if (!cur_location->get_return().empty())
     {
         // std::cout << ""
         SetIsRedirected(true);
-        std::cout << "\n\n\n-------------------------[ DEBUG ] : [ORIGIN ]Redirecting to : " 
-                  << cur_location->get_path() << "------" << cur_location->get_return()[1] 
-                  << "------------------\n\n" << std::endl;
+        // std::cout << "\n\n\n-------------------------[ DEBUG ] : [ORIGIN ]Redirecting to : " 
+        //           << cur_location->get_path() << "------" << cur_location->get_return()[1] 
+        //           << "------------------\n\n" << std::endl;
         client->redirect_counter++;
         rel_path = cur_location->get_return()[1];
-        std::cout << "[ INFO ] : Current working directory: " << cwd << std::endl;
+        // std::cout << "[ INFO ] : Current working directory: " << cwd << std::endl;
         return rel_path;
     }
     else if (!cur_location->get_alias().empty())
     {
-        std::cout << "[ DEBUG ] : Using alias : " << cur_location->get_alias() << std::endl;
+        // std::cout << "[ DEBUG ] : Using alias : " << cur_location->get_alias() << std::endl;
         rel_path = join_path(join_path(cwd, client->getServerConfig().get_root()), cur_location->get_alias());
     }
     else if (!cur_location->get_root_location().empty())
     {
-        std::cout << "[ DEBUG ] : Using root location : " << cur_location->get_root_location() << std::endl;
+        // std::cout << "[ DEBUG ] : Using root location : " << cur_location->get_root_location() << std::endl;
         rel_path = join_path(join_path(join_path(cwd, client->getServerConfig().get_root()), cur_location->get_root_location()), this->GetLocation());
     }
     else if (rel_path.empty())
     {
-        std::cerr << "[ WARNING ] : No alias or root location specified, using server root." << std::endl;
-        std::cout << "[ Server Root Path :" << client->getServerConfig().get_root() << " ]\n";
+        // std::cerr << "[ WARNING ] : No alias or root location specified, using server root." << std::endl;
+        // std::cout << "[ Server Root Path :" << client->getServerConfig().get_root() << " ]\n";
         rel_path = join_path(join_path(cwd, client->getServerConfig().get_root()), this->GetLocation());
     }
     rel_path = ensure_trailing_slash(rel_path);
 
-    std::cout << "[------------ FInal rel_path :" << rel_path << " ----------------------]\n";
-    std::cout << "[ INFO ] : Current working directory: " << cwd << std::endl;
+    // std::cout << "[------------ FInal rel_path :" << rel_path << " ----------------------]\n";
+    // std::cout << "[ INFO ] : Current working directory: " << cwd << std::endl;
     return rel_path;
 }
 

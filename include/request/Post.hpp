@@ -21,4 +21,7 @@ class Post : public RequestHandler
         void handleFirstCall(HttpRequest *request, std::ofstream &ofs, std::string bounedary);
         void validateLocation(const Location *location);
         void readBodyByChunks(HttpRequest *request);
+        bool isEndBoundary(const std::string& data, const std::string& boundary) ;
+        size_t findEndBoundaryPosition(const std::string& data, const std::string& boundary) ;
+        static int counter;
 };

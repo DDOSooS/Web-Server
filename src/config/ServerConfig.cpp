@@ -230,7 +230,7 @@ const Location *ServerConfig::findMatchingLocation(const std::string &path) cons
     }
     for (size_t i = 0; i < this->_locations.size(); i++)
     {
-        std::cout << "[DEBUG] Checking location: " << this->_locations[i].get_path() << std::endl << std::endl;
+        // std::cout << "[DEBUG] Checking location: " << this->_locations[i].get_path() << std::endl << std::endl;
         if (!this->_locations[i].get_path().empty() && this->_locations[i].get_path() == tmp_path)
             return &this->_locations[i];
         if (this->_locations[i].get_path() == "/")
@@ -238,6 +238,7 @@ const Location *ServerConfig::findMatchingLocation(const std::string &path) cons
             default_location = &this->_locations[i];
         }
     }
+    std::cout << "================= [ End of Finding Matching Location ] =======================\n";
     return default_location;
 }
 
@@ -249,11 +250,16 @@ void ServerConfig::print_server_config() const {
     std::cout << "  Root: " << this->_root << std::endl;
     std::cout << "  Client Max Body Size: " << this->_client_max_body_size << " bytes" << std::endl;
     std::cout << "  Index Files: ";
-    if (this->_index.empty()) {
+    if (this->_index.empty())
+    {
         std::cout << "None" << std::endl;
-    } else {
-        for (size_t i = 0; i < this->_index.size(); ++i) {
-            if (i > 0) {
+    }
+    else
+    {
+        for (size_t i = 0; i < this->_index.size(); ++i)
+        {         
+            if (i > 0)
+            {
                 std::cout << ", ";
             }
             std::cout << this->_index[i];
