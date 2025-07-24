@@ -144,7 +144,7 @@ size_t HttpRequest::GetRecvBytes() const
 
 void HttpRequest::SetRecvBytes(size_t recv_bytes)
 {
-    _recv_bytes += recv_bytes;
+    _recv_bytes = recv_bytes;
 }
 
 

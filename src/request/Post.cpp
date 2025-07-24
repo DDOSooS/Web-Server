@@ -512,10 +512,11 @@ void Post::writeToTargetFile(HttpRequest *request, std::string uload_path)
         request->SetIsStreamingUpload(false);
         throw HttpException(500, "Internal Server Error - Failed to open file for writing", INTERNAL_SERVER_ERROR);
     }
-    size_t buffer_size;
-    buffer_size = std::min(request->GetRemaineBytes(), static_cast<size_t>(MAX_CHUNK_SIZE));
-    char buffer[buffer_size];
+    
+    size_t buffer_size = std::min(request->GetRemaineBytes(), static_cast<size_t>(MAX_CHUNK_SIZE));
+    char buffer[buffer_size + 1];  // +1 for safety
     size_t byte_read = recv(request->GetSocketFd(), buffer, buffer_size, 0);
+    
     if (byte_read < 0)
     {
         request->SetIsStreamingUpload(false);
@@ -524,29 +525,51 @@ void Post::writeToTargetFile(HttpRequest *request, std::string uload_path)
     }
     else if (byte_read == 0)
     {
-        std::cout << "No more data to read" << std::endl;
+        std::cout << "No more data to read - connection closed" << std::endl;
         request->SetIsStreamingUpload(false);
+        exit(0);
+        file.close();
         return;
     }
+    
     std::string chunk_data(buffer, byte_read);
-    std::string closing_boundary = "\r\n" + request->GetBoundary() + "--";
+    std::string closing_boundary = "\r\n--" + request->GetBoundary() + "--";  // Fixed boundary format
+    
+    std::cout << "byte_read: " << byte_read << std::endl;
+    std::cout << "buffer_size: " << buffer_size << std::endl;
+    std::cout << "===================================================\n=================================\n";
     
     size_t boundary_pos = chunk_data.find(closing_boundary);
-    if (boundary_pos != std::string::npos) {
+    if (boundary_pos != std::string::npos)
+    {
         // Found closing boundary - write only content before it
         file.write(buffer, boundary_pos);
+        
+        std::cout << "Upload completed - found closing boundary at position: " << boundary_pos << std::endl;
+        std::cout << "Wrote " << boundary_pos << " bytes of file content" << std::endl;
+        
+        // Update counters: ALL data in this chunk is processed (including boundary)
+        request->SetRemaineBytes(request->GetRemaineBytes() - byte_read);
+        request->SetRecvBytes(request->GetRecvBytes() + byte_read);
+        
+        // Upload is complete - stop streaming
         request->SetIsStreamingUpload(false);
-        std::cout << "Upload completed - found closing boundary" << std::endl;
-    } else {
-        // No boundary found - write all data
+        std::cout << "File upload completed!" << std::endl;
+    }
+    else 
+    {
+        // No boundary found - write all data and continue streaming
         file.write(buffer, byte_read);
+        request->SetRemaineBytes(request->GetRemaineBytes() - byte_read);
+        request->SetRecvBytes(request->GetRecvBytes() + byte_read);
+        
+        std::cout << "Wrote " << byte_read << " bytes, continuing upload..." << std::endl;
     }
     
-    request->SetRemaineBytes(request->GetRemaineBytes() - byte_read);
-    request->SetRecvBytes(request->GetRecvBytes() + byte_read);
     file.close();
     uploading_logger(request);
-} 
+}
+ 
 
 void Post::handleMultipartFormData(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig)
 {
@@ -557,6 +580,9 @@ void Post::handleMultipartFormData(HttpRequest *request, const ServerConfig &ser
             = > i should read the body until the reach remaining bytes to 0 
 	*/
     // validate Location and also upload store 
+    std::cout << "Handling multipart/form-data upload" << std::endl;
+    std::cout << "========== [[[ Multipart upload counter: =========" << this->counter << std::endl;
+    this->counter++;
     const Location *location = serverConfig.findMatchingLocation(request->GetLocation());
     if (!request->IsStreamingUpload())
     {
@@ -589,10 +615,9 @@ void Post::handleMultipartFormData(HttpRequest *request, const ServerConfig &ser
     //handling empty body
     if (request->GetUploadingStatus() == UPLOAD_BOUNDARY_SEARCH)
     {
-
         if (!request->IsStreamingUpload() && request->GetBodyAsStr().empty())
         {
-            std::cout << "Waiting for more data to process multipart/form-data" << std::endl;
+            std::cout << "Waiting for more data to process multipart/form-data!!" << std::endl;
             readBodyChunk(request);
             request->SetIsStreamingUpload(true);
             return;
@@ -625,7 +650,7 @@ void Post::handleMultipartFormData(HttpRequest *request, const ServerConfig &ser
         }
         else
         {
-            std::cout << "Waiting for more data to process multipart/form-data" << std::endl;
+            std::cout << "Waiting for more data to process multipart/form-data!!!" << std::endl;
             readBodyChunk(request);
             return;
         }
@@ -685,6 +710,7 @@ void Post::handleMultipartFormData(HttpRequest *request, const ServerConfig &ser
             }
         }
         uploading_logger(request);
+        std::cout << "upload processing function called" << std::endl;
         // exit(1);
         // reading body in chunks
         if (request->GetRemaineBytes() > 0)
@@ -694,11 +720,19 @@ void Post::handleMultipartFormData(HttpRequest *request, const ServerConfig &ser
             request->SetUploadStatus(UPLOAD_DONE);
             request->SetIsStreamingUpload(false);
             uploading_logger(request);
+            std::cout << "UPLOADING IS BEING DONE" << std::endl;
             request->GetClientDatat()->http_response->setStatusCode(200);
             request->GetClientDatat()->http_response->setStatusMessage("OK");
             request->GetClientDatat()->http_response->setBuffer("File uploaded successfully");
             request->GetClientDatat()->http_response->setContentType("text/plain");
             std::cout << "File uploaded successfully" << std::endl;
+        }
+        else if (request->GetRemaineBytes() > 0 )
+        {
+            std::cout << "Waiting for more data to process multipart/form-data!!!3" << std::endl;
+            request->SetIsStreamingUpload(true);
+            request->GetClientDatat()->_server->updatePollEvents(request->GetSocketFd() ,POLLIN);
+            return ;
         }
     }
 }

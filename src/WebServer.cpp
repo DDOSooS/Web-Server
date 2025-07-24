@@ -525,10 +525,15 @@ void WebServer::handleClientRequest(int fd)
                 ->SetNext(new TooManyRedirection());
     try
     {
+        std::cout << "Processing existing request for fd=" << fd << std::endl;
         if (client.http_request == NULL)
         {
             std::cout << "Generating new request for fd=" << fd << std::endl;
             client.GenerateRequest(fd);        
+        }
+        else 
+        {
+            std::cout << "remaing bytes: " << client.http_request->GetRemaineBytes() << std::endl;
         }
         client.ProcessRequest(fd);
     }

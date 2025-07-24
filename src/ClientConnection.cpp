@@ -143,7 +143,9 @@ void ClientConnection::ProcessRequest(int fd)
     
     // update client file descriptor to POLLOUT
     if (!this->http_request->IsStreamingUpload())
+    {
         this->_server->updatePollEvents(fd, POLLOUT);
+    }
     else
         this->_server->updatePollEvents(fd, POLLIN);
     // Clean up handler chain
