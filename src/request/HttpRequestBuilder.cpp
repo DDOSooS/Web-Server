@@ -232,6 +232,7 @@ void HttpRequestBuilder::ParseRequestBody(std::string &body)
 }
 
 
+
 void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig &serverConfig, int socketFd)
 {
     std::cout << "Parsing the Request !!!!!!!!!\n";
@@ -243,10 +244,6 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
     }
     std::cout << "Crlf Test is BEING PASSED WELL!!!\n";
     
-    // Initialize _http_request._recvBytes with the initial size of rawRequest
-    // This assumes rawRequest contains all bytes read so far for this request.
-    _http_request.SetRecvBytes(rawRequest.size());
-
     std::istringstream iss(rawRequest);
     std::string line;
 
@@ -262,9 +259,7 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
         std::cerr << "Method: '" << _http_request.GetMethod() << "', Location: '" << _http_request.GetLocation() << "'" << std::endl;
         
         if (_http_request.GetIsRl() == REQ_HTTP_VERSION_ERROR)
-        {
             throw HttpException(404, "HTTP Version Not Supported", NOT_FOUND);
-        }
         else if (_http_request.GetIsRl() == METHOD_NOT_ALLOWED || _http_request.GetIsRl() == REQ_METHOD_ERROR)
         {
             std::cerr << "Method error: '" << _http_request.GetMethod() << "'" << std::endl;
@@ -276,13 +271,9 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
             throw HttpException(404, "Not Found - Invalid Location", NOT_FOUND);
         }
         else if (_http_request.GetIsRl() == REQ_NOT_IMPLEMENTED)
-        {
             throw HttpException(501, "Not Implemented", NOT_IMPLEMENTED);
-        }
         else
-        {
             throw HttpException(400, "Bad Request - Unknown Error", BAD_REQUEST);
-        }
         return;
     }
     
@@ -315,41 +306,26 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
         }
         buffer[bytesRead] = '\0';
         rawRequest += std::string(buffer);
-        _http_request.SetRecvBytes(_http_request.GetRecvBytes() + bytesRead); // Update recvBytes for newly read data
     }
-    // checking if the request header is a valid one or not
-    if (rawRequest.find("\r\n\r\n") == std::string::npos && rawRequest.find("\n\n") == std::string::npos)
-    {
-        std::cerr << "Invalid request format - no CRLF found" << std::endl;
-        throw HttpException(400, "Bad Request - No CRLF found", BAD_REQUEST);
-    }
+
     size_t header_end;
     size_t body_start;
-    // Use find for the first occurrence of the header-body separator
-    size_t crlf_crlf_pos = rawRequest.find("\r\n\r\n");
-    size_t lf_lf_pos = rawRequest.find("\n\n");
-
-    if (crlf_crlf_pos != std::string::npos && (lf_lf_pos == std::string::npos || crlf_crlf_pos < lf_lf_pos))
+    if (rawRequest.find("\r\n\r\n") != std::string::npos)
     {
-        header_end = crlf_crlf_pos;
+        header_end = rawRequest.find("\r\n\r\n");
         body_start = header_end + 4;
-    }
-    else if (lf_lf_pos != std::string::npos)
-    {
-        header_end = lf_lf_pos;
-        body_start = header_end + 2;
     }
     else
     {
-        // This case should ideally be caught by the while loop above,
-        // but as a fallback for malformed requests
-        std::cerr << "Error: Headers end not found after reading all available data." << std::endl;
-        throw HttpException(400, "Bad Request - Malformed headers (no end separator)", BAD_REQUEST);
+        header_end = rawRequest.find("\n\n");
+        body_start = header_end + 2;
     }
-
     std::string headersPart = rawRequest.substr(header_start , header_end - header_start);
-    
+
     std::istringstream is(headersPart);
+    std::cout << "Headers part size: " << headersPart.size() << std::endl;
+    std::cout << "Headers part content: [" << headersPart << "]" << std::endl;
+    std::cout << "-- END OF HEADERS --" << std::endl << std::endl;
     // Parse headers
     ParseRequsetHeaders(is);
     //i should find more optimization for error handling here
@@ -379,48 +355,24 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
 
     if (_http_request.GetMethod() == "POST")
     {
-        std::cout << "POST METHOD DETECTED !!!!!!!!!!!!\n";
-        std::cout << "---- [REQUEST DETAILS] ----" << std::endl;
-        std::cout << "Body Start: " << body_start << std::endl;
-        std::cout << "Raw Request Size: " << rawRequest.size() << std::endl;
-        std::cout << "raw request: " << rawRequest << std::endl;
-        // exit(0);
-        
         if (_http_request.HasHeader("Content-Length"))
         {
             std::string content_length_str = _http_request.GetHeader("Content-Length");
             size_t content_length = std::stoul(content_length_str);
             _http_request.SetBodySize(content_length);
-            
-            // The current _http_request.GetRecvBytes() already accounts for all bytes
-            // read into rawRequest up to this point.
-            // The initial body part is rawRequest.size() - body_start.
-            // We need to ensure _http_request.GetRecvBytes() is accurate for the body.
-            // It should be (total bytes read for request) - (size of headers + request line).
-            // A simpler approach is to set _http_request.SetBodyAsStr first, then update recvBytes.
-
-            if (body_start < rawRequest.size())
-            {
-                _http_request.SetBodyAsStr(rawRequest.substr(body_start));
-                // Update _http_request.SetRecvBytes to reflect only the body bytes received so far
-                // This is crucial for the Post handler's remaining bytes calculation
-                _http_request.SetRecvBytes(rawRequest.size() - body_start);
-            } else {
-                _http_request.SetBodyAsStr(""); // No initial body part in rawRequest
-                _http_request.SetRecvBytes(0); // No body bytes received yet
-            }
-            _http_request.SetRemaineBytes(content_length - _http_request.GetRecvBytes());
-
+            _http_request.SetRemaineBytes(content_length);
+            _http_request.SetRecvBytes(0);
         }
         else if (!_http_request.HasHeader("Transfer-Encoding") )
             throw HttpException(400 , "Bad Request - Content-Length or Transfer-Encoding header missing", BAD_REQUEST);
-        
-        // If body_start >= rawRequest.size(), it means rawRequest only contained headers
-        // and no initial body data. We need to read the first body chunk.
-        if (_http_request.GetBodyAsStr().empty() && _http_request.GetRecvBytes() < _http_request.GetBodySize())
+        if (body_start < rawRequest.size())
+        {
+            _http_request.SetBodyAsStr(rawRequest.substr(body_start));
+        }
+        else if (body_start >= rawRequest.size())
         {
             char buffer[REQUSET_BUFFER];
-            ssize_t bytesRead = recv(socketFd, buffer, sizeof(buffer) - 1 , 0);
+            ssize_t bytesRead = recv(socketFd, buffer, sizeof(buffer) - 1, 0);
             if (bytesRead < 0)
             {
                 std::cerr << "Failed to read body from socket" << std::endl;
@@ -435,14 +387,15 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
             {
                 buffer[bytesRead] = '\0';
                 _http_request.SetBodyAsStr(std::string(buffer));
-                // Update recvBytes and remainBytes based on this new read
-                _http_request.SetRecvBytes(_http_request.GetRecvBytes() + bytesRead);
-                _http_request.SetRemaineBytes(_http_request.GetBodySize() - _http_request.GetRecvBytes());
             }
         }
-        std::cout << "Body Conente ---------\n";
-        std::cout << _http_request.GetBodyAsStr() << std::endl;
-        std::cout << "-----------------------\n";
+        // debugging the request details
+        // std::cout << "---- [REQUEST DETAILS] ----" << std::endl;
+        // std::cout << "Method: " << _http_request.GetMethod() << std::endl ;
+        // std::cout << "Location: " << _http_request.GetLocation() << std::endl;
+        // std::cout << "Body Size : " << _http_request.GetBodySize() << std::endl;
+        // std::cout << "Body Content: " << _http_request.GetBodyAsStr() << std::endl;
+        // std::cout << "Headers: " << std::endl;
         // exit(0);
     }
 
@@ -450,6 +403,7 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
     _http_request.SetSocketFd(socketFd);
     std::cout << "Request parsing completed successfully!" << std::endl;
 }
+
 /* build the http request   */
 HttpRequest& HttpRequestBuilder::GetHttpRequest()
 {

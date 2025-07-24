@@ -31,7 +31,10 @@ HttpRequest::HttpRequest(HttpRequest const &src)
     _socket_fd = src._socket_fd;
     _upload_file_path = src._upload_file_path;
     _is_streaming_upload = src._is_streaming_upload;
-    _upload_file_type = src._upload_file_type; // binary, text, etc.
+    _upload_file_type = src._upload_file_type;
+    _boundry = src._boundry;
+    _uploading_status = src._uploading_status;
+    // _upload_file_stream is not copyable; do not copy it
 }
 
 bool HttpRequest::FindHeader(std::string key, std::string value)
@@ -270,6 +273,16 @@ void HttpRequest::SetBodyAsStr(std::string body)
     _body_vec.assign(body.begin(), body.end());
 }
 
+void HttpRequest::SetUploadStatus(enum UploadingStatus status)
+{
+    _uploading_status = status;
+}
+
+enum UploadingStatus HttpRequest::GetUploadingStatus() const
+{
+    return _uploading_status;
+}
+
 void HttpRequest::SetQueryString(std::vector<std::pair<std::string, std::string> > query)
 {
     _query_string =  query;
@@ -337,6 +350,8 @@ void HttpRequest::ResetRequest()
     _upload_file_path = "";
     _is_streaming_upload = false;
     _upload_file_type = -1;
+    _boundry = "";
+    _uploading_status = UPLOAD_START;
 }
 
 bool HttpRequest::IsValidRequest() const
@@ -466,169 +481,3 @@ std::string  HttpRequest::GetRedirectionMessage(int status_code) const
     return message;
 }
 
-void HttpRequest::handleRedirect(const Location *cur_location, std::string &rel_path)
-{
-    std::stringstream ss;
-    int status_code;
-
-    ss << cur_location->get_return()[0];
-    ss >> status_code;
-    std::cout << "[REDIRECTED TO : " << rel_path << " ]" << std::endl;
-    
-    this->GetClientDatat()->http_response->setStatusCode(status_code);
-    this->GetClientDatat()->http_response->setStatusMessage(GetRedirectionMessage(status_code));
-    this->GetClientDatat()->http_response->setChunked(false);
-    this->GetClientDatat()->http_response->setHeader("Location", rel_path);
-    
-    if (status_code == 307 || status_code == 308)
-    {
-        std::cout << "[ INFO ] : Handling " << status_code << " redirect with method preservation" << std::endl;
-        
-        this->GetClientDatat()->http_response->setHeader("X-Original-Method", this->GetMethod());
-        
-        if (!this->GetBodyAsStr().empty())
-        {
-            std::string content_type = this->GetHeader("Content-Type");
-            size_t body_size = this->GetBodyAsStr().size();
-            
-            // Performance consideration: Define thresholds based on server capacity
-            const size_t MAX_BODY_SIZE_FOR_REDIRECT = 1024 * 1024;      // 1MB - moderate threshold
-            const size_t CRITICAL_BODY_SIZE = 10 * 1024 * 1024;         // 10MB - critical threshold
-            const size_t MAX_ALLOWED_BODY_SIZE = 50 * 1024 * 1024;      // 50MB - absolute limit
-            
-            if (!content_type.empty())
-            {
-                this->GetClientDatat()->http_response->setHeader("Content-Type", content_type);
-                std::cout << "[ INFO ] : Setting Content-Type: " << content_type << std::endl;
-            }
-            
-            std::stringstream ss_content_length;
-            ss_content_length << body_size;
-            this->GetClientDatat()->http_response->setHeader("Content-Length", ss_content_length.str());
-            
-            // Performance handling based on body size
-            if (body_size > MAX_ALLOWED_BODY_SIZE)
-            {
-                // For extremely large bodies, reject the redirect to prevent server overload
-                std::cerr << "[ ERROR ] : Body size (" << body_size << " bytes) exceeds maximum allowed size for redirect" << std::endl;
-                
-                this->GetClientDatat()->http_response->setStatusCode(413); // Payload Too Large
-                this->GetClientDatat()->http_response->setStatusMessage("Payload Too Large");
-                this->GetClientDatat()->http_response->setBuffer("Request body too large for redirect operation");
-                
-                // Log the rejection for monitoring
-                std::cerr << "[ PERFORMANCE ] : Rejected redirect due to excessive body size: " 
-                          << body_size << " bytes (limit: " << MAX_ALLOWED_BODY_SIZE << ")" << std::endl;
-                return;
-            }
-            else if (body_size > CRITICAL_BODY_SIZE)
-            {
-                // For very large bodies, use streaming approach or chunked transfer
-                std::cout << "[ WARNING ] : Critical body size (" << body_size << " bytes) in " 
-                          << status_code << " redirection - using optimized handling" << std::endl;
-                
-                // Set chunked transfer for large bodies to avoid memory issues
-                this->GetClientDatat()->http_response->setChunked(true);
-                this->GetClientDatat()->http_response->setHeader("Transfer-Encoding", "chunked");
-                
-                // Don't include the full body in response to save memory
-                // Instead, provide metadata about the body
-                this->GetClientDatat()->http_response->setHeader("X-Large-Content", "true");
-                this->GetClientDatat()->http_response->setHeader("X-Body-Size", ss_content_length.str());
-                
-                // Provide a minimal response body
-                std::string minimal_body = "Large content redirect - body preserved for target location";
-                this->GetClientDatat()->http_response->setBuffer(minimal_body);
-                
-                // Log performance impact
-                std::cout << "[ PERFORMANCE ] : Using chunked transfer for large body redirect: " 
-                          << body_size << " bytes" << std::endl;
-            }
-            else if (body_size > MAX_BODY_SIZE_FOR_REDIRECT)
-            {
-                // For moderately large bodies, include metadata but optimize memory usage
-                std::cout << "[ WARNING ] : Large body size (" << body_size << " bytes) in " 
-                          << status_code << " redirection - applying performance optimizations" << std::endl;
-                
-                this->GetClientDatat()->http_response->setHeader("X-Large-Content", "true");
-                
-                // For form data, provide additional metadata
-                if (content_type.find("multipart/form-data") != std::string::npos || 
-                    content_type.find("application/x-www-form-urlencoded") != std::string::npos)
-                {
-                    std::stringstream ss_form_size;
-                    ss_form_size << body_size;
-                    this->GetClientDatat()->http_response->setHeader("X-Form-Data-Size", ss_form_size.str());
-                    
-                    // Consider truncating form data preview for performance
-                    const size_t PREVIEW_SIZE = 1024; // 1KB preview
-                    if (body_size > PREVIEW_SIZE)
-                    {
-                        std::string preview = this->GetBodyAsStr().substr(0, PREVIEW_SIZE) + "... [truncated]";
-                        this->GetClientDatat()->http_response->setBuffer(preview);
-                        this->GetClientDatat()->http_response->setHeader("X-Body-Truncated", "true");
-                        std::cout << "[ PERFORMANCE ] : Body truncated for redirect response (preview: " 
-                                  << PREVIEW_SIZE << " bytes)" << std::endl;
-                    }
-                    else
-                    {
-                        this->GetClientDatat()->http_response->setBuffer(this->GetBodyAsStr());
-                    }
-                }
-                else
-                {
-                    // For non-form data, be more conservative about including full body
-                    this->GetClientDatat()->http_response->setBuffer(this->GetBodyAsStr());
-                }
-                
-                // Log performance metrics
-                std::cout << "[ PERFORMANCE ] : Handling large body redirect: " 
-                          << body_size << " bytes (threshold: " << MAX_BODY_SIZE_FOR_REDIRECT << ")" << std::endl;
-            }
-            else
-            {
-                // For small bodies, include normally
-                this->GetClientDatat()->http_response->setBuffer(this->GetBodyAsStr());
-                std::cout << "[ INFO ] : Including original body in redirect response (" 
-                          << body_size << " bytes)" << std::endl;
-            }
-            
-            // Additional performance headers for client optimization
-            if (body_size > MAX_BODY_SIZE_FOR_REDIRECT)
-            {
-                this->GetClientDatat()->http_response->setHeader("X-Redirect-Performance", "optimized");
-                
-                // Suggest client behavior for large redirects
-                if (status_code == 307 || status_code == 308)
-                {
-                    this->GetClientDatat()->http_response->setHeader("X-Client-Hint", "consider-connection-reuse");
-                }
-            }
-        }
-        else
-        {
-            this->GetClientDatat()->http_response->setBuffer(" ");
-            std::cout << "[ INFO ] : Empty body in redirect" << std::endl;
-        }
-    }
-    else
-    {
-        // For non-method-preserving redirects (301, 302, 303), don't include body
-        std::cout << "[ INFO ] : Standard redirect " << status_code 
-                  << ", not preserving body (performance optimized)" << std::endl;
-        this->GetClientDatat()->http_response->setBuffer(" ");
-        
-        // Still log if original request had large body for monitoring
-        if (!this->GetBodyAsStr().empty())
-        {
-            size_t original_body_size = this->GetBodyAsStr().size();
-            if (original_body_size > 1024 * 1024) // 1MB
-            {
-                std::cout << "[ PERFORMANCE ] : Discarded large body (" << original_body_size 
-                          << " bytes) in standard redirect for performance" << std::endl;
-            }
-        }
-    }
-    
-    return;
-}

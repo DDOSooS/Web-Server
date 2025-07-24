@@ -17,10 +17,12 @@ class Post : public RequestHandler
         void hanleTextPlainData(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig);
         void writeReamingbody(HttpRequest *request, std::string uploadPath);
         bool checkBoundary(std::string body, std::string boundary) const;
-        void    writeToTargetFile(HttpRequest* request, std::string  bounedary, int flag);
+        void writeToTargetFile(HttpRequest* request, std::string uploadPath);
         void handleFirstCall(HttpRequest *request, std::ofstream &ofs, std::string bounedary);
         void validateLocation(const Location *location);
-        void readBodyByChunks(HttpRequest *request);
+        void readBodyChunk(HttpRequest *request);
+        void getBodyReamiingBytes(HttpRequest *request);
+        void uploading_logger(HttpRequest *request);
         bool isEndBoundary(const std::string& data, const std::string& boundary) ;
         size_t findEndBoundaryPosition(const std::string& data, const std::string& boundary) ;
         static int counter;

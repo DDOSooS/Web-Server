@@ -29,6 +29,16 @@ enum RequestLineStatus
     REQ_DONE
 };
 
+enum UploadingStatus
+{
+        UPLOAD_START,
+        UPLOAD_BOUNDARY_SEARCH,
+        UPLOAD_FILENAME_SEARCH,
+        UPLOAD_PROCESSING,
+        UPLOAD_DONE,
+        UPLOAD_ERROR
+};
+
 /*
     body_size;
     remain_bytes;
@@ -71,7 +81,9 @@ class HttpRequest
         std::string                                         _upload_file_path;
         bool                                                _is_streaming_upload;
         int                                                 _upload_file_type; // binary, text, etc.
+        // std::ostream                                        _upload_file_stream; // Stream for file uploads
         std::string                                         _boundry;
+        enum UploadingStatus                               _uploading_status;
 
     public:
         HttpRequest();
@@ -103,9 +115,10 @@ class HttpRequest
         int                                             GetSocketFd() const;
         std::string                                     GetUploadFilePath() const;
         std::string                                     GetBoundary() const;
+        enum UploadingStatus                            GetUploadingStatus() const;
 
 
-
+        void                                           SetUploadStatus(enum UploadingStatus status);
         void                                           SetBoundary(std::string boundry);
         void                                            SetSocketFd(int);
         void                                            SetUploadFilePath(std::string);

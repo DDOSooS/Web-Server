@@ -47,7 +47,7 @@ void    RequestHandler::HandleRequest(HttpRequest *request, const ServerConfig &
     if (request->IsRedirected())
     {
         // request->SetRedirectCounter(request->GetRedirectCounter() + 1);
-        request->handleRedirect(cur_location, rel_path);
+        // request->handleRedirect(cur_location, rel_path);
         return;
     }
     if (CanHandle(request->GetMethod()))
