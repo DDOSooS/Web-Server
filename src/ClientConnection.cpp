@@ -85,6 +85,7 @@ void ClientConnection::GenerateRequest(int fd)
     char buffer[REQUSET_LINE_BUFFER];
     size_t bytesRead = recv(fd, buffer, sizeof(buffer) - 1, 0);
     std::cout << "Socket Fd: " << fd << "=====" << std::endl;
+    
     if (bytesRead < 0)
     {
         std::cerr << "Error receiving data: "
@@ -93,16 +94,22 @@ void ClientConnection::GenerateRequest(int fd)
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
     
-    buffer[bytesRead] = '\0';
-    std::cout << "Received  bytes request from client fd=" << bytesRead << std::endl;
-    // exit(1);
-
-    std::string rawRequest(buffer);
+    // ❌ DON'T null-terminate for binary data
+    // buffer[bytesRead] = '\0';
     
-    // std::cout << "Received request from client " << buffer << std::endl;
+    // std::cout << "Received bytes request from client fd=" << bytesRead << std::endl;
 
+    // ✅ USE SIZE-BASED CONSTRUCTOR (handles binary data correctly)
+    std::string rawRequest(buffer, bytesRead);  // This preserves all bytes including nulls
+    
+    // std::cout << "Raw Request size: " << rawRequest.size() << std::endl;
+    // std::cout << "Bytes read: " << bytesRead << std::endl;
+    
+    // Now rawRequest.size() should equal bytesRead
+    
     HttpRequestBuilder build = HttpRequestBuilder();
     build.ParseRequest(rawRequest, this->_server->getConfigForClient(this->GetFd()), fd);
+    
     
     // Create final HTTP request object
     if (this->http_request)

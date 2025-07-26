@@ -236,7 +236,8 @@ void HttpRequestBuilder::ParseRequestBody(std::string &body)
 void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig &serverConfig, int socketFd)
 {
     std::cout << "Parsing the Request !!!!!!!!!\n";
-    
+    std::cout << "Raw Request size: " << rawRequest.size() << std::endl;
+    // exit(0);
     if (rawRequest.find("\r\n") == std::string::npos && rawRequest.find("\n") == std::string::npos)
     {
         std::cerr << "Invalid request format NO CRLF EXIST " << std::endl;
@@ -307,6 +308,8 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
         buffer[bytesRead] = '\0';
         rawRequest += std::string(buffer);
     }
+    // std::cout << "bytesRead: " << rawRequest.size() << std::endl;
+    // exit(0);
 
     size_t header_end;
     size_t body_start;
@@ -323,9 +326,9 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
     std::string headersPart = rawRequest.substr(header_start , header_end - header_start);
 
     std::istringstream is(headersPart);
-    std::cout << "Headers part size: " << headersPart.size() << std::endl;
-    std::cout << "Headers part content: [" << headersPart << "]" << std::endl;
-    std::cout << "-- END OF HEADERS --" << std::endl << std::endl;
+    // std::cout << "Headers part size: " << headersPart.size() << std::endl;
+    // std::cout << "Headers part content: [" << headersPart << "]" << std::endl;
+    // std::cout << "-- END OF HEADERS --" << std::endl << std::endl;
     // Parse headers
     ParseRequsetHeaders(is);
     //i should find more optimization for error handling here
@@ -400,8 +403,10 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
     }
 
     // Set the socket file descriptor
+    std::cout << "===== Raw Request Parsing Completed Successfully! =====" << std::endl;
+    std::cout << "rawRequest size: " << rawRequest.size() << std::endl;
     _http_request.SetSocketFd(socketFd);
-    std::cout << "Request parsing completed successfully!" << std::endl;
+    std::cout << "Request parsing completed successfully!" << std::endl << std::endl;
 }
 
 /* build the http request   */

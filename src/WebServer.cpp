@@ -303,8 +303,7 @@ int WebServer::run()
                 }
                 continue;
             }
-            // ??????????????
-            // Handle incoming data
+
             if (pollfds[i].revents & POLLIN)
             {
                 if (isListeningSocket(fd))

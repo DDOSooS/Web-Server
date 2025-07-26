@@ -36,18 +36,18 @@ void    Post::ProccessRequest(HttpRequest *request, const ServerConfig &serverCo
     // CHECKING IF THE CONTENT LENGTH EXCEEDS THE MAXIMUM ALLOWED SIZE
     // size_t max_size = clientConfig.get_client_max_body_size()
     // to check does it conserne the server or just a specific location TO DO
-    std::cout << "Processing POST request" << std::endl;
-    std::cout << "---- [REQUEST DETAILS] ----" << std::endl;
-    std::cout << "Method: " << request->GetMethod() << std::endl ;
-    std::cout << "Location: " << request->GetLocation() << std::endl;
-    std::cout << "Headers: " << std::endl;
-    for (const auto& header : request->GetHeaders())
-    {
-        std::cout << "  key [" << header.first << " ] : Value [ " << header.second << " ]" << std::endl;
-    }
-    std::cout << "Body: " << request->GetBodyAsStr() << std::endl;
-    std::cout << "NUMBER OF HEADERS: " << request->GetHeaders().size() << std::endl;
-    std::cout << "---- [END OF REQUEST DETAILS] ----" << std::endl;
+    // std::cout << "Processing POST request" << std::endl;
+    // std::cout << "---- [REQUEST DETAILS] ----" << std::endl;
+    // std::cout << "Method: " << request->GetMethod() << std::endl ;
+    // std::cout << "Location: " << request->GetLocation() << std::endl;
+    // std::cout << "Headers: " << std::endl;
+    // for (const auto& header : request->GetHeaders())
+    // {
+    //     std::cout << "  key [" << header.first << " ] : Value [ " << header.second << " ]" << std::endl;
+    // }
+    // std::cout << "Body: " << request->GetBodyAsStr() << std::endl;
+    // std::cout << "NUMBER OF HEADERS: " << request->GetHeaders().size() << std::endl;
+    // std::cout << "---- [END OF REQUEST DETAILS] ----" << std::endl;
     
     // START UPLOADING DATA
     /*
@@ -70,11 +70,13 @@ void    Post::ProccessRequest(HttpRequest *request, const ServerConfig &serverCo
 
     std::cout << "--- checking for post location ---" << std::endl;
     const Location *location = serverConfig.findMatchingLocation(request->GetLocation());
-    std::cout << "Location found: " << (location ? location->get_path() : "Not Found") << std::endl;
-    std::cout << "upload store: " << (location ? location->get_uploadStore() : "Not Found") << std::endl;
+    // std::cout << "Location found: " << (location ? location->get_path() : "Not Found") << std::endl;
+    // std::cout << "upload store: " << (location ? location->get_uploadStore() : "Not Found") << std::endl;
     // exit(0);
     //empty body handling
-    std::cout << request->GetBodyAsStr().size() << std::endl;
+    // std::cout << request->GetBodyAsStr().size() << std::endl;
+    // std::cout << "Body: " << request->GetBodyAsStr() << std::endl;
+    // std::cout << "========================================================================================\n";
     if (request->GetBodyAsStr().empty() && !request->IsStreamingUpload())
     {
         throw HttpException(400, "Bad Request - Body should be empty for POST requests", BAD_REQUEST);
@@ -155,109 +157,6 @@ void Post::hanleTextPlainData(HttpRequest *request, const ServerConfig &serverCo
     request->GetClientDatat()->_server->updatePollEvents(request->GetSocketFd() ,POLLOUT);
 }
 
-/*
-// Text files
-    {"txt", "text/plain"},
-    {"html", "text/html"},
-    {"htm", "text/html"},
-    {"css", "text/css"},
-    {"js", "application/javascript"},
-    {"json", "application/json"},
-    {"xml", "application/xml"},
-    {"csv", "text/csv"},
-    {"md", "text/markdown"},
-    {"rtf", "application/rtf"},
-    
-    // Programming languages
-    {"c", "text/x-c"},
-    {"cpp", "text/x-c++"},
-    {"cc", "text/x-c++"},
-    {"cxx", "text/x-c++"},
-    {"h", "text/x-c"},
-    {"hpp", "text/x-c++"},
-    {"java", "text/x-java"},
-    {"py", "text/x-python"},
-    {"php", "text/x-php"},
-    {"rb", "text/x-ruby"},
-    {"go", "text/x-go"},
-    {"rs", "text/x-rust"},
-    {"sh", "text/x-shellscript"},
-    {"bat", "text/x-msdos-batch"},
-    {"ps1", "text/x-powershell"},
-    {"sql", "text/x-sql"},
-    
-    // Images
-    {"jpg", "image/jpeg"},
-    {"jpeg", "image/jpeg"},
-    {"png", "image/png"},
-    {"gif", "image/gif"},
-    {"bmp", "image/bmp"},
-    {"svg", "image/svg+xml"},
-    {"webp", "image/webp"},
-    {"ico", "image/x-icon"},
-    {"tiff", "image/tiff"},
-    {"tif", "image/tiff"},
-    
-    // Audio
-    {"mp3", "audio/mpeg"},
-    {"wav", "audio/wav"},
-    {"flac", "audio/flac"},
-    {"aac", "audio/aac"},
-    {"ogg", "audio/ogg"},
-    {"m4a", "audio/mp4"},
-    
-    // Video
-    {"mp4", "video/mp4"},
-    {"avi", "video/x-msvideo"},
-    {"mov", "video/quicktime"},
-    {"wmv", "video/x-ms-wmv"},
-    {"flv", "video/x-flv"},
-    {"webm", "video/webm"},
-    {"mkv", "video/x-matroska"},
-    
-    // Documents
-    {"pdf", "application/pdf"},
-    {"doc", "application/msword"},
-    {"docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
-    {"xls", "application/vnd.ms-excel"},
-    {"xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
-    {"ppt", "application/vnd.ms-powerpoint"},
-    {"pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"},
-    {"odt", "application/vnd.oasis.opendocument.text"},
-    {"ods", "application/vnd.oasis.opendocument.spreadsheet"},
-    {"odp", "application/vnd.oasis.opendocument.presentation"},
-    
-    // Archives
-    {"zip", "application/zip"},
-    {"rar", "application/x-rar-compressed"},
-    {"7z", "application/x-7z-compressed"},
-    {"tar", "application/x-tar"},
-    {"gz", "application/gzip"},
-    {"bz2", "application/x-bzip2"},
-    
-    // Executables
-    {"exe", "application/x-msdownload"},
-    {"msi", "application/x-msdownload"},
-    {"deb", "application/x-debian-package"},
-    {"rpm", "application/x-rpm"},
-    {"dmg", "application/x-apple-diskimage"},
-    
-    // Fonts
-    {"ttf", "font/ttf"},
-    {"otf", "font/otf"},
-    {"woff", "font/woff"},
-    {"woff2", "font/woff2"},
-    {"eot", "application/vnd.ms-fontobject"}
-};
-
-// Common text file extensions
-const std::unordered_set<std::string> FileHelper::textExtensions = {
-    "txt", "html", "htm", "css", "js", "json", "xml", "csv", "md", "rtf",
-    "c", "cpp", "cc", "cxx", "h", "hpp", "java", "py", "php", "rb", "go", 
-    "rs", "sh", "bat", "ps1", "sql", "yaml", "yml", "ini", "cfg", "conf",
-    "log", "gitignore", "gitattributes", "dockerfile", "makefile", "cmake",
-    "toml", "properties", "env", "editorconfig", "eslintrc", "prettierrc"
-};*/
 std::string UrlDecode(const std::string &req_line)
 {
     std::string decoded;
@@ -455,11 +354,19 @@ void Post::readBodyChunk(HttpRequest *request)
         return;
     }
     request->SetBodyAsStr(request->GetBodyAsStr() + std::string(buffer, bytesRead));
+    // std::cout << "================== [START OF CHUNK] =================" << std::endl;
+    // std::cout << "Read " << bytesRead << " bytes from body" << std::endl;
+    // std::cout << "Current body size: " << request->GetBodyAsStr().size() << std::endl;
+    // std::cout << "Remaining bytes: " << request->GetRemaineBytes() << std::endl;
+    // // std::cout << "chunk Content: " << request->GetBodyAsStr() << std::endl;
+    // std::cout << "================= [END OF CHUNK] =================" << std::endl;
+    // std::cout << "================= [END OF CHUNK] =================" << std::endl;
 }
 
 
 void Post::getBodyReamiingBytes(HttpRequest *request)
 {
+    std::cout << "====================---- [GETTING REMAINING BYTES] START----===========================" << std::endl;
     std::cout << "Getting remaining bytes from body" << std::endl;
     size_t pos;
 
@@ -490,6 +397,8 @@ void Post::getBodyReamiingBytes(HttpRequest *request)
         request->SetRecvBytes (request->GetBodyAsStr().size());
         request->SetBodyAsStr("");
     }
+    uploading_logger(request);
+    std::cout << "=====================---- [GETTING REMAINING BYTES] END----===========================" << std::endl<< std::endl;
 }
 void Post::uploading_logger(HttpRequest *request)
 {
@@ -499,8 +408,58 @@ void Post::uploading_logger(HttpRequest *request)
     std::cout << "Received bytes: " << request->GetRecvBytes() << std::endl;
     std::cout << "Total body size: " << request->GetBodySize() << std::endl;
     std::cout << "Body content: " << request->GetBodyAsStr() << std::endl;
+    std::cout << "Content-Length: " << request->GetHeader("Content-Length") << std::endl;
     std::cout << "Uploading prgogress: " << (request->GetRecvBytes() * 100 / request->GetBodySize()) << "%" << std::endl;
     std::cout << "====================---- [UPLOAD LOGGING] END----===========================" << std::endl;
+}
+
+
+// Add these includes at the top if not already present
+#include <regex>
+#include <iostream>
+
+std::string DecodeHtmlEntities(const std::string& encoded) 
+{
+    std::string decoded = encoded;
+    std::regex entity_regex("&#(\\d+);");
+    std::smatch match;
+    
+    while (std::regex_search(decoded, match, entity_regex)) 
+    {
+        int codepoint = std::stoi(match[1].str());
+        
+        // Convert Unicode codepoint to UTF-8
+        std::string utf8_char;
+        if (codepoint <= 0x7F)
+        {
+            utf8_char = static_cast<char>(codepoint);
+        }
+        else if (codepoint <= 0x7FF)
+        {
+            // 2-byte UTF-8
+            utf8_char += static_cast<char>(0xC0 | (codepoint >> 6));
+            utf8_char += static_cast<char>(0x80 | (codepoint & 0x3F));
+        }
+        else if (codepoint <= 0xFFFF)
+        {
+            // 3-byte UTF-8
+            utf8_char += static_cast<char>(0xE0 | (codepoint >> 12));
+            utf8_char += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+            utf8_char += static_cast<char>(0x80 | (codepoint & 0x3F));
+        }
+        else
+        {
+            // 4-byte UTF-8
+            utf8_char += static_cast<char>(0xF0 | (codepoint >> 18));
+            utf8_char += static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F));
+            utf8_char += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+            utf8_char += static_cast<char>(0x80 | (codepoint & 0x3F));
+        }
+        
+        decoded.replace(match.position(), match.length(), utf8_char);
+    }
+    
+    return decoded;
 }
 
 void Post::writeToTargetFile(HttpRequest *request, std::string uload_path)
@@ -514,7 +473,7 @@ void Post::writeToTargetFile(HttpRequest *request, std::string uload_path)
     }
     
     size_t buffer_size = std::min(request->GetRemaineBytes(), static_cast<size_t>(MAX_CHUNK_SIZE));
-    char buffer[buffer_size + 1];  // +1 for safety
+    char buffer[buffer_size ]; 
     size_t byte_read = recv(request->GetSocketFd(), buffer, buffer_size, 0);
     
     if (byte_read < 0)
@@ -527,45 +486,37 @@ void Post::writeToTargetFile(HttpRequest *request, std::string uload_path)
     {
         std::cout << "No more data to read - connection closed" << std::endl;
         request->SetIsStreamingUpload(false);
+        std::cout << "hehooooooooooooooooo NO MORE DATA TO READ" << std::endl;
+        uploading_logger(request);
         exit(0);
         file.close();
         return;
     }
     
     std::string chunk_data(buffer, byte_read);
-    std::string closing_boundary = "\r\n--" + request->GetBoundary() + "--";  // Fixed boundary format
-    
-    std::cout << "byte_read: " << byte_read << std::endl;
-    std::cout << "buffer_size: " << buffer_size << std::endl;
-    std::cout << "===================================================\n=================================\n";
+    std::string closing_boundary = "\r\n" + request->GetBoundary() + "--";
+    // std::cout << "closing boundary: " << closing_boundary << std::endl;
+    // std::cout << "chunk_data: " << chunk_data << std::endl;
+    // std::cout << "byte_read: " << byte_read << std::endl;
+    // std::cout << "buffer_size: " << buffer_size << std::endl;
+    // std::cout << "===================================================\n=================================\n";
     
     size_t boundary_pos = chunk_data.find(closing_boundary);
     if (boundary_pos != std::string::npos)
     {
         // Found closing boundary - write only content before it
         file.write(buffer, boundary_pos);
-        
         std::cout << "Upload completed - found closing boundary at position: " << boundary_pos << std::endl;
-        std::cout << "Wrote " << boundary_pos << " bytes of file content" << std::endl;
-        
-        // Update counters: ALL data in this chunk is processed (including boundary)
-        request->SetRemaineBytes(request->GetRemaineBytes() - byte_read);
-        request->SetRecvBytes(request->GetRecvBytes() + byte_read);
-        
         // Upload is complete - stop streaming
         request->SetIsStreamingUpload(false);
         std::cout << "File upload completed!" << std::endl;
+        // exit(0);
     }
     else 
-    {
-        // No boundary found - write all data and continue streaming
         file.write(buffer, byte_read);
-        request->SetRemaineBytes(request->GetRemaineBytes() - byte_read);
-        request->SetRecvBytes(request->GetRecvBytes() + byte_read);
-        
-        std::cout << "Wrote " << byte_read << " bytes, continuing upload..." << std::endl;
-    }
-    
+    request->SetRemaineBytes(request->GetRemaineBytes() - byte_read);
+    request->SetRecvBytes(request->GetRecvBytes() + byte_read);
+
     file.close();
     uploading_logger(request);
 }
@@ -583,6 +534,11 @@ void Post::handleMultipartFormData(HttpRequest *request, const ServerConfig &ser
     std::cout << "Handling multipart/form-data upload" << std::endl;
     std::cout << "========== [[[ Multipart upload counter: =========" << this->counter << std::endl;
     this->counter++;
+    // if (counter > 3)
+    // {
+    //     std::cout << "exit for debugging purposes" << std::endl;
+    //     exit(0);
+    // }
     const Location *location = serverConfig.findMatchingLocation(request->GetLocation());
     if (!request->IsStreamingUpload())
     {
@@ -638,7 +594,6 @@ void Post::handleMultipartFormData(HttpRequest *request, const ServerConfig &ser
                 std::cout << "Boundary not found in body" << std::endl;
                 std::cout << "boundary: " << request->GetBoundary() << std::endl;
                 std::cout << "Body: " << request->GetBodyAsStr() << std::endl;
-                exit(1);
                 request->SetIsStreamingUpload(false);
                 throw HttpException(400, "Bad Request - Boundary not found", BAD_REQUEST);
             }
@@ -670,6 +625,7 @@ void Post::handleMultipartFormData(HttpRequest *request, const ServerConfig &ser
             }
             else
             {
+                file_name = DecodeHtmlEntities(file_name);
                 std::cout << "File name extracted: " << file_name << std::endl;
                 // generate unique file name
                 std::string uploadStore = location->get_uploadStore();
@@ -711,8 +667,6 @@ void Post::handleMultipartFormData(HttpRequest *request, const ServerConfig &ser
         }
         uploading_logger(request);
         std::cout << "upload processing function called" << std::endl;
-        // exit(1);
-        // reading body in chunks
         if (request->GetRemaineBytes() > 0)
             writeToTargetFile(request, request->GetUploadFilePath());
         if (request->GetRemaineBytes() == 0)
@@ -731,7 +685,6 @@ void Post::handleMultipartFormData(HttpRequest *request, const ServerConfig &ser
         {
             std::cout << "Waiting for more data to process multipart/form-data!!!3" << std::endl;
             request->SetIsStreamingUpload(true);
-            request->GetClientDatat()->_server->updatePollEvents(request->GetSocketFd() ,POLLIN);
             return ;
         }
     }
