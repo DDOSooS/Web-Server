@@ -238,11 +238,11 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
     std::cout << "Parsing the Request !!!!!!!!!\n";
     std::cout << "Raw Request size: " << rawRequest.size() << std::endl;
     // exit(0);
-    if (rawRequest.find("\r\n") == std::string::npos && rawRequest.find("\n") == std::string::npos)
-    {
-        std::cerr << "Invalid request format NO CRLF EXIST " << std::endl;
-        throw HttpException(400, "Bad Request", BAD_REQUEST);
-    }
+    // if (rawRequest.find("\r\n") == std::string::npos && rawRequest.find("\n") == std::string::npos)
+    // {
+    //     std::cerr << "Invalid request format NO CRLF EXIST " << std::endl;
+    //     throw HttpException(400, "Bad Request", BAD_REQUEST);
+    // }
     std::cout << "Crlf Test is BEING PASSED WELL!!!\n";
     
     std::istringstream iss(rawRequest);

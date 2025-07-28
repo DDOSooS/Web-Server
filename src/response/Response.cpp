@@ -193,13 +193,15 @@ std::string HttpResponse::determineContentType(std::string path)
     if (dot_pos != std::string::npos)
     {
         std::string ext = path.substr(dot_pos + 1);
-        // Convert extension to lowercase
-        for (size_t i = 0; i < ext.length(); i++) {
+        for (size_t i = 0; i < ext.length(); i++)
+        {
             ext[i] = std::tolower(ext[i]);
         }
         
-        for (int i = 0; i < size; i++) {
-            if (contentType[i] == ext) {
+        for (int i = 0; i < size; i++)
+        {
+            if (contentType[i] == ext) 
+            {
                 return contenetFormat[i];
             }
         }
@@ -235,17 +237,20 @@ std::string HttpResponse::toString()
     // First pass: collect Set-Cookie headers and add other headers
     for (it = this->_headers.begin(); it != this->_headers.end(); ++it)
     {
-        if (it->first == "Set-Cookie") {
+        if (it->first == "Set-Cookie")
+        {
             set_cookie_headers.push_back(it->second);
             std::cout << "🍪 Found Set-Cookie header: " << it->second << std::endl;
-        } else {
+        }
+        else {
             response += it->first + ": " + it->second + "\r\n";
             std::cout << "📤 Adding header: " << it->first << ": " << it->second << std::endl;
         }
     }
     
     // CRITICAL: Add each Set-Cookie header on a separate line
-    for (size_t i = 0; i < set_cookie_headers.size(); ++i) {
+    for (size_t i = 0; i < set_cookie_headers.size(); ++i)
+    {
         response += "Set-Cookie: " + set_cookie_headers[i] + "\r\n";
         std::cout << "🍪 Added Set-Cookie to response: " << set_cookie_headers[i] << std::endl;
     }
@@ -292,25 +297,24 @@ std::string HttpResponse::toString()
     std::cout << "🔐 Final response headers:" << std::endl;
     // Log the full response headers for debugging
     size_t header_end = response.find("\r\n\r\n");
-    if (header_end != std::string::npos) {
+    if (header_end != std::string::npos)
+    {
         std::string headers_only = response.substr(0, header_end);
         std::cout << "========== RESPONSE HEADERS START ==========" << std::endl;
         std::cout << headers_only << std::endl;
         std::cout << "========== RESPONSE HEADERS END ==========" << std::endl;
     }
-    
     return response;
 }
-
-
 
 void HttpResponse::sendResponse(int socket_fd)
 {
     std::cout << "[Debug : ] ---Start of Sending A response--- !!\n";
 
     std::string response = this->toString();
-    
-    ssize_t bytes_sent = send(socket_fd, response.c_str(), response.size(), 0);
+    std::cout << "[Debug] : Response to send: " << response << std::endl;
+    std::cout << "[Debug] : Response size: " << response.size() << " bytes" << std::endl;
+    ssize_t bytes_sent = send(socket_fd, response.c_str(), response.size(), MSG_NOSIGNAL);
     if (bytes_sent < 0)
     {
         std::cerr << "Error sending response: " << strerror(errno) << std::endl;
@@ -349,6 +353,7 @@ void HttpResponse::sendChunkedResponse(int socket_fd)
         std::cerr << "Error opening file: " << this->_file_path << std::endl;
         throw HttpException(404, "Not Found", NOT_FOUND);
     }
+
     
     // Send headers only once (when _byte_sent == 0) => FIRST CHUNK
     if (this->_byte_sent == 0)
@@ -365,7 +370,8 @@ void HttpResponse::sendChunkedResponse(int socket_fd)
         
         std::string header_str = headers.str();
         ssize_t header_bytes = send(socket_fd, header_str.c_str(), header_str.size(), MSG_NOSIGNAL);
-        if (header_bytes < 0) {
+        if (header_bytes < 0)
+        {
             std::cerr << "Error sending headers: " << strerror(errno) << std::endl;
             throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
         }
@@ -374,25 +380,31 @@ void HttpResponse::sendChunkedResponse(int socket_fd)
     }
 
     // HANDLE FINAL CHUNK
-    if (this->_byte_sent >= this->_byte_to_send)
+    if (this->_byte_sent == this->_byte_to_send)
     {
         std::cout << "[Debug] Sending final chunk (size 0)\n";
         std::string final_chunk = "0\r\n\r\n";
         ssize_t final_bytes = send(socket_fd, final_chunk.c_str(), final_chunk.size(), MSG_NOSIGNAL);
-        if (final_bytes < 0) {
+        if (final_bytes < 0)
+        {
             std::cerr << "Error sending final chunk: " << strerror(errno) << std::endl;
             throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
         }
+        std::cout << "[Debug byte sent] : " << this->_byte_sent << " bytes\n";
+        std::cout << "Debug byte to send: " << this->_byte_to_send << " bytes\n";
+        exit(0);
         std::cout << "[Debug] Final chunk sent: " << final_bytes << " bytes\n";
         return;
     }
     file.seekg(this->_byte_sent);
     size_t remaining_bytes = this->_byte_to_send - this->_byte_sent;
     size_t chunk_size = std::min(static_cast<size_t>(CHUNKED_SIZE), remaining_bytes);
+
     // Read chunk from file
     std::vector<char> buffer(chunk_size);
     file.read(buffer.data(), chunk_size);
-    if (!file && !file.eof()) {
+    if (!file && !file.eof())
+    {
         std::cerr << "Error reading file chunk" << std::endl;
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }

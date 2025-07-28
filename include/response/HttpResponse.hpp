@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 #include "../request/HttpException.hpp"
 
-#define CHUNKED_SIZE 1024
+#define CHUNKED_SIZE 1024 * 8 // 8 KB
 class HttpResponse
 {
     private:
