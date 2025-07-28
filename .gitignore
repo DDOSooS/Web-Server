@@ -1,8 +1,7 @@
 .vscode
 .o
 .exe# Upload files
-www/uploads/
-uploads/
+
 tmp/
 
 # Video files
