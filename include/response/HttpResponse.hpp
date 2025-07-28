@@ -44,8 +44,7 @@ class HttpResponse
         void                                                setByteSent(int byte_sent);
         void                                                setByteToSend(int byte_to_send);
 
-
-        int                                              getByteToSend() const;
+        int                                                 getByteToSend() const;
         int                                                 getStatusCode() const;
         std::string                                         getStatusMessage() const;
         std::string                                         getHeader(std::string key) const;
@@ -53,19 +52,19 @@ class HttpResponse
         bool                                                isChunked() const;
         bool                                                isKeepAlive() const;
         std::string                                         getBuffer() const;
-        int                                              getByteSent() const;
+        int                                                 getByteSent() const;
         std::string                                         getContentType() const;
         std::map<std::string, std::string>                  getHeaders() const;
 
         bool                                                checkAvailablePacket() const;
-
         void                                                sendChunkedResponse(int socekt_fd);
         void                                                sendResponse(int socket_fd);
-        std::string  toString() ;
-        std::string  GetStatusMessage(int code) const;
-        void         clear();
-        bool         isFile() const;
-        std::string determineContentType( std::string path) ;
+        void                                                sendLastChunk( int socket_fd);
+        std::string                                         toString() ;
+        std::string                                         GetStatusMessage(int code) const;
+        void                                                clear();
+        bool                                                isFile() const;
+        std::string                                         determineContentType( std::string path) ;
         ~HttpResponse();
 };
 

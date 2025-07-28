@@ -588,7 +588,6 @@ void WebServer::handleClientResponse(int fd)
             try
             {
                 client.http_response->sendChunkedResponse(fd);
-                
                 std::cout << "----------- [Chunked response Detail] -------------\n";
                 std::cout << "File bytes sent: " << client.http_response->getByteSent() << "\n";
                 std::cout << "File bytes to send: " << client.http_response->getByteToSend() << "\n";
@@ -596,6 +595,7 @@ void WebServer::handleClientResponse(int fd)
                 if (client.http_response->getByteSent() == client.http_response->getByteToSend())
                 {
                     std::cout << "Chunked response sent completely\n";
+                    client.http_response->sendLastChunk(fd);
                     if (client.http_response->isKeepAlive())
                     {
                         std::cout << "Resetting request for keep-alive\n";
