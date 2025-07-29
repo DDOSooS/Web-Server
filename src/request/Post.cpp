@@ -62,7 +62,6 @@ void    Post::ProccessRequest(HttpRequest *request, const ServerConfig &serverCo
         //json upload is not supported yet  
     */
 
-
     /*
         checking if it's the location 
     
@@ -73,10 +72,6 @@ void    Post::ProccessRequest(HttpRequest *request, const ServerConfig &serverCo
     // std::cout << "Location found: " << (location ? location->get_path() : "Not Found") << std::endl;
     // std::cout << "upload store: " << (location ? location->get_uploadStore() : "Not Found") << std::endl;
     // exit(0);
-    //empty body handling
-    // std::cout << request->GetBodyAsStr().size() << std::endl;
-    // std::cout << "Body: " << request->GetBodyAsStr() << std::endl;
-    // std::cout << "========================================================================================\n";
     if (request->GetBodyAsStr().empty() && !request->IsStreamingUpload())
     {
         throw HttpException(400, "Bad Request - Body should be empty for POST requests", BAD_REQUEST);
@@ -102,11 +97,11 @@ void    Post::ProccessRequest(HttpRequest *request, const ServerConfig &serverCo
         std::cout << "Handling text/plain data" << std::endl;
         hanleTextPlainData(request, serverConfig, clientConfig);
     }
-    // else
-    // {
-    //     std::cout << "Unsupported Content-Type: " << request->GetHeader("Content-Type") << std::endl;
-    //     throw HttpException(415, "Unsupported Media Type", BAD_REQUEST);
-    // }
+    else
+    {
+        std::cout << "Unsupported Content-Type: " << request->GetHeader("Content-Type") << std::endl;
+        throw HttpException(415, "Unsupported Media Type", BAD_REQUEST);
+    }
     // std::cout << request->GetHeader("Content-Type") << std::endl;
     // exit(0);
 }
@@ -219,7 +214,6 @@ void Post::handleUrlEncodedData(HttpRequest *request, const ServerConfig &server
         }
         std::string input_field = body.substr(i, pos - i);
         std::cout << input_field << std::endl;
-        // exit(1);
         size_t tmp_pos = input_field.find('=');
         if (tmp_pos != std::string::npos)
             formData[input_field.substr(0, tmp_pos)] = UrlDecode(input_field.substr(tmp_pos + 1, pos - tmp_pos - 1));
@@ -233,7 +227,7 @@ void Post::handleUrlEncodedData(HttpRequest *request, const ServerConfig &server
     {
         std::cout << "Key: " << pair.first << ", Value: " << pair.second << std::endl;
     }
-    // std::cout << "Body content: " << body << std::endl;
+
     std::stringstream ss(body);
 
     ss << "<html><body>";
@@ -296,7 +290,6 @@ std::string extractFileName(const std::string &body, const std::string &boundary
     }
     return ( body.substr(start + 10, end - start - 10));
 }
-
 
 bool Post::checkBoundary(std::string body, std::string boundary) const
 {

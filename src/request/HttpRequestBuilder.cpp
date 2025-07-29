@@ -159,6 +159,16 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line,const Server
             std::cout << "CURRENT LOCATION DOESN'T EXIST !!!!!!!!!!!!!\n";
     */
     // need to intergate the conf file congiguration!!!
+
+    std::cout << "============================================\n";
+    std::cout << "============================================\n";
+    std::cout << "----> method " << method << std::endl;
+    std::cout << "----> path " << path << std::endl;
+    std::cout << "----> http_version " << http_version << std::endl;
+    std::cout << "----> request_line " << request_line << std::endl;
+    std::cout << "============================================\n";
+    std::cout << "============================================\n";
+
     std::vector<std::string> valid_methods;
     valid_methods.push_back("GET");
     valid_methods.push_back("POST");
@@ -175,14 +185,20 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line,const Server
         return;
     }
     // check if the method is valid
-    const Location *cur_location = serverConfig.findMatchingLocation(path);
-    if (cur_location && !cur_location->is_method_allowed(method))
-    {
-        _http_request.SetIsRl(REQ_METHOD_ERROR);
-        return;
-    }
+    // const Location *cur_location = serverConfig.findMatchingLocation(path);
+    
+    // if (cur_location && !cur_location->is_method_allowed(method))
+    // {
+    //     _http_request.SetIsRl(REQ_METHOD_ERROR);
+    //     std::cout << "METHOD NOT ALLOWED: " << method << std::endl;
+    //     std::cout << "METHOD NOT ALLOWED: " << method << std::endl;
+    //     std::cout << "METHOD NOT ALLOWED: " << method << std::endl;
+    //     std::cout << "METHOD NOT ALLOWED: " << method << std::endl;
+    //     std::cout << "METHOD NOT ALLOWED: " << method << std::endl;
+    //     exit(0);
+    //     return;
+    // }
     std::cout << "Http METHOD TEST passed!!\n";
-
     _http_request.SetMethod(method);
     _http_request.SetIsRl(REQ_DONE);
     _http_request.SetStatus(PARSER);
@@ -235,8 +251,13 @@ void HttpRequestBuilder::ParseRequestBody(std::string &body)
 
 void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig &serverConfig, int socketFd)
 {
+    std::cout << "------------------------------------------------------" << std::endl;
+    std::cout << "------------------------------------------------------" << std::endl;
     std::cout << "Parsing the Request !!!!!!!!!\n";
-    std::cout << "Raw Request size: " << rawRequest.size() << std::endl;
+    std::cout << "Raw Request size:" << rawRequest.size() << std::endl;
+    std::cout << "Raw Request Content: [" << rawRequest << "]" << std::endl;
+    std::cout << "------------------------------------------------------" << std::endl;
+    std::cout << "------------------------------------------------------" << std::endl;
     // exit(0);
     // if (rawRequest.find("\r\n") == std::string::npos && rawRequest.find("\n") == std::string::npos)
     // {

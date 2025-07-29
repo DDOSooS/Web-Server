@@ -232,7 +232,11 @@ const Location *ServerConfig::findMatchingLocation(const std::string &path) cons
     {
         // std::cout << "[DEBUG] Checking location: " << this->_locations[i].get_path() << std::endl << std::endl;
         if (!this->_locations[i].get_path().empty() && this->_locations[i].get_path() == tmp_path)
+        {
+            std::cout << "[DEBUG] Found matching location: " << this->_locations[i].get_path() << std::endl;
+            std::cout << "================= [ End of Finding Matching Location ] =======================\n";
             return &this->_locations[i];
+        }
         if (this->_locations[i].get_path() == "/")
         {
             default_location = &this->_locations[i];

@@ -30,7 +30,9 @@ void    RequestHandler::HandleRequest(HttpRequest *request, const ServerConfig &
         std::cerr << "Error: Null request in RequestHandler" << std::endl;
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
-    
+    std::cout << "-----------------------------------------------------------------------" << std::endl << std::endl;
+    std::cout << "redirection number :" << request->GetClientDatat()->redirect_counter << std::endl;
+    std::cout << "-----------------------------------------------------------------------" << std::endl << std::endl;
     // Check if this request has already been processed
     if (request->IsProcessed())
     {
@@ -46,8 +48,15 @@ void    RequestHandler::HandleRequest(HttpRequest *request, const ServerConfig &
 
     if (request->IsRedirected())
     {
+        // request->GetClientDatat()->redirect_counter++;
         // request->SetRedirectCounter(request->GetRedirectCounter() + 1);
-        // request->handleRedirect(cur_location, rel_path);
+        request->handleRedirect(cur_location, rel_path);
+        std::cout << "===================================================" << std::endl;
+        std::cout << "===================================================" << std::endl;
+        std::cout << "[DEBUG] Redirecting to: " << rel_path << std::endl;
+        std::cout << "===================================================" << std::endl;
+        std::cout << "===================================================" << std::endl;
+        // exit(0);
         return;
     }
     if (CanHandle(request->GetMethod()))
@@ -62,6 +71,5 @@ void    RequestHandler::HandleRequest(HttpRequest *request, const ServerConfig &
         std::cerr << "No handler for method: " << request->GetMethod() << std::endl;
         throw HttpException(501, "Not Implemented", NOT_IMPLEMENTED);
     }
-
     return;
 }

@@ -648,9 +648,7 @@ void WebServer::handleClientResponse(int fd)
                     return;
                 }
             }
-            
             this->updatePollEvents(fd, POLLIN);
-            
             if (client.http_response->isKeepAlive())
             {
                 std::cout << "after Resetting the request !!!\n";

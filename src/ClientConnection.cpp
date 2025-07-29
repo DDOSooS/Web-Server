@@ -78,14 +78,13 @@ Content-Type: image/jpeg
 
 ����
 ------------------------
-
 */
+
 void ClientConnection::GenerateRequest(int fd)
 {
+    std::cout << "Socket Fd: " << fd << "=====" << std::endl;
     char buffer[REQUSET_LINE_BUFFER];
     size_t bytesRead = recv(fd, buffer, sizeof(buffer) - 1, 0);
-    std::cout << "Socket Fd: " << fd << "=====" << std::endl;
-    
     if (bytesRead < 0)
     {
         std::cerr << "Error receiving data: "
@@ -93,23 +92,9 @@ void ClientConnection::GenerateRequest(int fd)
                   << std::endl;
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
-    
-    // ❌ DON'T null-terminate for binary data
-    // buffer[bytesRead] = '\0';
-    
-    // std::cout << "Received bytes request from client fd=" << bytesRead << std::endl;
-
-    // ✅ USE SIZE-BASED CONSTRUCTOR (handles binary data correctly)
     std::string rawRequest(buffer, bytesRead);  // This preserves all bytes including nulls
-    
-    // std::cout << "Raw Request size: " << rawRequest.size() << std::endl;
-    // std::cout << "Bytes read: " << bytesRead << std::endl;
-    
-    // Now rawRequest.size() should equal bytesRead
-    
     HttpRequestBuilder build = HttpRequestBuilder();
     build.ParseRequest(rawRequest, this->_server->getConfigForClient(this->GetFd()), fd);
-    
     
     // Create final HTTP request object
     if (this->http_request)
@@ -117,9 +102,23 @@ void ClientConnection::GenerateRequest(int fd)
         delete this->http_request;
     }
     this->http_request = new HttpRequest(build.GetHttpRequest());
+
+    // checking if the method is nor valid
+    ServerConfig client_config = this->_server->getConfigForClient(fd);
+    const Location *cur_location = client_config.findMatchingLocation(this->http_request->GetLocation());
+    std::vector<std::string> allowed_methods = cur_location ? cur_location->get_allowMethods() : std::vector<std::string>();
+    int flag = 0;
+
+    flag = cur_location->get_return().size() > 0 ? 1 : 0;
+    if (std::find(allowed_methods.begin(), allowed_methods.end(), this->http_request->GetMethod()) == allowed_methods.end() && !flag)
+    {
+        std::cerr << "Method not allowed: " << this->http_request->GetMethod() << std::endl;
+        throw HttpException(405, "Method Not Allowed", METHOD_NOT_ALLOWED);
+        return;
+    }
+
     this->http_request->SetClientData(this);
     this->setServerConfig(this->_server->getConfigForClient(this->GetFd()));
-
     std::cout << "Server Name is: " << this->getServerConfig().get_server_name() << "=============\n\n\n" << std::endl;
     std::cout << "Server Root is: " << this->getServerConfig().get_root() << "=============\n\n\n" << std::endl;
 }
@@ -138,21 +137,17 @@ void ClientConnection::ProcessRequest(int fd)
         std::map<std::string, std::string> emptyHeaders;
         this->http_response = new HttpResponse(200, emptyHeaders, "text/plain", false, false);
     }
-    
     chain_handler = new CgiHandler(this);
     chain_handler->SetNext(new Get())
                 ->SetNext(new Post())
                 ->SetNext(new Delete());
-
     chain_handler->HandleRequest(this->http_request, 
                                 this->_server->getConfigForClient(this->GetFd()), 
                                 this->server_config);
     
     // update client file descriptor to POLLOUT
     if (!this->http_request->IsStreamingUpload())
-    {
         this->_server->updatePollEvents(fd, POLLOUT);
-    }
     else
         this->_server->updatePollEvents(fd, POLLIN);
     // Clean up handler chain

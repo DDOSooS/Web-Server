@@ -1,5 +1,6 @@
 #include "../../include/request/HttpRequest.hpp"
 #include "../../include/ClientConnection.hpp"
+#include "../../include/request/HttpException.hpp"
 
 HttpRequest::HttpRequest()
 {
@@ -424,7 +425,7 @@ std::string HttpRequest::GetRelativePath(const Location *cur_location, ClientCon
         // std::cout << "\n\n\n-------------------------[ DEBUG ] : [ORIGIN ]Redirecting to : " 
         //           << cur_location->get_path() << "------" << cur_location->get_return()[1] 
         //           << "------------------\n\n" << std::endl;
-        client->redirect_counter++;
+        // client->redirect_counter++;
         rel_path = cur_location->get_return()[1];
         // std::cout << "[ INFO ] : Current working directory: " << cwd << std::endl;
         return rel_path;
@@ -479,5 +480,71 @@ std::string  HttpRequest::GetRedirectionMessage(int status_code) const
             break;
     }
     return message;
+}
+
+bool isRedirectionStatusCode(int status_code)
+{
+    return (status_code == 301 || status_code == 302 || status_code == 303 || status_code == 307 || status_code == 308);
+}
+
+void HttpRequest::handleRedirect(const Location * cur_location , std::string &rel_path)
+{
+   /*
+    i should check if the status code is not in our redirection status codes
+    check if the location isn't null
+    if it's null not found error page
+    if the location does exist -> i should check the redirection status code
+    301 - 302- 303-> all GONNA be converted to Get method whatever the method is
+    307 - 308 -> keep the same method 
+        -- if the method is post i should preserve the body content but the question is if we do have a long body size how i should deal with that ??????
+   */
+    int redirection_code = static_cast<int>(std::stoi(cur_location->get_return()[0]));
+    this->SetIsRedirected(true);
+    std::cout << "=================== redirection_code: " << redirection_code << std::endl;
+    // exit(0);
+    if (!isRedirectionStatusCode(redirection_code))
+    {
+        throw HttpException(400, "Bad Request: Invalid redirection status code", BAD_REQUEST);
+    }
+    if (cur_location == NULL)
+    {
+        throw HttpException(404, "Not Found: Location does not exist", NOT_FOUND);
+    }
+    
+    // Check if the redirection status code is 301, 302, or 303
+    if (redirection_code == 301 || redirection_code == 302 || redirection_code == 303)
+    {
+        
+        this->GetClientDatat()->http_response->setStatusCode(redirection_code);
+        this->GetClientDatat()->http_response->setHeader("Location", cur_location->get_return()[1]);
+        this->GetClientDatat()->http_response->setStatusMessage(this->GetRedirectionMessage(redirection_code));
+        this->GetClientDatat()->http_response->setHeader("X-Original-Method", "GET");
+        this->GetClientDatat()->http_response->setBuffer(" ");
+        std::cout << "Redirecting to: " << cur_location->get_return()[1] << std::endl;
+        std::cout << "Original Method: " << this->GetMethod() << std::endl;
+        std::cout << "redirection count: " << this->GetClientDatat()->redirect_counter << std::endl;
+        // this->GetClientDatat()->_server->updatePollEvents(this->GetSocketFd(), POLLOUT);
+        // exit(0);
+        return ;
+    }
+    
+    if (redirection_code == 307 || redirection_code == 308)
+    {
+        this->GetClientDatat()->http_response->setStatusCode(redirection_code);
+        this->GetClientDatat()->http_response->setHeader("Location", cur_location->get_return()[1]);
+        this->GetClientDatat()->http_response->setBuffer(" ");
+        this->GetClientDatat()->http_response->setStatusMessage(this->GetRedirectionMessage(redirection_code));
+
+        // For 307/308, we need to preserve the original request method and body
+        if (this->_method == "POST")
+        {
+            this->GetClientDatat()->http_response->setHeader("X-Original-Method", this->GetMethod());
+        }
+        else
+        {
+            this->GetClientDatat()->http_response->setHeader("X-Original-Method", "GET");
+        }
+        return ;
+    }   
 }
 
