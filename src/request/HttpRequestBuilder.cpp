@@ -93,6 +93,34 @@ void    HttpRequestBuilder::TrimPath(std::string &path)
     }
 }
 
+std::string trim(const std::string& str) 
+{
+    size_t start = str.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos)
+    {
+        return "";
+    }
+    size_t end = str.find_last_not_of(" \t\r\n");
+    return str.substr(start, end - start + 1);
+}
+
+void SetRequestLineFields(std::string &rl, std::string &method, std::string &path, std::string &http_version)
+{
+    size_t first_wp = rl.find_first_of(" \t");
+    method = rl.substr(0, first_wp);
+    size_t last_wp = rl.find_last_of(" \t");
+    http_version = rl.substr(last_wp + 1);
+    path = rl.substr(first_wp + 1, last_wp - first_wp - 1);
+    
+    method = trim(method);
+    path = trim(path);
+    http_version = trim(http_version);
+    
+    std::cout << "HTTP VERSION: '" << http_version << "' (length: " << http_version.length() << ")" << std::endl;
+    std::cout << "METHOD: '" << method << "'" << std::endl;
+    std::cout << "PATH: '" << path << "'" << std::endl;
+}
+
 void HttpRequestBuilder::ParseRequestLine(std::string &request_line,const ServerConfig &serverConfig)
 {
     std::cout << "[INFO] : PARSING REQ LINE !!!!!!!!!!!!!!\n";
@@ -101,14 +129,8 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line,const Server
     std::istringstream  iss(decoded_request_line);
     std::string         method, path, http_version;
 
-    iss >> method >> path >> http_version;
-    TrimPath(path);
-    
-    // Debug the raw request line and parsed components
-    std::cout << "Raw request line: '" << request_line << "'" << std::endl;
-    std::cout << "Decoded request line: '" << decoded_request_line << "'" << std::endl;
-    std::cout << "Parsed method: '" << method << "', path: '" << path << "', version: '" << http_version << "'" << std::endl;
-    
+    SetRequestLineFields(decoded_request_line, method, path, http_version);
+    // iss >> method >> path >> http_version;
     // check if the request line is a query string ?
     if (path.find("?") != std::string::npos)
     {
@@ -122,18 +144,20 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line,const Server
         std::cout << "Updated path: '" << path << "'" << std::endl;
         ParseQueryString(query_string);
     }
-    _http_request.SetRequestLine(request_line);
+    _http_request.SetRequestLine(decoded_request_line);
     //check crlf of the request line
-    std::cout << "<< RL :: " << _http_request.GetRequestLine() << ";;   >>>\n";
-    std::cout << "Methode :" << method << "\n";
-    std::cout << "Location :" << path << "\n";
-    std::cout << "Http Version:" << http_version << "\n";
-
+    
     // check if the request line is valid
     if (http_version != "HTTP/1.1" && http_version != "HTTP/1.0")
     {
         std::cerr << "HTTP VERSION ERROR\n";
-        // exit(2);
+        std::cout << http_version << std::endl;
+        std::cout << http_version.length() << std::endl;
+        std::cout << "1.0 ?" << (http_version == "HTTP/1.0") << std::endl;
+        std::cout << "1.1 ?" << (http_version == "HTTP/1.1") << std::endl;
+        std::cout << "============================================\n"; 
+        // exit(1);
+
         _http_request.SetIsRl(REQ_HTTP_VERSION_ERROR);
         return;
     }
