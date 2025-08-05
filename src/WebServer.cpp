@@ -970,3 +970,52 @@ void WebServer::handleCgiEvent(int fd) {
         CgiHandler::active_cgis.erase(it);
     }
 }
+
+void WebServer::updateClientServerMapping(int client_fd, const ServerConfig& config)
+{
+    for (size_t i = 0; i < m_configs.size(); ++i)
+    {
+        if (m_configs[i].get_server_name() == config.get_server_name() && 
+            m_configs[i].get_port() == config.get_port())
+        {
+            client_to_server_index[client_fd] = i;
+            std::cout << "Updated mapping: client " << client_fd << " -> server " 
+                      << config.get_server_name() << std::endl;
+            return;
+        }
+    }
+}
+
+
+ServerConfig WebServer::getConfigByIpPortAndHost(const std::string& ip, int port, const std::string& host) 
+{
+    std::vector<ServerConfig> matching_configs;
+    
+    std::cout << "🔍 Searching for servers on " << ip << ":" << port << " with host: " << host << std::endl;
+    
+    for (size_t i = 0; i < m_configs.size(); ++i)
+    {
+        if (m_configs[i].get_host() == ip && m_configs[i].get_port() == port)
+        {
+            matching_configs.push_back(m_configs[i]);
+            std::cout << "🔍 Found server on " << ip << ":" << port << " - " << m_configs[i].get_server_name() << std::endl;
+        }
+    }
+    
+    if (matching_configs.empty()) {
+        return m_configs[0];
+    }
+    
+    for (std::vector<ServerConfig>::iterator it = matching_configs.begin(); 
+         it != matching_configs.end(); ++it)
+    {
+        if (it->get_server_name() == host)
+        {
+            return *it;
+        }
+    }
+    
+   
+    std::cout << "🔧 Using first server for " << ip << ":" << port << " (" << matching_configs[0].get_server_name() << ")" << std::endl;
+    return matching_configs[0];
+}

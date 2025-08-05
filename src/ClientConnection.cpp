@@ -92,38 +92,48 @@ void ClientConnection::GenerateRequest(int fd)
                   << std::endl;
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
-    std::string rawRequest(buffer, bytesRead);  // This preserves all bytes including nulls
+    std::string rawRequest(buffer, bytesRead);
     HttpRequestBuilder build = HttpRequestBuilder();
 
     build.ParseRequest(rawRequest, this->_server->getConfigForClient(this->GetFd()), fd);
     
-    // Create final HTTP request object
     if (this->http_request)
     {
         delete this->http_request;
     }
     this->http_request = new HttpRequest(build.GetHttpRequest());
 
-    // checking if the method is nor valid
-    // --------- Multiples servers routing by host name ----------------
+    
+    ServerConfig base_config = this->_server->getConfigForClient(fd);
+    std::string server_ip = base_config.get_host();
+    int server_port = base_config.get_port();
+    
+    
     std::string host_header = this->http_request->GetHeader("Host");
-    std::cout << "⛑️⛑️⛑️⛑️⛑️⛑️⛑️⛑️⛑️⛑️⛑️⛑️ Host Name:  " << host_header << std::endl;
-    if(!host_header.empty()) {
+    
+    ServerConfig final_config = base_config;
+    
+    if (!host_header.empty()) {
         size_t pos = host_header.find(':');
-        if(pos != std::string::npos) {
+        if (pos != std::string::npos) {
             host_header = host_header.substr(0, pos);
         }
-        // find matching server by host
-        ServerConfig matched_config = this->_server->getConfigByHost(host_header);
-        this->setServerConfig(matched_config);
-        std::cout << "⛑️⛑️⛑️⛑️⛑️⛑️⛑️⛑️⛑️⛑️⛑️⛑️  matched server " << matched_config.get_server_name() << std::endl;
+        
+        ServerConfig matched_config = this->_server->getConfigByIpPortAndHost(server_ip, server_port, host_header);
+        final_config = matched_config;
+        
+        this->_server->updateClientServerMapping(fd, matched_config);
+        
+        std::cout << "🔍 Final match - Server: " << matched_config.get_server_name() 
+                  << " on " << server_ip << ":" << server_port << std::endl;
     }
-    ServerConfig client_config = this->_server->getConfigForClient(fd);
-    const Location *cur_location = client_config.findMatchingLocation(this->http_request->GetLocation());
-    std::vector<std::string> allowed_methods = cur_location ? cur_location->get_allowMethods() : std::vector<std::string>();
-    int flag = 0;
+    
+    this->setServerConfig(final_config);
 
-    flag = cur_location->get_return().size() > 0 ? 1 : 0;
+    const Location *cur_location = final_config.findMatchingLocation(this->http_request->GetLocation());
+    std::vector<std::string> allowed_methods = cur_location ? cur_location->get_allowMethods() : std::vector<std::string>();
+    int flag = cur_location->get_return().size() > 0 ? 1 : 0;
+
     if (std::find(allowed_methods.begin(), allowed_methods.end(), this->http_request->GetMethod()) == allowed_methods.end() && !flag)
     {
         std::cerr << "Method not allowed: " << this->http_request->GetMethod() << std::endl;
@@ -132,10 +142,11 @@ void ClientConnection::GenerateRequest(int fd)
     }
 
     this->http_request->SetClientData(this);
-    //this->setServerConfig(this->_server->getConfigForClient(this->GetFd()));
-    std::cout << "Server Name is: " << this->getServerConfig().get_server_name() << "=============\n\n\n" << std::endl;
-    std::cout << "Server Root is: " << this->getServerConfig().get_root() << "=============\n\n\n" << std::endl;
+    
+    std::cout << "✅ Final Server Name: " << this->getServerConfig().get_server_name() << std::endl;
+    std::cout << "✅ Final Server Root: " << this->getServerConfig().get_root() << std::endl;
 }
+
 
 void ClientConnection::ProcessRequest(int fd)
 {

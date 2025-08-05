@@ -40,7 +40,8 @@ class WebServer
 
         ClientConnection& getClient(int fd) { return clients[fd]; }
         void updatePollEvents(int fd, short events);
-        
+        void updateClientServerMapping(int client_fd, const ServerConfig& config);
+        ServerConfig getConfigByIpPortAndHost(const std::string& ip, int port, const std::string& host);
         // Debug function for monitoring poll state
         void debugPollState();
         
