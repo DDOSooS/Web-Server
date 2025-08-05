@@ -130,8 +130,12 @@ void ClientConnection::GenerateRequest(int fd)
     
     this->setServerConfig(final_config);
 
-    const Location *cur_location = final_config.findMatchingLocation(this->http_request->GetLocation());
+    const Location *cur_location = final_config.findBestMatchingLocation(this->http_request->GetLocation());
     std::vector<std::string> allowed_methods = cur_location ? cur_location->get_allowMethods() : std::vector<std::string>();
+    std::cout << "Location Found: " << cur_location->get_path() << std::endl; 
+    for(size_t i = 0; i < allowed_methods.size(); ++i) {
+        std::cout << "[" << i << "] " << allowed_methods[i] << std::endl; 
+    }
     int flag = cur_location->get_return().size() > 0 ? 1 : 0;
 
     if (std::find(allowed_methods.begin(), allowed_methods.end(), this->http_request->GetMethod()) == allowed_methods.end() && !flag)
