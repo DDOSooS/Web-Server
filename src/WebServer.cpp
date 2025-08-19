@@ -136,7 +136,7 @@ int WebServer::init(std::vector<ServerConfig>& configs)
 
         if (bind(server_socket, (struct sockaddr *)&hint, sizeof(hint)) < 0)
         {
-            perror("bind failed");
+            std::cerr << "bind failed" << std::endl;
             close(server_socket);
             return -1;
         }
@@ -144,7 +144,7 @@ int WebServer::init(std::vector<ServerConfig>& configs)
         // Listen
         if (listen(server_socket, SOMAXCONN) < 0)
         {
-            perror("listen failed");
+            std::cerr << "listen failed" << std::endl;
             close(server_socket);
             return -1;
         }
@@ -362,7 +362,7 @@ void WebServer::acceptNewConnection(int listening_socket)
     int clientFd = accept(listening_socket, (struct sockaddr *)&clientAddr, &addrLen);
     if (clientFd < 0)
     {
-        perror("accept");
+        std::cerr << "accept failed" << std::endl;
         return;
     }
 
@@ -962,8 +962,8 @@ void WebServer::handleCgiEvent(int fd) {
         close(fd);
         removeCgiFromPoll(fd);
         CgiHandler::active_cgis.erase(it);
-    } else if (bytes < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
-        std::cout << "🔍 ERROR: read() failed: " << strerror(errno) << std::endl;
+    } else if (bytes < 0) {
+        std::cout << "🔍 ERROR: read() failed" << std::endl;
         
         close(fd);
         removeCgiFromPoll(fd);

@@ -88,7 +88,7 @@ void ClientConnection::GenerateRequest(int fd)
     if (bytesRead < 0)
     {
         std::cerr << "Error receiving data: "
-                  << (bytesRead == 0 ? "Connection closed" : strerror(errno))
+                  << (bytesRead == 0 ? "Connection closed" : "recv failed")
                   << std::endl;
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
