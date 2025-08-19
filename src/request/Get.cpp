@@ -72,11 +72,11 @@ bool Get::check_auto_indexing(const Location *cur_location, const ServerConfig &
     return cur_location->get_autoindex();
 }
 
+//To Check the auto indexing Option  Conf File
 std::string Get::ListingDir(const std::string &path, std::string request_path, const Location *cur_location,const ServerConfig &serverConfig)
 {
     std::cout << "[DEBUG] REL PATH :" << path << std::endl;
     std::cout << "==>[DEBUG AUTO INDEXING] : " << (cur_location ? (cur_location->get_autoindex() ? "ON" : "OFF") : "No location found") << std::endl;
-    //To Check the auto indexing Option  Conf File
     if (!check_auto_indexing(cur_location, serverConfig))
     {
         std::cerr << "[ WARNING ] : Auto indexing is disabled for this location." << std::endl;
@@ -119,7 +119,6 @@ std::string Get::ListingDir(const std::string &path, std::string request_path, c
     << "<h1>Index of " << request_path << "</h1>\n"
     << "<ul>\n";
     
-    // Add parent directory link if not at root
     if (request_path != "/")
     {
         if (request_path[request_path.length() - 1] == '/')
@@ -132,20 +131,15 @@ std::string Get::ListingDir(const std::string &path, std::string request_path, c
     }
     while ((entry = readdir(dir)) != NULL)
     {
-        std::string rs_name;//ressource name
+        std::string rs_name;
   
         rs_name = entry->d_name;
         if (rs_name == "." || rs_name == "..")
             continue;
-        // Making !!! sure path ends with a slash
         std::string href_path = path;
         if (request_path[request_path.length()-1] != '/')
             request_path += "/";
-        /*
-            std::cout << "[ DEBUG ] : request_path : " << request_path << std::endl;
-            std::cout << "[ DEBUG ] : rs_name : " << rs_name << std::endl;
-            std::cout << "[ DEBUG ] : href_path : " << href_path << std::endl;
-        */
+
         response << "<li> <a href=\"" << request_path << rs_name;
         if (entry->d_type == DT_DIR)
            response << "/\" class=\"folder\"> <i class=\"fa-solid fa-folder\" style=\"margin-right: 20px; font-wieght : 700; color : rgb(235, 219, 52);\"></i>"  << rs_name << "/";
@@ -210,13 +204,11 @@ std::string Get::CheckIndexFile(const std::string &rel_path, const Location *cur
     if (!cur_location)
     {
         std::cout << "[ DEBUG ] : No matching location found, using server index file: " << indexFile << std::endl;
-        // this was updtated to use the server's index file as a vector of strings
         if (serverConfig.get_index().empty())
         {
             std::cerr << "[ ERROR ] : No index file specified in server configuration." << std::endl;
             return "";
         }
-        // Check if the server's index file exists
         for (size_t i = 0; i < serverConfig.get_index().size(); i++)
         {
             std::cout << "[ DEBUG ] : Checking index file: " << serverConfig.get_index()[i] << std::endl;
@@ -230,8 +222,6 @@ std::string Get::CheckIndexFile(const std::string &rel_path, const Location *cur
     }
     else
     {
-        // i'm supposing that the index file are in vector of strings Done a ssi abdeslame mrhba si ayoube
-        //std::cout << "[ DEBUG ] : Checking index file for current location: " << cur_location->get_index() << std::endl;
         for (size_t i = 0; i < cur_location->get_index().size(); i++)
         {
             indexFile = rel_path + cur_location->get_index()[i];
@@ -246,7 +236,6 @@ std::string Get::CheckIndexFile(const std::string &rel_path, const Location *cur
     return "";
 }
 
-// @Todo : before making any edit to this function, check the work flow of the processRequest function ~
 void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConfig, ServerConfig clientConfig)
 {
     std::string rel_path;
@@ -263,7 +252,6 @@ void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConf
         std::cerr << "Error: Null client data pointer\n";
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
-    // Get the current location from the server configuration
     cur_location = clientConfig.findBestMatchingLocation(request->GetLocation());
     std::cout << "[ Debug ] rel LOCATION: " << request->GetLocation() << std::endl;
     std::cout << "[ Debug ] client location server name: " << clientConfig.get_server_name()<< std::endl;
@@ -275,7 +263,6 @@ void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConf
         std::cerr << "[empty rel_path Not Found ]\n";
         throw HttpException(404, "404 Not Found", NOT_FOUND);
     }
-    // Check if the relative path is valid
     rel_path =  IsValidPath(rel_path);
     if (rel_path.empty())
     {
@@ -291,31 +278,18 @@ void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConf
         request->GetClientDatat()->http_response->setStatusMessage("OK");
         request->GetClientDatat()->http_response->setContentType("text/html");
         request->GetClientDatat()->http_response->setChunked(false);
-        /*
-        // std::cout << "[Debug] : Index file check for current location : " << cur_location->get_index() << std::endl;
-        std::cout << "[Debug] : Checking error page for the server configuration :" << std::endl;
-        std::map<short, std::string> error_page = serverConfig.get_error_pages();
-        for (std::map<short, std::string>::iterator i =error_page.begin(); i != error_page.end(); i++)
-        {
-            std::cout << "Error Code: " << i->first << ", Page: " << i->second << std::endl;
-        }
-        */
-        /* check if there is any valid index file from the list of index files !!!*/
+
         std::string indexFile = CheckIndexFile(rel_path, cur_location, clientConfig);
         if (!indexFile.empty())
         {
-            // I'm supponsing that the default max size of file to be sent at once is 1MB 
-            // checking if file  size is less than 1MB or not to shoose the right way to send the file
+
             request->GetClientDatat()->http_response->setByteToSend(GetFileSize(indexFile));
             if (request->GetClientDatat()->http_response->getByteToSend() > 1000000 )
             {
-
-                // std::cout << "[Debug] : File size is greater than 1MB, sending as chunked response." << std::endl;
                 request->GetClientDatat()->http_response->setChunked(true);
             }
             else
             {
-                // std::cout << "[Debug] : File size is less than 1MB, sending as normal response." << std::endl;
                 request->GetClientDatat()->http_response->setChunked(false);
             }
             std::cout << "[Debug] : Index file found : " << indexFile << std::endl;

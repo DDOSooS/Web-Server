@@ -35,7 +35,6 @@ HttpRequest::HttpRequest(HttpRequest const &src)
     _upload_file_type = src._upload_file_type;
     _boundry = src._boundry;
     _uploading_status = src._uploading_status;
-    // _upload_file_stream is not copyable; do not copy it
 }
 
 bool HttpRequest::FindHeader(std::string key, std::string value)
@@ -223,8 +222,6 @@ bool HttpRequest::IsProcessed() const
     return _processed;
 }
 
-
-
 void HttpRequest::SetIsRedirected(bool is_redirected)
 {
     _is_redirected = is_redirected;
@@ -406,50 +403,35 @@ std::string HttpRequest::GetRelativePath(const Location *cur_location, ClientCon
     char cwd[PATH_MAX];
     if (getcwd(cwd, sizeof(cwd)) == NULL)
     {
-        // std::cerr << "[ ERROR ] : Failed to get current working directory." << std::endl;
         cwd[0] = '\0';
     }
     if (!cur_location)
     {
         rel_path = join_path(join_path(cwd, client->getServerConfig().get_root()), this->GetLocation());
         rel_path = ensure_trailing_slash(rel_path);
-        // std::cout << "[ WARNING ] : No matching location found, using server root: " << rel_path << std::endl;
-        // std::cout << "[ INFO ] : Current working directory: " << cwd << std::endl;
+
         return rel_path;
     }
-    // std::cout << "[ DEBUG ] : Current location path: RETUN------------------" << cur_location->get_return().empty() << std::endl;
     if (!cur_location->get_return().empty())
     {
-        // std::cout << ""
         SetIsRedirected(true);
-        // std::cout << "\n\n\n-------------------------[ DEBUG ] : [ORIGIN ]Redirecting to : " 
-        //           << cur_location->get_path() << "------" << cur_location->get_return()[1] 
-        //           << "------------------\n\n" << std::endl;
-        // client->redirect_counter++;
         rel_path = cur_location->get_return()[1];
-        // std::cout << "[ INFO ] : Current working directory: " << cwd << std::endl;
         return rel_path;
     }
     else if (!cur_location->get_alias().empty())
     {
-        // std::cout << "[ DEBUG ] : Using alias : " << cur_location->get_alias() << std::endl;
         rel_path = join_path(join_path(cwd, client->getServerConfig().get_root()), cur_location->get_alias());
     }
     else if (!cur_location->get_root_location().empty())
     {
-        // std::cout << "[ DEBUG ] : Using root location : " << cur_location->get_root_location() << std::endl;
         rel_path = join_path(join_path(join_path(cwd, client->getServerConfig().get_root()), cur_location->get_root_location()), this->GetLocation());
     }
     else if (rel_path.empty())
     {
-        // std::cerr << "[ WARNING ] : No alias or root location specified, using server root." << std::endl;
-        // std::cout << "[ Server Root Path :" << client->getServerConfig().get_root() << " ]\n";
+
         rel_path = join_path(join_path(cwd, client->getServerConfig().get_root()), this->GetLocation());
     }
     rel_path = ensure_trailing_slash(rel_path);
-
-    // std::cout << "[------------ FInal rel_path :" << rel_path << " ----------------------]\n";
-    // std::cout << "[ INFO ] : Current working directory: " << cwd << std::endl;
     return rel_path;
 }
 
@@ -489,19 +471,10 @@ bool isRedirectionStatusCode(int status_code)
 
 void HttpRequest::handleRedirect(const Location * cur_location , std::string &rel_path)
 {
-   /*
-    i should check if the status code is not in our redirection status codes
-    check if the location isn't null
-    if it's null not found error page
-    if the location does exist -> i should check the redirection status code
-    301 - 302- 303-> all GONNA be converted to Get method whatever the method is
-    307 - 308 -> keep the same method 
-        -- if the method is post i should preserve the body content but the question is if we do have a long body size how i should deal with that ??????
-   */
+    (void) rel_path; 
+
     int redirection_code = static_cast<int>(std::stoi(cur_location->get_return()[0]));
     this->SetIsRedirected(true);
-    std::cout << "=================== redirection_code: " << redirection_code << std::endl;
-    // exit(0);
     if (!isRedirectionStatusCode(redirection_code))
     {
         throw HttpException(400, "Bad Request: Invalid redirection status code", BAD_REQUEST);
@@ -511,7 +484,6 @@ void HttpRequest::handleRedirect(const Location * cur_location , std::string &re
         throw HttpException(404, "Not Found: Location does not exist", NOT_FOUND);
     }
     
-    // Check if the redirection status code is 301, 302, or 303
     if (redirection_code == 301 || redirection_code == 302 || redirection_code == 303)
     {
         
@@ -520,11 +492,6 @@ void HttpRequest::handleRedirect(const Location * cur_location , std::string &re
         this->GetClientDatat()->http_response->setStatusMessage(this->GetRedirectionMessage(redirection_code));
         this->GetClientDatat()->http_response->setHeader("X-Original-Method", "GET");
         this->GetClientDatat()->http_response->setBuffer(" ");
-        std::cout << "Redirecting to: " << cur_location->get_return()[1] << std::endl;
-        std::cout << "Original Method: " << this->GetMethod() << std::endl;
-        std::cout << "redirection count: " << this->GetClientDatat()->redirect_counter << std::endl;
-        // this->GetClientDatat()->_server->updatePollEvents(this->GetSocketFd(), POLLOUT);
-        // exit(0);
         return ;
     }
     
@@ -535,7 +502,6 @@ void HttpRequest::handleRedirect(const Location * cur_location , std::string &re
         this->GetClientDatat()->http_response->setBuffer(" ");
         this->GetClientDatat()->http_response->setStatusMessage(this->GetRedirectionMessage(redirection_code));
 
-        // For 307/308, we need to preserve the original request method and body
         if (this->_method == "POST")
         {
             this->GetClientDatat()->http_response->setHeader("X-Original-Method", this->GetMethod());

@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <string.h>
 
+#define MAX_CHUNK_SIZE 1024 * 1024 * 7 
+
 int Post::counter = 0;
 
 Post::Post()
@@ -31,47 +33,44 @@ bool Post::CanHandle(std::string method)
     i should check if the content type is text/plain or not
 */
 
+// CHECKING IF THE CONTENT LENGTH EXCEEDS THE MAXIMUM ALLOWED SIZE
+// size_t max_size = clientConfig.get_client_max_body_size()
+// to check does it conserne the server or just a specific location TO DO
+// std::cout << "Processing POST request" << std::endl;
+// std::cout << "---- [REQUEST DETAILS] ----" << std::endl;
+// std::cout << "Method: " << request->GetMethod() << std::endl ;
+// std::cout << "Location: " << request->GetLocation() << std::endl;
+// std::cout << "Headers: " << std::endl;
+// for (const auto& header : request->GetHeaders())
+// {
+//     std::cout << "  key [" << header.first << " ] : Value [ " << header.second << " ]" << std::endl;
+// }
+// std::cout << "Body: " << request->GetBodyAsStr() << std::endl;
+// std::cout << "NUMBER OF HEADERS: " << request->GetHeaders().size() << std::endl;
+// std::cout << "---- [END OF REQUEST DETAILS] ----" << std::endl;
+
+// START UPLOADING DATA
+/*
+    handle uploading data first we need to check the content type and the content length
+    if it's content length is more than 1mb we should handle it as a streaming upload
+    if it's content type is multipart/form-data we should handle it as a multipart upload
+      -- check for the boundary in the content type header and file name in the content disposition header
+      -- start reading the boshoulddy and parse it accordingly
+    if it's text/plain we  handle it as a plain text upload
+      -- read the body and save it to a tmp file generate a respionse with 200 status code and the unlink the tmp file
+    if it's url encode we could store the data in a container and generate a response with 200 status code
+    //json upload is not supported yet  
+*/
+
+/*
+    checking if it's the location 
+
+*/
 void    Post::ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig)
 {
-    // CHECKING IF THE CONTENT LENGTH EXCEEDS THE MAXIMUM ALLOWED SIZE
-    // size_t max_size = clientConfig.get_client_max_body_size()
-    // to check does it conserne the server or just a specific location TO DO
-    // std::cout << "Processing POST request" << std::endl;
-    // std::cout << "---- [REQUEST DETAILS] ----" << std::endl;
-    // std::cout << "Method: " << request->GetMethod() << std::endl ;
-    // std::cout << "Location: " << request->GetLocation() << std::endl;
-    // std::cout << "Headers: " << std::endl;
-    // for (const auto& header : request->GetHeaders())
-    // {
-    //     std::cout << "  key [" << header.first << " ] : Value [ " << header.second << " ]" << std::endl;
-    // }
-    // std::cout << "Body: " << request->GetBodyAsStr() << std::endl;
-    // std::cout << "NUMBER OF HEADERS: " << request->GetHeaders().size() << std::endl;
-    // std::cout << "---- [END OF REQUEST DETAILS] ----" << std::endl;
-    
-    // START UPLOADING DATA
-    /*
-        handle uploading data first we need to check the content type and the content length
-        if it's content length is more than 1mb we should handle it as a streaming upload
-        if it's content type is multipart/form-data we should handle it as a multipart upload
-          -- check for the boundary in the content type header and file name in the content disposition header
-          -- start reading the boshoulddy and parse it accordingly
-        if it's text/plain we  handle it as a plain text upload
-          -- read the body and save it to a tmp file generate a respionse with 200 status code and the unlink the tmp file
-        if it's url encode we could store the data in a container and generate a response with 200 status code
-        //json upload is not supported yet  
-    */
-
-    /*
-        checking if it's the location 
-    
-    */
 
     std::cout << "--- checking for post location ---" << std::endl;
-    const Location *location = serverConfig.findMatchingLocation(request->GetLocation());
-    // std::cout << "Location found: " << (location ? location->get_path() : "Not Found") << std::endl;
-    // std::cout << "upload store: " << (location ? location->get_uploadStore() : "Not Found") << std::endl;
-    // exit(0);
+
     if (request->GetBodyAsStr().empty() && !request->IsStreamingUpload())
     {
         throw HttpException(400, "Bad Request - Body should be empty for POST requests", BAD_REQUEST);
@@ -81,20 +80,16 @@ void    Post::ProccessRequest(HttpRequest *request, const ServerConfig &serverCo
         throw HttpException(400, "Bad Request - Content-Type header is missing", BAD_REQUEST);
     }
 
-    // check if the content length exceeds the maximum allowed size To do @@@
-    // getting the file name and the file extension
     if (request->GetHeader("Content-Type").find("multipart/form-data") != std::string::npos)
     {
         handleMultipartFormData(request, serverConfig, clientConfig);
     }
     else if (request->GetHeader("Content-Type") == "application/x-www-form-urlencoded")
     {
-        std::cout << "Handling application/x-www-form-urlencoded data" << std::endl;
         handleUrlEncodedData(request, serverConfig, clientConfig);
     }
     else if (request->GetHeader("Content-Type") == "text/plain")
     {
-        std::cout << "Handling text/plain data" << std::endl;
         hanleTextPlainData(request, serverConfig, clientConfig);
     }
     else
@@ -102,8 +97,6 @@ void    Post::ProccessRequest(HttpRequest *request, const ServerConfig &serverCo
         std::cout << "Unsupported Content-Type: " << request->GetHeader("Content-Type") << std::endl;
         throw HttpException(415, "Unsupported Media Type", BAD_REQUEST);
     }
-    // std::cout << request->GetHeader("Content-Type") << std::endl;
-    // exit(0);
 }
 
 bool fileExists(const std::string& filename)
@@ -138,13 +131,15 @@ bool createDirectoryIfNotExists(const std::string& path)
     return false;
 }
 
+// Save to a temporary file or process as needed
+// For now, just generate a response with 200 status code
 void Post::hanleTextPlainData(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig)
 {
+    (void)clientConfig; 
+    (void)serverConfig;
     std::string body = request->GetBodyAsStr() + "   Data received successfully";
     std::cout << "Received text/plain data: " << body << std::endl;
 
-    // Save to a temporary file or process as needed
-    // For now, just generate a response with 200 status code
     request->GetClientDatat()->http_response->setStatusCode(200);
     request->GetClientDatat()->http_response->setStatusMessage("OK");
     request->GetClientDatat()->http_response->setBuffer(body);
@@ -180,7 +175,6 @@ std::string UrlDecode(const std::string &req_line)
 std::string generateUniqueFileName(const std::string &base_path, const std::string &file_name)
 {
     std::string unique_file_name = file_name;
-    size_t counter = 1;
     std::stringstream ss(unique_file_name);
     // std::cout << "Base path: " << filn << std::endl;
     std::string timestamp = std::to_string(std::time(nullptr));
@@ -194,11 +188,11 @@ std::string generateUniqueFileName(const std::string &base_path, const std::stri
 
 void Post::handleUrlEncodedData(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig)
 {
+    (void)serverConfig; 
+    (void)clientConfig; 
     std::string body = request->GetBodyAsStr();
 
     std::cout << "Received application/x-www-form-urlencoded data: " << body << std::endl;
-    // exit(0);
-    // Process the URL-encoded data
     std::unordered_map<std::string, std::string> formData;
     for (size_t i = 0; i < body.size(); ++i)
     {
@@ -276,7 +270,7 @@ std::string IsValidPath( std::string path)
     return path;
 }
 
-std::string extractFileName(const std::string &body, const std::string &boundary)
+std::string extractFileName(const std::string &body)
 {
     size_t start;
     size_t end;
@@ -320,13 +314,11 @@ void Post::validateLocation(const Location *location)
 		std::string uploadStore = location->get_uploadStore();
 		if (!isDirectory(uploadStore))
 		{
-			// std::cout << "Upload store path is not a directory or doesn't exist: " << uploadStore << std::endl;
 			throw HttpException(500, "Internal Server Error  - Upload-store Directory doesn't exist ", INTERNAL_SERVER_ERROR);
 		}
 	}
 }
 
-#define MAX_CHUNK_SIZE 8192
 
 void Post::readBodyChunk(HttpRequest *request)
 {
@@ -336,38 +328,26 @@ void Post::readBodyChunk(HttpRequest *request)
     char buffer[buffer_size];
     size_t bytesRead = 0;
     bytesRead = recv(request->GetSocketFd(), buffer, buffer_size, 0);
-    if (bytesRead < 0)
+    if (!bytesRead)
     {
-        std::cerr << "Error reading body chunk: " << strerror(errno) << std::endl;
         throw HttpException(500, "Internal Server Error - Failed to read body chunk", INTERNAL_SERVER_ERROR);
     }
     else if (bytesRead == 0)
     {
-        std::cout << "No more data to read" << std::endl;
         return;
     }
     request->SetBodyAsStr(request->GetBodyAsStr() + std::string(buffer, bytesRead));
-    // std::cout << "================== [START OF CHUNK] =================" << std::endl;
-    // std::cout << "Read " << bytesRead << " bytes from body" << std::endl;
-    // std::cout << "Current body size: " << request->GetBodyAsStr().size() << std::endl;
-    // std::cout << "Remaining bytes: " << request->GetRemaineBytes() << std::endl;
-    // // std::cout << "chunk Content: " << request->GetBodyAsStr() << std::endl;
-    // std::cout << "================= [END OF CHUNK] =================" << std::endl;
-    // std::cout << "================= [END OF CHUNK] =================" << std::endl;
 }
+
 
 
 void Post::getBodyReamiingBytes(HttpRequest *request)
 {
-    std::cout << "====================---- [GETTING REMAINING BYTES] START----===========================" << std::endl;
-    std::cout << "Getting remaining bytes from body" << std::endl;
     size_t pos;
 
     pos = request->GetBodyAsStr().find("\r\n\r\n");
     if (pos == std::string::npos)
     {
-        // unhandled case may be COULD TRIGGER UNEXPECTED BEHAVIOR !! TO TEST IT [TEST!!]
-        std::cout << "No remaining bytes found in body" << std::endl;
         return;
     }
     else
@@ -375,7 +355,6 @@ void Post::getBodyReamiingBytes(HttpRequest *request)
         std::fstream file(request->GetUploadFilePath(), std::ios::out | std::ios::binary | std::ios::app);
         if (!file.is_open())
         {
-            std::cerr << "Failed to open file for writing: " << request->GetUploadFilePath() << std::endl;
             request->SetIsStreamingUpload(false);
             throw HttpException(500, "Internal Server Error - Failed to open file for writing", INTERNAL_SERVER_ERROR);
         }
@@ -383,7 +362,6 @@ void Post::getBodyReamiingBytes(HttpRequest *request)
         if (file.fail())
         {
             std::cout << "Failed to write remaining bytes to file: " << request->GetUploadFilePath() << std::endl;
-            exit(1);
         }
         file.close();
         request->SetRemaineBytes( request->GetBodySize() - request->GetBodyAsStr().size());
@@ -391,19 +369,10 @@ void Post::getBodyReamiingBytes(HttpRequest *request)
         request->SetBodyAsStr("");
     }
     uploading_logger(request);
-    std::cout << "=====================---- [GETTING REMAINING BYTES] END----===========================" << std::endl<< std::endl;
 }
 void Post::uploading_logger(HttpRequest *request)
 {
-    std::cout << "====================---- [UPLOAD LOGGING] START----===========================" << std::endl;
-    std::cout << "Uploading file: " << request->GetUploadFilePath() << std::endl;
-    std::cout << "Remaining bytes: " << request->GetRemaineBytes() << std::endl;
-    std::cout << "Received bytes: " << request->GetRecvBytes() << std::endl;
-    std::cout << "Total body size: " << request->GetBodySize() << std::endl;
-    std::cout << "Body content: " << request->GetBodyAsStr() << std::endl;
-    std::cout << "Content-Length: " << request->GetHeader("Content-Length") << std::endl;
     std::cout << "Uploading prgogress: " << (request->GetRecvBytes() * 100 / request->GetBodySize()) << "%" << std::endl;
-    std::cout << "====================---- [UPLOAD LOGGING] END----===========================" << std::endl;
 }
 
 
@@ -460,7 +429,6 @@ void Post::writeToTargetFile(HttpRequest *request, std::string uload_path)
     std::fstream file(uload_path, std::ios::out | std::ios::binary | std::ios::app);
     if (!file.is_open())
     {
-        std::cerr << "Failed to open file for writing: " << uload_path << std::endl;
         request->SetIsStreamingUpload(false);
         throw HttpException(500, "Internal Server Error - Failed to open file for writing", INTERNAL_SERVER_ERROR);
     }
@@ -469,41 +437,28 @@ void Post::writeToTargetFile(HttpRequest *request, std::string uload_path)
     char buffer[buffer_size ]; 
     size_t byte_read = recv(request->GetSocketFd(), buffer, buffer_size, 0);
     
-    if (byte_read < 0)
+    if (!byte_read)
     {
         request->SetIsStreamingUpload(false);
-        std::cerr << "Error reading body chunk: " << strerror(errno) << std::endl;
         throw HttpException(500, "Internal Server Error - Failed to read body chunk", INTERNAL_SERVER_ERROR);
     }
     else if (byte_read == 0)
     {
-        std::cout << "No more data to read - connection closed" << std::endl;
         request->SetIsStreamingUpload(false);
-        std::cout << "hehooooooooooooooooo NO MORE DATA TO READ" << std::endl;
         uploading_logger(request);
-        exit(0);
         file.close();
         return;
     }
     
     std::string chunk_data(buffer, byte_read);
     std::string closing_boundary = "\r\n" + request->GetBoundary() + "--";
-    // std::cout << "closing boundary: " << closing_boundary << std::endl;
-    // std::cout << "chunk_data: " << chunk_data << std::endl;
-    // std::cout << "byte_read: " << byte_read << std::endl;
-    // std::cout << "buffer_size: " << buffer_size << std::endl;
-    // std::cout << "===================================================\n=================================\n";
-    
     size_t boundary_pos = chunk_data.find(closing_boundary);
     if (boundary_pos != std::string::npos)
     {
-        // Found closing boundary - write only content before it
         file.write(buffer, boundary_pos);
         std::cout << "Upload completed - found closing boundary at position: " << boundary_pos << std::endl;
-        // Upload is complete - stop streaming
         request->SetIsStreamingUpload(false);
         std::cout << "File upload completed!" << std::endl;
-        // exit(0);
     }
     else 
         file.write(buffer, byte_read);
@@ -511,27 +466,31 @@ void Post::writeToTargetFile(HttpRequest *request, std::string uload_path)
     request->SetRecvBytes(request->GetRecvBytes() + byte_read);
 
     file.close();
-    uploading_logger(request);
 }
  
 
+/*
+    1 -is it the first time to handle multipart form data
+        check if boundary exist and if it's not wait until the next call ;
+    2- if the boundary is being a valid one 
+        = > i should read the body until the reach remaining bytes to 0 
+*/
+// validate Location and also upload store 
+/*
+    we do have 2 scenarios here
+    -> the body contains the boundary and filename ;
+    -> finding the boundary doesn't mean that we have the filename
+    -> if it's not we shoul wait until we do find the boundary and filename => then read the body until we reach the end of the body ( remaining bytes = 0 )
+    */
+/*
+    at this point we are sure that we have a valid boundary and a file name so we can proceed to read the body from the end of the first crlf
+    we should read the body until we reach the end of the body ( remaining bytes = 0 )
+    first we should process the reamingbody part that exist in request body before starting to read the body in chunks    
+*/
 void Post::handleMultipartFormData(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig)
 {
-    /*
-        1 -is it the first time to handle multipart form data
-            check if boundary exist and if it's not wait until the next call ;
-        2- if the boundary is being a valid one 
-            = > i should read the body until the reach remaining bytes to 0 
-	*/
-    // validate Location and also upload store 
-    std::cout << "Handling multipart/form-data upload" << std::endl;
-    std::cout << "========== [[[ Multipart upload counter: =========" << this->counter << std::endl;
+    (void)clientConfig;
     this->counter++;
-    // if (counter > 3)
-    // {
-    //     std::cout << "exit for debugging purposes" << std::endl;
-    //     exit(0);
-    // }
     const Location *location = serverConfig.findMatchingLocation(request->GetLocation());
     if (!request->IsStreamingUpload())
     {
@@ -549,31 +508,22 @@ void Post::handleMultipartFormData(HttpRequest *request, const ServerConfig &ser
         }
         else
         {
-            std::cout << "No boundary found in Content-Type header" << std::endl;
 			request->SetIsStreamingUpload(false);
             throw HttpException(400, "Bad Request - Boundary not found", BAD_REQUEST);
         }
         request->SetUploadStatus(UPLOAD_BOUNDARY_SEARCH);
     }
-    /*
-        we do have 2 scenarios here
-        -> the body contains the boundary and filename ;
-        -> finding the boundary doesn't mean that we have the filename
-        -> if it's not we shoul wait until we do find the boundary and filename => then read the body until we reach the end of the body ( remaining bytes = 0 )
-    */
     //handling empty body
     if (request->GetUploadingStatus() == UPLOAD_BOUNDARY_SEARCH)
     {
         if (!request->IsStreamingUpload() && request->GetBodyAsStr().empty())
         {
-            std::cout << "Waiting for more data to process multipart/form-data!!" << std::endl;
             readBodyChunk(request);
             request->SetIsStreamingUpload(true);
             return;
         }
         else if (request->IsStreamingUpload() && request->GetBodyAsStr().empty() && !request->GetRecvBytes())
         {
-            std::cout << "No data to process for multipart/form-data" << std::endl;
             request->SetIsStreamingUpload(false);
             throw HttpException(400, "Bad Request - No data to process", BAD_REQUEST);
             return;
@@ -581,24 +531,18 @@ void Post::handleMultipartFormData(HttpRequest *request, const ServerConfig &ser
         // hanling the case where we have the boundary and the body is not empty
         if (request->GetBodyAsStr().size() > request->GetBoundary().size())
         {
-            std::cout << "Checking boundary in body" << std::endl;
             if (!checkBoundary(request->GetBodyAsStr(), request->GetBoundary()))
             {
-                std::cout << "Boundary not found in body" << std::endl;
-                std::cout << "boundary: " << request->GetBoundary() << std::endl;
-                std::cout << "Body: " << request->GetBodyAsStr() << std::endl;
                 request->SetIsStreamingUpload(false);
                 throw HttpException(400, "Bad Request - Boundary not found", BAD_REQUEST);
             }
             else
             {
-                std::cout << "Boundary found: " << request->GetBoundary() << std::endl;
                 request->SetUploadStatus(UPLOAD_FILENAME_SEARCH);
             }
         }
         else
         {
-            std::cout << "Waiting for more data to process multipart/form-data!!!" << std::endl;
             readBodyChunk(request);
             return;
         }
@@ -608,19 +552,15 @@ void Post::handleMultipartFormData(HttpRequest *request, const ServerConfig &ser
     {
         if (request->GetBodyAsStr().find("filename=\"") != std::string::npos)
         {
-            std::cout << "Extracting file name from body" << std::endl;
-            std::string file_name = extractFileName(request->GetBodyAsStr(), request->GetBoundary());
+            std::string file_name = extractFileName(request->GetBodyAsStr());
             if (file_name.empty())
             {
-                std::cout << "No file name found in body" << std::endl;
                 request->SetIsStreamingUpload(false);
                 throw HttpException(400, "Bad Request - No file name found", BAD_REQUEST);
             }
             else
             {
                 file_name = DecodeHtmlEntities(file_name);
-                std::cout << "File name extracted: " << file_name << std::endl;
-                // generate unique file name
                 std::string uploadStore = location->get_uploadStore();
                 std::string unique_file_name = generateUniqueFileName(uploadStore, file_name);
                 request->SetUploadFilePath(unique_file_name);
@@ -629,45 +569,28 @@ void Post::handleMultipartFormData(HttpRequest *request, const ServerConfig &ser
         }
         else
         {
-            std::cout << "No file name found in body" << std::endl;
             request->SetIsStreamingUpload(false);
             throw HttpException(400, "Bad Request - No file name found", BAD_REQUEST);
         }
     }
-
-    std::cout << "File upload path: " << request->GetUploadFilePath() << std::endl;
-
-    /*
-        at this point we are sure that we have a valid boundary and a file name so we can proceed to read the body from the end of the first crlf
-        we should read the body until we reach the end of the body ( remaining bytes = 0 )
-        first we should process the reamingbody part that exist in request body before starting to read the body in chunks    
-    */
     // checking if the body contains any remaining bytes
     if (request->GetUploadingStatus() == UPLOAD_PROCESSING)
     {
-
-        bool flag = false;
         if (!request->GetBodyAsStr().empty())
         {
-            flag = true;
             getBodyReamiingBytes(request);
             if (request->GetRemaineBytes() > 0)
             {
-                std::cout << "Remaining bytes: " << request->GetRemaineBytes() << std::endl;
                 request->SetIsStreamingUpload(true);
                 return ;
             }
         }
-        uploading_logger(request);
-        std::cout << "upload processing function called" << std::endl;
         if (request->GetRemaineBytes() > 0)
             writeToTargetFile(request, request->GetUploadFilePath());
         if (request->GetRemaineBytes() == 0)
         {
             request->SetUploadStatus(UPLOAD_DONE);
             request->SetIsStreamingUpload(false);
-            uploading_logger(request);
-            std::cout << "UPLOADING IS BEING DONE" << std::endl;
             request->GetClientDatat()->http_response->setStatusCode(200);
             request->GetClientDatat()->http_response->setStatusMessage("OK");
             request->GetClientDatat()->http_response->setBuffer("File uploaded successfully");

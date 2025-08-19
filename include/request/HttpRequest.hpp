@@ -39,20 +39,7 @@ enum UploadingStatus
         UPLOAD_ERROR
 };
 
-/*
-    body_size;
-    remain_bytes;
-    recv_bytes;
-    body_start;
-    /*
-    checking post type
-      - multipart form-data
-      - json data
-      - chunked data
-      - url encoded data
-      - text data
-    /*
-*/
+
 class HttpRequest
 {
     private:
@@ -81,7 +68,6 @@ class HttpRequest
         std::string                                         _upload_file_path;
         bool                                                _is_streaming_upload;
         int                                                 _upload_file_type; // binary, text, etc.
-        // std::ostream                                        _upload_file_stream; // Stream for file uploads
         std::string                                         _boundry;
         enum UploadingStatus                               _uploading_status;
 

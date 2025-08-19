@@ -126,24 +126,24 @@ def main():
 </head>
 <body>
     <div class="container">
-        <h1>🚀 CGI POST Test Results</h1>
+        <h1> CGI POST Test Results</h1>
         
         <div class="success">
-            <strong>✅ CGI Script Working Successfully!</strong><br>
+            <strong> CGI Script Working Successfully!</strong><br>
             Your POST data has been received and parsed.
         </div>
         
         <div class="info">
-            <strong>Request Method:</strong> <span class="method-badge">{method}</span><br>
-            <strong>Timestamp:</strong> {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br>
-            <strong>Python Version:</strong> {sys.version.split()[0]}<br>
+            <strong>Request Method:</strong> <span class="method-badge">{method}</span><br></br>
+            <strong>Timestamp:</strong> {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br></br>
+            <strong>Python Version:</strong> {sys.version.split()[0]}<br></br>
             <strong>Content Length:</strong> {os.environ.get('CONTENT_LENGTH', '0')} bytes
         </div>""")
     
     # Display form data
     if form_data and 'error' not in form_data:
         print(f"""
-        <h2>📝 Form Data Received ({len(form_data)} fields)</h2>
+        <h2>Form Data Received ({len(form_data)} fields)</h2>
         <table>
             <thead>
                 <tr>
@@ -166,7 +166,7 @@ def main():
             </tbody>
         </table>
         
-        <h3>📄 JSON Format</h3>
+        <h3> JSON Format</h3>
         <div class="json-box">""")
         
         print(json.dumps(form_data, indent=2))
@@ -175,27 +175,27 @@ def main():
     
     elif 'error' in form_data:
         print(f"""
-        <h2>❌ Error Parsing Form Data</h2>
+        <h2> Error Parsing Form Data</h2>
         <div class="info">
             <strong>Error:</strong> {form_data['error']}
         </div>""")
     
     else:
         print("""
-        <h2>📝 Form Data</h2>
+        <h2> Form Data</h2>
         <div class="info">
-            ℹ️ No form data received. Try sending POST data with -d parameter.
+            No form data received. Try sending POST data with -d parameter.
         </div>""")
     
     # Show raw data
     if raw_data:
         print(f"""
-        <h3>🔍 Raw POST Data</h3>
+        <h3> Raw POST Data</h3>
         <div class="raw-data">{raw_data}</div>""")
     
     # Environment info
     print(f"""
-        <h2>🔧 Environment Information</h2>
+        <h2> Environment Information</h2>
         <table>
             <tr><th>Variable</th><th>Value</th></tr>
             <tr><td>REQUEST_METHOD</td><td>{os.environ.get('REQUEST_METHOD', 'N/A')}</td></tr>

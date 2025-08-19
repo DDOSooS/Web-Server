@@ -295,15 +295,15 @@ def main():
         
         # Validate request
         if request_method != 'POST':
-            send_response('❌ Error: Only POST method is supported')
+            send_response(' Error: Only POST method is supported')
             return
         
         if not content_type.startswith('multipart/form-data'):
-            send_response('❌ Error: Only multipart/form-data is supported')
+            send_response(' Error: Only multipart/form-data is supported')
             return
         
         if content_length == '0':
-            send_response('❌ Error: No data received')
+            send_response(' Error: No data received')
             return
         
         # Check for streaming upload marker
@@ -331,7 +331,7 @@ def main():
                         f.write(file_content)
                     
                     debug_log(f"File saved to: {output_path}")
-                    send_response(f'✅ The file "{safe_filename}" was uploaded successfully ({len(file_content)} bytes at ({output_path})')
+                    send_response(f' The file "{safe_filename}" was uploaded successfully ({len(file_content)} bytes at ({output_path})')
                     
                     # Clean up the temporary file
                     try:
@@ -341,7 +341,7 @@ def main():
                         debug_log(f"Failed to clean up temp file: {temp_file_path}")
                 else:
                     error_msg = file_content if isinstance(file_content, str) else "Invalid file data"
-                    send_response(f'❌ Error processing streaming upload: {error_msg}')
+                    send_response(f' Error processing streaming upload: {error_msg}')
             
             else:
                 # Handle traditional form upload
@@ -363,20 +363,20 @@ def main():
                         f.write(file_content)
                     
                     debug_log(f"File saved to: {output_path}")
-                    send_response(f'✅ The file "{safe_filename}" was uploaded successfully ({len(file_content)} bytes at ({output_path})')
+                    send_response(f' The file "{safe_filename}" was uploaded successfully ({len(file_content)} bytes at ({output_path})')
                 else:
                     error_msg = file_content if isinstance(file_content, str) else "No file data found"
-                    send_response(f'❌ Error processing upload: {error_msg}')
+                    send_response(f' Error processing upload: {error_msg}')
         
         except Exception as e:
             debug_log(f"Error in upload processing: {e}")
             debug_log(f"Traceback: {traceback.format_exc()}")
-            send_response(f'❌ Error processing upload: {str(e)}')
+            send_response(f' Error processing upload: {str(e)}')
     
     except Exception as e:
         debug_log(f"Unexpected error: {e}")
         debug_log(f"Traceback: {traceback.format_exc()}")
-        send_response(f'❌ Unexpected error: {str(e)}', "500 Internal Server Error")
+        send_response(f' Unexpected error: {str(e)}', "500 Internal Server Error")
     
     finally:
         debug_log("=" * 50)

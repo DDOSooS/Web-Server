@@ -15,7 +15,6 @@ class HttpRequestBuilder
 
     public:
         HttpRequestBuilder();
-        // void Reset();
         void            SetRequestLine(std::string );
         void            SetHttpVersion(std::string );
         void            SetLocation(std::string );

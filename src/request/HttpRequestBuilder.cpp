@@ -115,23 +115,16 @@ void SetRequestLineFields(std::string &rl, std::string &method, std::string &pat
     method = trim(method);
     path = trim(path);
     http_version = trim(http_version);
-    
-    std::cout << "HTTP VERSION: '" << http_version << "' (length: " << http_version.length() << ")" << std::endl;
-    std::cout << "METHOD: '" << method << "'" << std::endl;
-    std::cout << "PATH: '" << path << "'" << std::endl;
 }
 
 void HttpRequestBuilder::ParseRequestLine(std::string &request_line,const ServerConfig &serverConfig)
 {
-    std::cout << "[INFO] : PARSING REQ LINE !!!!!!!!!!!!!!\n";
-    // decode the request line
+    (void) serverConfig;
     std::string         decoded_request_line = UrlDecode(request_line);
     std::istringstream  iss(decoded_request_line);
     std::string         method, path, http_version;
 
     SetRequestLineFields(decoded_request_line, method, path, http_version);
-    // iss >> method >> path >> http_version;
-    // check if the request line is a query string ?
     if (path.find("?") != std::string::npos)
     {
         size_t pos;
@@ -140,24 +133,12 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line,const Server
         std::string query_string = path.substr(pos + 1);
         path = path.substr(0, pos);
         this->_http_request.SetQueryStringStr(query_string);
-        std::cout << "Extracted query string: '" << query_string << "'" << std::endl;
-        std::cout << "Updated path: '" << path << "'" << std::endl;
         ParseQueryString(query_string);
     }
     _http_request.SetRequestLine(decoded_request_line);
-    //check crlf of the request line
-    
-    // check if the request line is valid
+
     if (http_version != "HTTP/1.1" && http_version != "HTTP/1.0")
     {
-        std::cerr << "HTTP VERSION ERROR\n";
-        std::cout << http_version << std::endl;
-        std::cout << http_version.length() << std::endl;
-        std::cout << "1.0 ?" << (http_version == "HTTP/1.0") << std::endl;
-        std::cout << "1.1 ?" << (http_version == "HTTP/1.1") << std::endl;
-        std::cout << "============================================\n"; 
-        // exit(1);
-
         _http_request.SetIsRl(REQ_HTTP_VERSION_ERROR);
         return;
     }
@@ -170,28 +151,6 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line,const Server
     }
     std::cout << "HTTP LOCATION TEST passed!!\n";
     _http_request.SetLocation(path);
-    // check if the method is valid
-
-    /*
-    // check if the method is valid
-        check for location -> default locatoin -> error page 404
-
-        std::cout << "PATH (( " << path << "  ))\n";  
-        if (cur_location)
-            std::cout << "CURRENT LOCATION EXIST !!!!!!!!!!!!!---" << cur_location->get_path() << "==" << cur_location->get_allowMethods().size() << "===" << cur_location->get_root_location() << std::endl;
-        else
-            std::cout << "CURRENT LOCATION DOESN'T EXIST !!!!!!!!!!!!!\n";
-    */
-    // need to intergate the conf file congiguration!!!
-
-    std::cout << "============================================\n";
-    std::cout << "============================================\n";
-    std::cout << "----> method " << method << std::endl;
-    std::cout << "----> path " << path << std::endl;
-    std::cout << "----> http_version " << http_version << std::endl;
-    std::cout << "----> request_line " << request_line << std::endl;
-    std::cout << "============================================\n";
-    std::cout << "============================================\n";
 
     std::vector<std::string> valid_methods;
     valid_methods.push_back("GET");
@@ -208,21 +167,6 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line,const Server
         _http_request.SetIsRl(REQ_METHOD_ERROR);
         return;
     }
-    // check if the method is valid
-    // const Location *cur_location = serverConfig.findMatchingLocation(path);
-    
-    // if (cur_location && !cur_location->is_method_allowed(method))
-    // {
-    //     _http_request.SetIsRl(REQ_METHOD_ERROR);
-    //     std::cout << "METHOD NOT ALLOWED: " << method << std::endl;
-    //     std::cout << "METHOD NOT ALLOWED: " << method << std::endl;
-    //     std::cout << "METHOD NOT ALLOWED: " << method << std::endl;
-    //     std::cout << "METHOD NOT ALLOWED: " << method << std::endl;
-    //     std::cout << "METHOD NOT ALLOWED: " << method << std::endl;
-    //     exit(0);
-    //     return;
-    // }
-    std::cout << "Http METHOD TEST passed!!\n";
     _http_request.SetMethod(method);
     _http_request.SetIsRl(REQ_DONE);
     _http_request.SetStatus(PARSER);
@@ -267,7 +211,6 @@ void HttpRequestBuilder::ParseRequsetHeaders(std::istringstream &iss)
 
 void HttpRequestBuilder::ParseRequestBody(std::string &body)
 {
-    //handling the body reading part including chunked transfer encoding and multipart form data
     _http_request.SetBodyAsStr(body);
 }
 
@@ -275,21 +218,7 @@ void HttpRequestBuilder::ParseRequestBody(std::string &body)
 
 void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig &serverConfig, int socketFd)
 {
-    std::cout << "------------------------------------------------------" << std::endl;
-    std::cout << "------------------------------------------------------" << std::endl;
-    std::cout << "Parsing the Request !!!!!!!!!\n";
-    std::cout << "Raw Request size:" << rawRequest.size() << std::endl;
-    std::cout << "Raw Request Content: [" << rawRequest << "]" << std::endl;
-    std::cout << "------------------------------------------------------" << std::endl;
-    std::cout << "------------------------------------------------------" << std::endl;
-    // exit(0);
-    // if (rawRequest.find("\r\n") == std::string::npos && rawRequest.find("\n") == std::string::npos)
-    // {
-    //     std::cerr << "Invalid request format NO CRLF EXIST " << std::endl;
-    //     throw HttpException(400, "Bad Request", BAD_REQUEST);
-    // }
-    std::cout << "Crlf Test is BEING PASSED WELL!!!\n";
-    
+
     std::istringstream iss(rawRequest);
     std::string line;
 
@@ -300,20 +229,14 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
     //i should find more optimization for error handling here
     if (_http_request.GetIsRl() != REQ_DONE)
     {
-        std::cerr << "Invalid request line" << std::endl;
-        std::cerr << "Debug - Request status: " << _http_request.GetIsRl() << std::endl;
-        std::cerr << "Method: '" << _http_request.GetMethod() << "', Location: '" << _http_request.GetLocation() << "'" << std::endl;
-        
         if (_http_request.GetIsRl() == REQ_HTTP_VERSION_ERROR)
             throw HttpException(404, "HTTP Version Not Supported", NOT_FOUND);
-        else if (_http_request.GetIsRl() == METHOD_NOT_ALLOWED || _http_request.GetIsRl() == REQ_METHOD_ERROR)
+        else if (_http_request.GetIsRl() == REQ_METHOD_ERROR || _http_request.GetIsRl() == REQ_METHOD_ERROR)
         {
-            std::cerr << "Method error: '" << _http_request.GetMethod() << "'" << std::endl;
             throw HttpException(405, "Bad Request - Method Not Allowed", METHOD_NOT_ALLOWED);
         }
         else if (_http_request.GetIsRl() == REQ_LOCATION_ERROR)
         {
-            std::cerr << "Location error: '" << _http_request.GetLocation() << "'" << std::endl;
             throw HttpException(404, "Not Found - Invalid Location", NOT_FOUND);
         }
         else if (_http_request.GetIsRl() == REQ_NOT_IMPLEMENTED)
@@ -342,7 +265,6 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
         ssize_t bytesRead = recv(socketFd, buffer, sizeof(buffer) - 1, 0);
         if (bytesRead < 0)
         {
-            std::cerr << "Failed to read more headers from socket" << std::endl;
             throw HttpException(400, "Bad Request - Failed to read headers", BAD_REQUEST);
         }
         if (bytesRead == 0)
@@ -353,8 +275,6 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
         buffer[bytesRead] = '\0';
         rawRequest += std::string(buffer);
     }
-    // std::cout << "bytesRead: " << rawRequest.size() << std::endl;
-    // exit(0);
 
     size_t header_end;
     size_t body_start;
@@ -371,9 +291,7 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
     std::string headersPart = rawRequest.substr(header_start , header_end - header_start);
 
     std::istringstream is(headersPart);
-    // std::cout << "Headers part size: " << headersPart.size() << std::endl;
-    // std::cout << "Headers part content: [" << headersPart << "]" << std::endl;
-    // std::cout << "-- END OF HEADERS --" << std::endl << std::endl;
+
     // Parse headers
     ParseRequsetHeaders(is);
     //i should find more optimization for error handling here
@@ -390,16 +308,6 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
             throw HttpException(501, "Not Implemented", NOT_IMPLEMENTED);
         return;
     }
-    std::cout << "END OF HEADERS PARSING !!!!!!!!!!!!\n";
-
-    /*
-        Remplimeinting Post Method
-        Body parsing
-        - If Content-Length is present, read the body up to that length
-        - if the transfer encoding is chunked, read chunks until the end
-        - if it's multipart/form-data, parse the body accordingly
-        - if no body is present, just set the body return response with 200 status code .
-    */
 
     if (_http_request.GetMethod() == "POST")
     {
@@ -423,13 +331,11 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
             ssize_t bytesRead = recv(socketFd, buffer, sizeof(buffer) - 1, 0);
             if (bytesRead < 0)
             {
-                std::cerr << "Failed to read body from socket" << std::endl;
                 throw HttpException(500, "Internal Server Error - Failed to read body", INTERNAL_SERVER_ERROR);
             }
             if (bytesRead == 0)
             {
                 _http_request.SetBodyAsStr("");
-                std::cout << "No body received, setting empty body" << std::endl;
             }
             else
             {
@@ -437,21 +343,10 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
                 _http_request.SetBodyAsStr(std::string(buffer));
             }
         }
-        // debugging the request details
-        // std::cout << "---- [REQUEST DETAILS] ----" << std::endl;
-        // std::cout << "Method: " << _http_request.GetMethod() << std::endl ;
-        // std::cout << "Location: " << _http_request.GetLocation() << std::endl;
-        // std::cout << "Body Size : " << _http_request.GetBodySize() << std::endl;
-        // std::cout << "Body Content: " << _http_request.GetBodyAsStr() << std::endl;
-        // std::cout << "Headers: " << std::endl;
-        // exit(0);
     }
 
     // Set the socket file descriptor
-    std::cout << "===== Raw Request Parsing Completed Successfully! =====" << std::endl;
-    std::cout << "rawRequest size: " << rawRequest.size() << std::endl;
     _http_request.SetSocketFd(socketFd);
-    std::cout << "Request parsing completed successfully!" << std::endl << std::endl;
 }
 
 /* build the http request   */

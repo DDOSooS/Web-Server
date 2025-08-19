@@ -2,7 +2,6 @@
 
 #include "./RequestHandler.hpp"
 
-#define MAX_CHUNK_SIZE 1024 * 1024 * 5 ;
 
 class Post : public RequestHandler
 {

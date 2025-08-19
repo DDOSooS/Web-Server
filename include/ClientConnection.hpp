@@ -41,19 +41,7 @@ public:
     
     static int              redirect_counter;
     bool                    should_close;
-    // Streaming upload members
-    // // bool                    is_streaming_upload;
-    // size_t                  total_content_length;
-    // size_t                  bytes_received_so_far;
     int                     temp_upload_fd;
-    // std::string             temp_upload_path;
-
-    // // Filename detection members
-    // bool                    filename_detected;
-    // bool                    is_multipart_upload;
-    // std::string             multipart_boundary;
-    // std::string             detected_filename;
-    // std::string             detected_extension;
 
     // Constructors and destructor
     ClientConnection(); 
@@ -62,7 +50,6 @@ public:
     
     // Getter methods
     int GetFd() const;
-    // bool isStreamingUpload() const { return is_streaming_upload; }
     
     // Main request handling methods
     void GenerateRequest(int fd);
@@ -75,19 +62,7 @@ public:
     bool isStale(time_t timeoutSec) const;
 
     // Streaming upload methods
-    // void initializeStreaming(size_t content_length);
-    // void initializeStreamingWithFilename(size_t content_length, const std::string& original_filename, const std::string& file_extension);
-    // bool continueStreamingRead(int fd);
-    // void finalizeStreaming();
+
     void setServerConfig(const ServerConfig& config);
     ServerConfig getServerConfig() const;
-
-    // Helper methods for filename detection
-    // bool tryExtractFilenameFromData(const char* data, size_t length);
-    // bool updateFileExtensionIfNeeded();
-
-private:
-    // Progress display helpers
-    // void showProgress();
-    // void showProgressBar(double speed_mbps);
 };

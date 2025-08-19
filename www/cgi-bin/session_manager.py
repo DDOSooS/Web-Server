@@ -200,7 +200,7 @@ def main():
 <html>
 <head><title>Login Failed</title></head>
 <body>
-    <h1>❌ Login Failed</h1>
+    <h1> Login Failed</h1>
     <p>Invalid credentials. Try again.</p>
     <form method="POST" action="/cgi-bin/session_manager.py?action=login">
         <input type="text" name="username" placeholder="Username" required>
@@ -271,7 +271,7 @@ def main():
 <head><title>Profile - {username}</title></head>
 <body>
     <h1>🎉 Welcome, {username}!</h1>
-    <h2>✅ SESSION LOGIN SUCCESS!</h2>
+    <h2> SESSION LOGIN SUCCESS!</h2>
     
     <h3>Session Info:</h3>
     <ul>
@@ -343,10 +343,10 @@ def main():
 <html>
 <head><title>Session Manager Diagnostic</title></head>
 <body>
-    <h1>🚀 Session Manager Diagnostic</h1>
+    <h1> Session Manager Diagnostic</h1>
     
     <h2>Current Status:</h2>
-    <p><strong>{'✅ Logged in as: ' + current_user if current_user else '❌ Not logged in'}</strong></p>
+    <p><strong>{' Logged in as: ' + current_user if current_user else ' Not logged in'}</strong></p>
     
     <h2>Navigation:</h2>
     <p>
@@ -382,7 +382,7 @@ def main():
         debug_log("=" * 60)
     
     except Exception as e:
-        debug_log(f"❌ CRITICAL ERROR: {str(e)}")
+        debug_log(f" CRITICAL ERROR: {str(e)}")
         import traceback
         debug_log(f"TRACEBACK: {traceback.format_exc()}")
         
@@ -390,7 +390,7 @@ def main():
 <html>
 <head><title>Error</title></head>
 <body>
-    <h1>❌ Error</h1>
+    <h1> Error</h1>
     <p>Error: {str(e)}</p>
     <p>Check: /tmp/webserv_debug.log</p>
     <p><a href="/cgi-bin/session_manager.py">Home</a></p>
