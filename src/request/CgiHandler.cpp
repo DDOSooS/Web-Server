@@ -15,7 +15,6 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <signal.h>
-#include <errno.h>
 #include <fcntl.h>
 
 std::map<int, CgiHandler::CgiProcess> CgiHandler::active_cgis;

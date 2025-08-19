@@ -74,7 +74,7 @@ bool Delete::deleteDirectoryRecursive(const std::string &dirPath) {
     
     DIR *dir = opendir(dirPath.c_str());
     if (!dir) {
-        std::cerr << "Failed to open directory: " << dirPath << " (errno: " << errno << ")" << std::endl;
+        std::cerr << "Failed to open directory: " << dirPath << std::endl;
         return false;
     }
     
