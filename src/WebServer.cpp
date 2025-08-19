@@ -266,14 +266,7 @@ int WebServer::run()
                     continue;
                 }
             }
-            /*
-                revents = 0      // Nothing happened
-                revents = 1      // POLLIN (data to read)
-                revents = 4      // POLLOUT (ready to write)
-                revents = 5      // POLLIN | POLLOUT (both!)
-                revents = 8      // POLLERR (error occurred)
-                revents = 16     // POLLHUP (connection closed)
-            */
+
             if (pollfds[i].revents == 0)
                 continue;
             int fd = pollfds[i].fd;
@@ -293,7 +286,6 @@ int WebServer::run()
             {
                 if (isListeningSocket(fd))
                 {
-                    std::cerr << "Error on listening socket " << fd << "!" << std::endl;
                     running = false;
                     break; // To check for the condition that server must never exit
                 }
@@ -309,11 +301,8 @@ int WebServer::run()
                 if (isListeningSocket(fd))
                     acceptNewConnection(fd);
                 else
-                {
                        handleClientRequest(fd);
-                }
             }
-
             // Handle outgoing data
             if (pollfds[i].revents & POLLOUT)
             {
@@ -323,17 +312,14 @@ int WebServer::run()
                 }
                 catch (const HttpException & e)
                 {
-                    std::cerr << "Unhandled exception in handleClientResponse: " << e.what() << std::endl;
                     this->updatePollEvents(fd, POLLOUT);
                     Error error(clients[fd], e.GetCode(), e.GetMessage(), e.GetErrorType());
                     errorHandler->HanldeError(error, this->getConfigForClient(fd));
-                    std::cout  << "[DEBUG] : CLOSING CLIENT CONNECTION HAPPENED HERE\n";
                     closeClientConnection(fd);
                 }
             }
         }
     }
-
     // Clean up before exiting
     for (int i = 0; i < numfds; i++)
     {
@@ -524,15 +510,9 @@ void WebServer::handleClientRequest(int fd)
                 ->SetNext(new TooManyRedirection());
     try
     {
-        std::cout << "Processing existing request for fd=" << fd << std::endl;
         if (client.http_request == NULL)
         {
-            std::cout << "Generating new request for fd=" << fd << std::endl;
             client.GenerateRequest(fd);        
-        }
-        else 
-        {
-            std::cout << "remaing bytes: " << client.http_request->GetRemaineBytes() << std::endl;
         }
         client.ProcessRequest(fd);
     }
@@ -547,13 +527,11 @@ void WebServer::handleClientRequest(int fd)
         }
         catch (std::exception &ex)
         {
-            std::cerr << "Error while handling exception: " << ex.what() << std::endl;
             closeClientConnection(fd);
         }
     }
     catch (...)
     {
-        std::cerr << "Unknown exception in handleClientRequest" << std::endl;
         closeClientConnection(fd);
     }
     
@@ -575,7 +553,6 @@ void WebServer::handleClientResponse(int fd)
 
     if (client.http_response == NULL)
     {
-        std::cerr << "Warning: client.http_response is null for fd " << fd << std::endl;
         updatePollEvents(fd, POLLIN);
         return;
     }
@@ -588,24 +565,17 @@ void WebServer::handleClientResponse(int fd)
             try
             {
                 client.http_response->sendChunkedResponse(fd);
-                std::cout << "----------- [Chunked response Detail] -------------\n";
-                std::cout << "File bytes sent: " << client.http_response->getByteSent() << "\n";
-                std::cout << "File bytes to send: " << client.http_response->getByteToSend() << "\n";
-                
                 if (client.http_response->getByteSent() == client.http_response->getByteToSend())
                 {
-                    std::cout << "Chunked response sent completely\n";
                     client.http_response->sendLastChunk(fd);
                     if (client.http_response->isKeepAlive())
                     {
-                        std::cout << "Resetting request for keep-alive\n";
                         client.http_response->clear();
                         client.http_request->ResetRequest();
                         this->updatePollEvents(fd, POLLIN);
                     }
                     else
                     {
-                        std::cout << "Closing connection after chunked response\n";
                         closeClientConnection(fd);
                     }
                     return;
@@ -627,7 +597,6 @@ void WebServer::handleClientResponse(int fd)
                 if (client.http_request && client.http_request->IsRedirected())
                 {
                     client.redirect_counter++;
-                    std::cout << " -------------------- [Debug] : number of redirections: " << client.redirect_counter << "Is redirection " << client.http_request->IsRedirected() << std::endl;
                     if (client.redirect_counter > 10)
                     {
                         client.redirect_counter = 0;
@@ -643,7 +612,6 @@ void WebServer::handleClientResponse(int fd)
                 client.http_response->sendChunkedResponse(fd);
                 if (client.should_close)
                 {
-                    std::cout << "----Closing connection after error response\n";
                     closeClientConnection(fd);
                     return;
                 }
@@ -651,14 +619,12 @@ void WebServer::handleClientResponse(int fd)
             this->updatePollEvents(fd, POLLIN);
             if (client.http_response->isKeepAlive())
             {
-                std::cout << "after Resetting the request !!!\n";
                 client.http_response->clear();
                 client.http_request->ResetRequest();
                 return;
             }
             else
             {
-                std::cout << "----Closing connection after response\n";
                 closeClientConnection(fd);
                 return;
             }

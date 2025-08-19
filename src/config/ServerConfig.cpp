@@ -220,7 +220,6 @@ const Location *ServerConfig::findMatchingLocation(const std::string &path) cons
 {
     const Location *default_location = NULL;
     
-    std::cout << "[DEBUG] Searching for matching location for path: " << path << std::endl;
     std::string tmp_path;
 
     tmp_path = path;
@@ -233,8 +232,6 @@ const Location *ServerConfig::findMatchingLocation(const std::string &path) cons
         // std::cout << "[DEBUG] Checking location: " << this->_locations[i].get_path() << std::endl << std::endl;
         if (!this->_locations[i].get_path().empty() && this->_locations[i].get_path() == tmp_path)
         {
-            std::cout << "[DEBUG] Found matching location: " << this->_locations[i].get_path() << std::endl;
-            std::cout << "================= [ End of Finding Matching Location ] =======================\n";
             return &this->_locations[i];
         }
         if (this->_locations[i].get_path() == "/")
@@ -242,7 +239,6 @@ const Location *ServerConfig::findMatchingLocation(const std::string &path) cons
             default_location = &this->_locations[i];
         }
     }
-    std::cout << "================= [ End of Finding Matching Location ] =======================\n";
     return default_location;
 }
 
