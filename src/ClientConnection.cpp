@@ -70,15 +70,6 @@ ClientConnection::~ClientConnection()
 }
 
 
-/*
-------geckoformboundary7de324a472cdf0c02af4e4199d73dc0d
-Content-Disposition: form-data; name="upload_file"; filename="1747505457077.jpeg"
-Content-Type: image/jpeg
-
-����
-------------------------
-*/
-
 void ClientConnection::GenerateRequest(int fd)
 {
     std::cout << "Socket Fd: " << fd << "=====" << std::endl;
@@ -88,6 +79,7 @@ void ClientConnection::GenerateRequest(int fd)
     {
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
+    std::cout << "buffer content : " << std::string(buffer, bytesRead) << std::endl;
     std::string rawRequest(buffer, bytesRead);
     HttpRequestBuilder build = HttpRequestBuilder();
 

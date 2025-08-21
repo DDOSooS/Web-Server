@@ -2,7 +2,6 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <cstring>  // for strerror
-#include <cerrno>   // for errno
 #include <iostream>
 #include <fstream>
 
@@ -219,8 +218,6 @@ long getFileSize(std::string &file_name)
     }
     return file_info.st_size;
 }
-
-
     
 std::string HttpResponse::toString() 
 {
@@ -300,27 +297,20 @@ std::string HttpResponse::toString()
     if (header_end != std::string::npos)
     {
         std::string headers_only = response.substr(0, header_end);
-        std::cout << "========== RESPONSE HEADERS START ==========" << std::endl;
-        std::cout << headers_only << std::endl;
-        std::cout << "========== RESPONSE HEADERS END ==========" << std::endl;
     }
     return response;
 }
 
 void HttpResponse::sendResponse(int socket_fd)
 {
-    std::cout << "[Debug : ] ---Start of Sending A response--- !!\n";
 
     std::string response = this->toString();
-    std::cout << "[Debug] : Response to send: " << response << std::endl;
-    std::cout << "[Debug] : Response size: " << response.size() << " bytes" << std::endl;
     ssize_t bytes_sent = send(socket_fd, response.c_str(), response.size(), MSG_NOSIGNAL);
     if (bytes_sent < 0)
     {
         std::cerr << "Error sending response: send failed" << std::endl;
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
-    std::cout << "Bytes sent: " << bytes_sent << " out of " << response.size() << " bytes" << std::endl;
 
 }
 
@@ -337,10 +327,6 @@ void HttpResponse::sendLastChunk( int socket_fd)
         std::cerr << "Error sending final chunk: send failed" << std::endl;
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
-    // std::cout << "[Debug byte sent] : " << this->_byte_sent << " bytes\n";
-    // std::cout << "Debug byte to send: " << this->_byte_to_send << " bytes\n";
-    // // exit(0);
-    // std::cout << "[Debug] Final chunk sent: " << final_bytes << " bytes\n";
     return;
 }
 
@@ -356,13 +342,9 @@ void HttpResponse::sendChunkedResponse(int socket_fd)
         response = this->toString();
         ssize_t bytes_sent = send(socket_fd, response.c_str(), response.size(), MSG_NOSIGNAL);
         if (bytes_sent < 0) {
-            std::cerr << "Error sending chunked response: send failed" << std::endl;
             throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
         }
         this->_byte_sent = this->_byte_to_send; 
-        std::cout << "Buffer response sent: " << bytes_sent << " bytes" << std::endl;
-        std::cout << "[Debug] Chunked response sent from buffer\n";
-        std::cout << "---> [DEBUG] RESPONSE SENT: " << response << std::endl;
         return;
     }
     
@@ -384,17 +366,16 @@ void HttpResponse::sendChunkedResponse(int socket_fd)
         if (!this->_file_path.empty())
             this->_content_type = determineContentType(this->_file_path);
         headers << "Content-Type: " + (this->_content_type.empty() ? "text/plain" : this->_content_type) + "\r\n";
+        headers << "Cache-Control: public, max-age=3600\r\n";
+        headers << "Accept-Ranges: bytes\r\n";
         headers << "\r\n";
         
         std::string header_str = headers.str();
         ssize_t header_bytes = send(socket_fd, header_str.c_str(), header_str.size(), MSG_NOSIGNAL);
         if (header_bytes < 0)
         {
-            std::cerr << "Error sending headers: send failed" << std::endl;
             throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
         }
-        std::cout << "[Debug] Headers sent: " << header_bytes << " bytes\n";
-        std::cout << "[Debug] Content type: " << this->_content_type << std::endl;
     }
 
     // HANDLE FINAL CHUNK
@@ -407,7 +388,6 @@ void HttpResponse::sendChunkedResponse(int socket_fd)
     file.read(buffer.data(), chunk_size);
     if (!file && !file.eof())
     {
-        std::cerr << "Error reading file chunk" << std::endl;
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
     
@@ -427,10 +407,6 @@ void HttpResponse::sendChunkedResponse(int socket_fd)
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
     this->_byte_sent += actual_bytes_read;
-    std::cout << "[Debug] Chunk sent: size=" << actual_bytes_read 
-              << ", total_sent=" << this->_byte_sent 
-              << "/" << this->_byte_to_send << std::endl;
-    
     file.close();
 }
 

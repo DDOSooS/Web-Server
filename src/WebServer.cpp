@@ -619,8 +619,10 @@ void WebServer::handleClientResponse(int fd)
             this->updatePollEvents(fd, POLLIN);
             if (client.http_response->isKeepAlive())
             {
-                client.http_response->clear();
-                client.http_request->ResetRequest();
+                delete client.http_response;
+                client.http_response = NULL;
+                delete client.http_request;
+                client.http_request = NULL;
                 return;
             }
             else
