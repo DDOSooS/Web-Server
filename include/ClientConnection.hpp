@@ -40,8 +40,9 @@ public:
     ServerConfig            server_config;
     
     static int              redirect_counter;
-    bool                    should_close;
     int                     temp_upload_fd;
+    bool                    should_close;
+
 
     // Constructors and destructor
     ClientConnection(); 

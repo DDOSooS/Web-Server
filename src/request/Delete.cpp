@@ -16,7 +16,7 @@ bool Delete::CanHandle(std::string method) {
 void Delete::ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig) {
     std::string rel_path;
     const Location *cur_location;
-
+    (void)serverConfig;
     if (!request)
     {
         std::cerr << "Error: Null request pointer\n";
