@@ -70,6 +70,7 @@ class WebServer
         std::map<int, int>                  client_to_server_index; // Map client socket to server index
         
         struct pollfd                       *pollfds;               // Files descriptor using poll
+        std::vector<struct pollfd>          pollfds_vec;
         int                                 maxfds, numfds;
         std::map<int, ClientConnection>     clients;                // Map of fd to ClientConnection
         CgiHandler                          *cgiHandler;            // Pointer to the CGI handler

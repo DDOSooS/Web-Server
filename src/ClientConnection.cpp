@@ -122,8 +122,6 @@ void ClientConnection::GenerateRequest(int fd)
 
 void ClientConnection::ProcessRequest(int fd)
 {
-    RequestHandler *chain_handler = NULL;
-    
     if (http_request == NULL)
     {
         return;
@@ -133,29 +131,20 @@ void ClientConnection::ProcessRequest(int fd)
         std::map<std::string, std::string> emptyHeaders;
         this->http_response = new HttpResponse(200, emptyHeaders, "text/plain", false, false);
     }
-    chain_handler = new CgiHandler(this);
-    chain_handler->SetNext(new Get())
-                ->SetNext(new Post())
-                ->SetNext(new Delete());
-    chain_handler->HandleRequest(this->http_request, 
-                                this->_server->getConfigForClient(this->GetFd()), 
-                                this->server_config);
+    CgiHandler cgi(this);
+    Get        getH;
+    Post       postH;
+    Delete     delH;
+    cgi.SetNext(&getH)->SetNext(&postH)->SetNext(&delH);
+    cgi.HandleRequest(this->http_request,
+                      this->_server->getConfigForClient(this->GetFd()),
+                      this->server_config);
     
     // update client file descriptor to POLLOUT
     if (!this->http_request->IsStreamingUpload())
         this->_server->updatePollEvents(fd, POLLOUT);
     else
         this->_server->updatePollEvents(fd, POLLIN);
-    // Clean up handler chain
-    while (chain_handler->GetNext() != NULL)
-    {
-        RequestHandler *next_handler = chain_handler->GetNext();
-        chain_handler->SetNext(NULL);
-        delete chain_handler; 
-        chain_handler = next_handler; 
-    }
-    if (chain_handler != NULL) 
-        delete chain_handler;
 }
 
 void ClientConnection::updateActivity()

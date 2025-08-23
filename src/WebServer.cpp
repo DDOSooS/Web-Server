@@ -21,15 +21,14 @@
 
 WebServer::WebServer() : maxfds(DEFAULT_MAX_CONNECTIONS)
 {
-    pollfds = new struct pollfd[maxfds];
-    numfds = 0;
-    _active_events = 0;
+    pollfds_vec.resize(maxfds);
+    pollfds = &pollfds_vec[0];
+     numfds = 0;
+     _active_events = 0;
 }
 
 WebServer::~WebServer()
 {
-    if (pollfds)
-        delete[] pollfds;
     for (size_t i = 0; i < m_sockets.size(); ++i)
     {
         if (m_sockets[i] > 0)
@@ -96,7 +95,7 @@ int WebServer::init(std::vector<ServerConfig>& configs)
     m_sockets.resize(configs.size());
 
     // Initialize pollfd structure
-    memset(pollfds, 0, sizeof(struct pollfd) * maxfds);
+   memset(&pollfds_vec[0], 0, sizeof(struct pollfd) * maxfds);
 
     // Create listening socket for each server configuration
     for (size_t i = 0; i < configs.size(); ++i)
@@ -204,14 +203,17 @@ int WebServer::run()
                   << "' is listening on port: " << m_configs[i].get_port() << std::endl;
     }
 
-    // Set error chain handler
-    ErrorHandler *errorHandler = new NotFound();
-    errorHandler->SetNext(new BadRequest())
-                ->SetNext(new InternalServerError())
-                ->SetNext(new NotImplemented())
-                ->SetNext(new MethodNotAllowed())
-                ->SetNext(new Forbidden())
-                ->SetNext(new TooManyRedirection());
+    // error chain
+    NotFound             eh0;
+    BadRequest           eh1;
+    InternalServerError  eh2;
+    NotImplemented       eh3;
+    MethodNotAllowed     eh4;
+    Forbidden            eh5;
+    TooManyRedirection   eh6;
+    eh0.SetNext(&eh1)->SetNext(&eh2)->SetNext(&eh3)
+       ->SetNext(&eh4)->SetNext(&eh5)->SetNext(&eh6);
+    ErrorHandler* errorHandler = &eh0;
 
     while (running)
     {
@@ -328,15 +330,6 @@ int WebServer::run()
             close(pollfds[i].fd);
         }
     }
-    // cleaning error chain handler
-    while (errorHandler->GetNext() != NULL)
-    {
-        ErrorHandler *next = errorHandler->GetNext();
-        delete errorHandler;
-        errorHandler = next;
-    }
-    if (errorHandler)
-        delete errorHandler;
     std::cout << "WebServer has shut down all servers." << std::endl;
     return 0;
 }
@@ -501,13 +494,17 @@ void WebServer::handleClientRequest(int fd)
 
     ClientConnection &client = clients[fd];
 
-    ErrorHandler *errorHandler = new NotFound();
-    errorHandler->SetNext(new BadRequest())
-                ->SetNext(new InternalServerError())
-                ->SetNext(new NotImplemented())
-                ->SetNext(new MethodNotAllowed())
-                ->SetNext(new Forbidden())
-                ->SetNext(new TooManyRedirection());
+    NotFound             eh0;
+    BadRequest           eh1;
+    InternalServerError  eh2;
+    NotImplemented       eh3;
+    MethodNotAllowed     eh4;
+    Forbidden            eh5;
+    TooManyRedirection   eh6;
+    eh0.SetNext(&eh1)->SetNext(&eh2)->SetNext(&eh3)
+       ->SetNext(&eh4)->SetNext(&eh5)->SetNext(&eh6);
+    ErrorHandler* errorHandler = &eh0;
+
     try
     {
         if (client.http_request == NULL)
@@ -534,17 +531,6 @@ void WebServer::handleClientRequest(int fd)
     {
         closeClientConnection(fd);
     }
-    
-    // Clean up error handler
-    while (errorHandler->GetNext() != NULL)
-    {
-        ErrorHandler *next = errorHandler->GetNext();
-        errorHandler->SetNext(NULL);
-        delete errorHandler;
-        errorHandler = next;
-    }
-    if (errorHandler)
-        delete errorHandler;
 }
 
 void WebServer::handleClientResponse(int fd)
@@ -601,9 +587,8 @@ void WebServer::handleClientResponse(int fd)
                     {
                         client.redirect_counter = 0;
                         Error error(client, 429, "Too Many Redirections", TOO_MANY_REDIRECTION);
-                        ErrorHandler *errorHandler = new TooManyRedirection();
-                        errorHandler->HanldeError(error, this->getConfigForClient(fd));
-                        delete errorHandler;
+                        TooManyRedirection tr;
+                        tr.HanldeError(error, this->getConfigForClient(fd));
                         client.should_close = true; 
                     }
                 }
