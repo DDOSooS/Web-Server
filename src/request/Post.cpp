@@ -127,7 +127,7 @@ bool createDirectoryIfNotExists(const std::string& path)
         return true;
     }
     
-    std::cerr << "Failed to create directory: " << path << " - " << strerror(errno) << std::endl;
+    std::cerr << "Failed to create directory: " << path << " - " << std::endl;
     return false;
 }
 

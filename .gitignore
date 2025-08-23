@@ -15,4 +15,4 @@ tmp/
 
 # Keep directory structure
 !www/uploads/.gitkeep
-/uploads
+*/upload

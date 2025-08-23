@@ -91,7 +91,7 @@ std::string Get::ListingDir(const std::string &path, std::string request_path, c
     dir = opendir(path_.c_str());
     if (dir == NULL)
     {
-        std::cerr << "Failed to open directory: " << path_ << " - " << strerror(errno) << std::endl;
+        std::cerr << "Failed to open directory: " << path_ << " - " << std::endl;
         return "";
     }
     response << "<html>\n"
