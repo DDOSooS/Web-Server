@@ -442,12 +442,19 @@ void CgiHandler::setCgiResponseHeaders(HttpRequest* request, const std::string& 
         std::string header_name = line.substr(0, colon_pos);
         std::string header_value = line.substr(colon_pos + 1);
         
-        while (!header_value.empty() && (header_value[0] == ' ' || header_value[0] == '\t')) {
-            header_value.erase(0, 1);
-        }
-        while (!header_value.empty() && (header_value[header_value.length()-1] == ' ' || header_value[header_value.length()-1] == '\t')) {
-            header_value.erase(header_value.length()-1, 1);
-        }
+         while (!header_value.empty() &&
+                               (header_value[0] == ' ' || header_value[0] == '\t')) {
+                            header_value.erase(0, 1);
+                        }
+                        // right-trim
+                        while (!header_value.empty()) {
+                            char last = header_value[header_value.size() - 1];
+                            if (last == '\r' || last == ' ' || last == '\t') {
+                                header_value.erase(header_value.size() - 1, 1);
+                            } else {
+                                break;
+                            }
+                        }
         
         
         if (header_name == "Status") {

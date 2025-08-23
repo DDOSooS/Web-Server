@@ -838,13 +838,19 @@ void WebServer::handleCgiEvent(int fd) {
                         std::string header_value = line.substr(colon_pos + 1);
                         
                         // Trim whitespace from header value
-                        while (!header_value.empty() && (header_value[0] == ' ' || header_value[0] == '\t')) {
-                            header_value.erase(0, 1);
-                        }
-                        while (!header_value.empty() && (header_value.back() == '\r' || header_value.back() == ' ' || header_value.back() == '\t')) {
-                            header_value.pop_back();
-                        }
-                        
+                         while (!header_value.empty() &&
+                                (header_value[0] == ' ' || header_value[0] == '\t')) {
+                             header_value.erase(0, 1);
+                         }
+                         // right-trim
+                         while (!header_value.empty()) {
+                             char last = header_value[header_value.size() - 1];
+                             if (last == '\r' || last == ' ' || last == '\t') {
+                                 header_value.erase(header_value.size() - 1, 1);
+                             } else {
+                                 break;
+                             }
+                         }
                         std::cout << "🔍 Processing CGI header: " << header_name << ": " << header_value << std::endl;
                         
                         // Handle special CGI headers
