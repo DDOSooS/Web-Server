@@ -1,5 +1,7 @@
+#include <string>
 #include "../../include/request/HttpRequestBuilder.hpp"
 #include "../../include/config/Location.hpp"
+
 HttpRequestBuilder::HttpRequestBuilder()
 {
     _http_request.ResetRequest();
@@ -197,10 +199,6 @@ void HttpRequestBuilder::ParseRequsetHeaders(std::istringstream &iss)
             value.erase(endpos + 1);
         else
             value.clear();
-        // if (!value.empty())
-        // {
-        //     std::cout << "Header Key: [" << key << "] (" << key.length() << "), Value: [" << value << "] (" << value.length() << ")" << std::endl;
-        // }
         _http_request.SetHeader(key, value);
     }
 }
@@ -308,7 +306,7 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
         if (_http_request.HasHeader("Content-Length"))
         {
             std::string content_length_str = _http_request.GetHeader("Content-Length");
-            size_t content_length = std::stoul(content_length_str);
+            size_t content_length = atol(content_length_str.c_str());
             _http_request.SetBodySize(content_length);
             _http_request.SetRemaineBytes(content_length);
             _http_request.SetRecvBytes(0);

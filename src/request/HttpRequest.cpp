@@ -472,7 +472,7 @@ void HttpRequest::handleRedirect(const Location * cur_location , std::string &re
 {
     (void) rel_path; 
 
-    int redirection_code = static_cast<int>(std::stoi(cur_location->get_return()[0]));
+    int redirection_code = static_cast<int>(atoi(cur_location->get_return()[0].c_str()));
     this->SetIsRedirected(true);
     if (!isRedirectionStatusCode(redirection_code))
     {

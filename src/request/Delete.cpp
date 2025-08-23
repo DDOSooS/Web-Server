@@ -58,7 +58,7 @@ void Delete::handleFileDeletion(HttpRequest *request, const std::string &filePat
 
 void Delete::handleDirectoryDeletion(HttpRequest *request, const std::string &dirPath, const std::string &originalUri) {
     
-    if (originalUri.empty() || originalUri.back() != '/') {
+    if (originalUri.empty() || originalUri[originalUri.length() - 1] != '/') {
         sendErrorResponse(request, 409, "Conflict", "Directory deletion requires URI to end with '/'");
         return;
     }

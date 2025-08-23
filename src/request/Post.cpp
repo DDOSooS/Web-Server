@@ -1,5 +1,4 @@
 #include "../../include/request/Post.hpp"
-#include <unordered_map>
 #include <algorithm>
 #include <string.h>
 
@@ -228,7 +227,7 @@ void Post::handleUrlEncodedData(HttpRequest *request, const ServerConfig &server
     std::string body = request->GetBodyAsStr();
 
     std::cout << "Received application/x-www-form-urlencoded data: " << body << std::endl;
-    std::unordered_map<std::string, std::string> formData;
+    std::map<std::string, std::string> formData;
     for (size_t i = 0; i < body.size(); ++i)
     {
         size_t pos = body.find_first_of('&', i);
@@ -279,7 +278,7 @@ void Post::handleUrlEncodedData(HttpRequest *request, const ServerConfig &server
     ss << "        <div class=\"table-wrap\">\n";
     ss << "        <table>\n";
     ss << "            <tr><th>Key</th><th>Value</th></tr>\n";
-    for (std::unordered_map<std::string, std::string>::iterator it = formData.begin(); it != formData.end(); ++it)
+    for (std::map<std::string, std::string>::iterator it = formData.begin(); it != formData.end(); ++it)
     {
         ss << "            <tr><td>" << it->first << "</td><td>" << it->second << "</td></tr>\n";
     }
@@ -411,7 +410,7 @@ void Post::getBodyReamiingBytes(HttpRequest *request)
     }
     else
     {
-        std::fstream file(request->GetUploadFilePath(), std::ios::out | std::ios::binary | std::ios::app);
+        std::fstream file(request->GetUploadFilePath().c_str(), std::ios::out | std::ios::binary | std::ios::app);
         if (!file.is_open())
         {
             request->SetIsStreamingUpload(false);
@@ -495,7 +494,7 @@ std::string DecodeHtmlEntities(const std::string& encoded)
 
 void Post::writeToTargetFile(HttpRequest *request, std::string upload_file)
 {
-    std::fstream file(upload_file, std::ios::out | std::ios::binary | std::ios::app);
+    std::fstream file(upload_file.c_str(), std::ios::out | std::ios::binary | std::ios::app);
     if (!file.is_open())
     {
         request->SetIsStreamingUpload(false);

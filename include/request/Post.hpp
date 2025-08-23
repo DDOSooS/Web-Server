@@ -9,8 +9,8 @@ class Post : public RequestHandler
         Post();
         ~Post();
 
-        bool CanHandle(std::string method) override;
-        void ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig) override;
+        bool CanHandle(std::string method);
+        void ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig) ;
         void handleMultipartFormData(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig);
         void handleUrlEncodedData(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig);
         void hanleTextPlainData(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig);
