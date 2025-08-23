@@ -6,7 +6,9 @@ RequestHandler::RequestHandler():_nextHandler(NULL)
 }
 
 RequestHandler::~RequestHandler()
-{}
+{
+
+}
 
 RequestHandler *   RequestHandler::SetNext(RequestHandler *handler)
 {
@@ -34,7 +36,6 @@ void    RequestHandler::HandleRequest(HttpRequest *request, const ServerConfig &
     {
         return;
     }
-
     std::string rel_path;
     const Location *cur_location = serverConfig.findMatchingLocation(request->GetLocation());
     rel_path = request->GetRelativePath(cur_location, request->GetClientDatat());

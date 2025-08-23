@@ -149,7 +149,6 @@ void HttpRequestBuilder::ParseRequestLine(std::string &request_line,const Server
         _http_request.SetIsRl(REQ_LOCATION_ERROR);
         return;
     }
-    std::cout << "HTTP LOCATION TEST passed!!\n";
     _http_request.SetLocation(path);
 
     std::vector<std::string> valid_methods;
@@ -180,14 +179,12 @@ void HttpRequestBuilder::ParseRequsetHeaders(std::istringstream &iss)
 
     while (std::getline(iss, line))
     {
-        std::cout << "REQUEST HEADER LINE: [" << line  << std::endl;
         std::string key;
         std::string value;
         if (line.empty() || line == "\r") break;
         size_t pos = line.find(":");
         if (pos == std::string::npos)
         {
-            std::cerr << "Malformed Header: Missing ':'" << std::endl;
             throw HttpException(400, "Malformed Header: Missing ':'", BAD_REQUEST);
         }
         key = line.substr(0, pos);
@@ -200,11 +197,10 @@ void HttpRequestBuilder::ParseRequsetHeaders(std::istringstream &iss)
             value.erase(endpos + 1);
         else
             value.clear();
-        if (!value.empty())
-        {
-            std::cout << "Header Key: [" << key << "] (" << key.length() << "), Value: [" << value << "] (" << value.length() << ")" << std::endl;
-        }
-
+        // if (!value.empty())
+        // {
+        //     std::cout << "Header Key: [" << key << "] (" << key.length() << "), Value: [" << value << "] (" << value.length() << ")" << std::endl;
+        // }
         _http_request.SetHeader(key, value);
     }
 }
@@ -213,8 +209,6 @@ void HttpRequestBuilder::ParseRequestBody(std::string &body)
 {
     _http_request.SetBodyAsStr(body);
 }
-
-
 
 void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig &serverConfig, int socketFd)
 {
@@ -344,8 +338,7 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
             }
         }
     }
-
-    // Set the socket file descriptor
+    // Settng the socket file descriptor
     _http_request.SetSocketFd(socketFd);
 }
 

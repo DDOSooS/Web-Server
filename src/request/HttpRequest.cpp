@@ -409,7 +409,6 @@ std::string HttpRequest::GetRelativePath(const Location *cur_location, ClientCon
     {
         rel_path = join_path(join_path(cwd, client->getServerConfig().get_root()), this->GetLocation());
         rel_path = ensure_trailing_slash(rel_path);
-
         return rel_path;
     }
     if (!cur_location->get_return().empty())

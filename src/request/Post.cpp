@@ -137,13 +137,46 @@ void Post::hanleTextPlainData(HttpRequest *request, const ServerConfig &serverCo
 {
     (void)clientConfig; 
     (void)serverConfig;
-    std::string body = request->GetBodyAsStr() + "   Data received successfully";
-    std::cout << "Received text/plain data: " << body << std::endl;
+    std::string received = request->GetBodyAsStr();
+    std::stringstream ss;
+    ss << "<!DOCTYPE html>\n";
+    ss << "<html lang=\"en\">\n";
+    ss << "<head>\n";
+    ss << "    <meta charset=\"UTF-8\">\n";
+    ss << "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n";
+    ss << "    <title>Text Data Received - Postman Style</title>\n";
+    ss << "    <style>\n";
+    ss << "        body { background: #23272f; color: #fff; font-family: 'Segoe UI', 'Inter', Arial, sans-serif; margin: 0; padding: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; }\n";
+    ss << "        .card { background: #2a2e37; border-radius: 16px; box-shadow: 0 8px 32px rgba(255,107,53,0.15); padding: 2.5rem 2rem; max-width: 500px; width: 100%; text-align: center; border: 1px solid #ff6b35; }\n";
+    ss << "        h1 { color: #ff6b35; font-size: 2rem; margin-bottom: 1.2rem; }\n";
+    ss << "        .data-box { background: #23272f; border: 1px solid #444; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; color: #ff8c42; font-size: 1.1rem; word-break: break-all; }\n";
+    ss << "        .btn { background: linear-gradient(90deg, #ff6b35, #ff8c42); color: #fff; border: none; border-radius: 8px; padding: 0.8rem 2rem; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s; text-decoration: none; display: inline-block; margin-top: 1.5rem; }\n";
+    ss << "        .btn:hover { background: linear-gradient(90deg, #ff8c42, #ff6b35); }\n";
+    ss << "        .postman-logo { margin-top: 2rem; opacity: 0.7; }\n";
+    ss << "    </style>\n";
+    ss << "</head>\n";
+    ss << "<body>\n";
+    ss << "    <div class=\"card\">\n";
+    ss << "        <h1>Text Data Received</h1>\n";
+    ss << "        <div class=\"data-box\">" << received << "</div>\n";
+    ss << "        <div style=\"color:#b8b8b8; margin-bottom:1.5rem;\">Data received successfully.</div>\n";
+    ss << "        <a href=\"/\" class=\"btn\">Back to Home</a>\n";
+    ss << "        <div class=\"postman-logo\">\n";
+    ss << "            <svg width=\"80\" height=\"32\" viewBox=\"0 0 80 32\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n";
+    ss << "                <circle cx=\"16\" cy=\"16\" r=\"16\" fill=\"#ff6b35\"/>\n";
+    ss << "                <rect x=\"36\" y=\"12\" width=\"40\" height=\"8\" rx=\"4\" fill=\"#ff6b35\"/>\n";
+    ss << "            </svg>\n";
+    ss << "        </div>\n";
+    ss << "    </div>\n";
+    ss << "</body>\n";
+    ss << "</html>\n";
+    std::string body = ss.str();
+    std::cout << "Received text/plain data: " << received << std::endl;
 
     request->GetClientDatat()->http_response->setStatusCode(200);
     request->GetClientDatat()->http_response->setStatusMessage("OK");
     request->GetClientDatat()->http_response->setBuffer(body);
-    request->GetClientDatat()->http_response->setContentType("text/plain");
+    request->GetClientDatat()->http_response->setContentType("text/html");
     request->GetClientDatat()->_server->updatePollEvents(request->GetSocketFd() ,POLLOUT);
 }
 
@@ -177,8 +210,10 @@ std::string generateUniqueFileName(const std::string &base_path, const std::stri
     std::string unique_file_name = file_name;
     std::stringstream ss(unique_file_name);
     // std::cout << "Base path: " << filn << std::endl;
-    std::string timestamp = std::to_string(std::time(nullptr));
-	if (base_path.back() != '/')
+    std::stringstream ts_ss;
+    ts_ss << std::time(NULL);
+    std::string timestamp = ts_ss.str();
+	if (base_path[base_path.length() - 1] != '/')
 		ss << base_path << "/";
 	else
 		ss << base_path;
@@ -216,23 +251,50 @@ void Post::handleUrlEncodedData(HttpRequest *request, const ServerConfig &server
         
         i = pos; 
     }
-    std::cout << "===============" << std::endl;
-    for (const auto& pair : formData)
+    std::stringstream ss;
+    ss << "<!DOCTYPE html>\n";
+    ss << "<html lang=\"en\">\n";
+    ss << "<head>\n";
+    ss << "    <meta charset=\"UTF-8\">\n";
+    ss << "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n";
+    ss << "    <title>Form Data Received - Postman Style</title>\n";
+    ss << "    <style>\n";
+    ss << "        body { background: #23272f; color: #fff; font-family: 'Segoe UI', 'Inter', Arial, sans-serif; margin: 0; padding: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; }\n";
+    ss << "        .card { background: #2a2e37; border-radius: 16px; box-shadow: 0 8px 32px rgba(255,107,53,0.15); padding: 2.5rem 2rem; max-width: 500px; width: 100%; text-align: center; border: 1px solid #ff6b35; }\n";
+    ss << "        h1 { color: #ff6b35; font-size: 2rem; margin-bottom: 1.2rem; }\n";
+    ss << "        .table-wrap { overflow-x: auto; margin-bottom: 1.5rem; }\n";
+    ss << "        table { width: 100%; border-collapse: collapse; background: #23272f; margin: 0 auto; }\n";
+    ss << "        th, td { padding: 0.7rem 1rem; border-bottom: 1px solid #444; text-align: left; }\n";
+    ss << "        th { background: #ff6b35; color: #fff; font-weight: 600; }\n";
+    ss << "        tr:last-child td { border-bottom: none; }\n";
+    ss << "        tr:nth-child(even) td { background: #262a33; }\n";
+    ss << "        .btn { background: linear-gradient(90deg, #ff6b35, #ff8c42); color: #fff; border: none; border-radius: 8px; padding: 0.8rem 2rem; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s; text-decoration: none; display: inline-block; margin-top: 1.5rem; }\n";
+    ss << "        .btn:hover { background: linear-gradient(90deg, #ff8c42, #ff6b35); }\n";
+    ss << "        .postman-logo { margin-top: 2rem; opacity: 0.7; }\n";
+    ss << "    </style>\n";
+    ss << "</head>\n";
+    ss << "<body>\n";
+    ss << "    <div class=\"card\">\n";
+    ss << "        <h1>Form Data Received</h1>\n";
+    ss << "        <div class=\"table-wrap\">\n";
+    ss << "        <table>\n";
+    ss << "            <tr><th>Key</th><th>Value</th></tr>\n";
+    for (std::unordered_map<std::string, std::string>::iterator it = formData.begin(); it != formData.end(); ++it)
     {
-        std::cout << "Key: " << pair.first << ", Value: " << pair.second << std::endl;
+        ss << "            <tr><td>" << it->first << "</td><td>" << it->second << "</td></tr>\n";
     }
-
-    std::stringstream ss(body);
-
-    ss << "<html><body>";
-    ss << "<h1>Form Data Received</h1>";
-    ss << "<table border='1'><tr><th>Key</th><th>Value</th></tr>";
-    for (const auto& pair : formData)
-    {
-        ss << "<tr><td>" << pair.first << "</td><td>" << pair.second << "</td></tr>";
-    }
-    ss << "</table>";
-    ss << "</body></html>";
+    ss << "        </table>\n";
+    ss << "        </div>\n";
+    ss << "        <a href=\"/\" class=\"btn\">Back to Home</a>\n";
+    ss << "        <div class=\"postman-logo\">\n";
+    ss << "            <svg width=\"80\" height=\"32\" viewBox=\"0 0 80 32\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n";
+    ss << "                <circle cx=\"16\" cy=\"16\" r=\"16\" fill=\"#ff6b35\"/>\n";
+    ss << "                <rect x=\"36\" y=\"12\" width=\"40\" height=\"8\" rx=\"4\" fill=\"#ff6b35\"/>\n";
+    ss << "            </svg>\n";
+    ss << "        </div>\n";
+    ss << "    </div>\n";
+    ss << "</body>\n";
+    ss << "</html>\n";
     body = ss.str();
     request->GetClientDatat()->http_response->setStatusCode(200);
     request->GetClientDatat()->http_response->setStatusMessage("OK");
@@ -279,7 +341,6 @@ std::string extractFileName(const std::string &body)
     end = body.find("\"", start + 10);
     if (start == std::string::npos || end == std::string::npos)
     {
-        std::cerr << "Filename not found in body" << std::endl;
         return "";
     }
     return ( body.substr(start + 10, end - start - 10));
@@ -290,12 +351,10 @@ bool Post::checkBoundary(std::string body, std::string boundary) const
     size_t pos = body.find(boundary);
     if (pos == std::string::npos)
     {
-        std::cerr << "Boundary not found in body" << std::endl;
         return false;
     }
     else
     {
-        std::cout << "Boundary found: " << boundary << std::endl;
         return true;
     }
 }
@@ -375,58 +434,68 @@ void Post::uploading_logger(HttpRequest *request)
     std::cout << "Uploading prgogress: " << (request->GetRecvBytes() * 100 / request->GetBodySize()) << "%" << std::endl;
 }
 
-
-// Add these includes at the top if not already present
-#include <regex>
-#include <iostream>
-
-std::string DecodeHtmlEntities(const std::string& encoded) 
+std::string DecodeHtmlEntities(const std::string& encoded)
 {
-    std::string decoded = encoded;
-    std::regex entity_regex("&#(\\d+);");
-    std::smatch match;
-    
-    while (std::regex_search(decoded, match, entity_regex)) 
+    std::string decoded;
+    size_t i = 0;
+    while (i < encoded.length())
     {
-        int codepoint = std::stoi(match[1].str());
-        
-        // Convert Unicode codepoint to UTF-8
-        std::string utf8_char;
-        if (codepoint <= 0x7F)
+        if (encoded[i] == '&' && i + 2 < encoded.length() && encoded[i+1] == '#' )
         {
-            utf8_char = static_cast<char>(codepoint);
+            size_t semi = encoded.find(';', i+2);
+            if (semi != std::string::npos)
+            {
+                std::string numstr = encoded.substr(i+2, semi-(i+2));
+                bool is_number = true;
+                for (size_t j = 0; j < numstr.length(); ++j)
+                {
+                    if (numstr[j] < '0' || numstr[j] > '9')
+                    {
+                        is_number = false;
+                        break;
+                    }
+                }
+                if (is_number && !numstr.empty())
+                {
+                    int codepoint = 0;
+                    for (size_t j = 0; j < numstr.length(); ++j)
+                        codepoint = codepoint * 10 + (numstr[j] - '0');
+                    std::string utf8_char;
+                    if (codepoint <= 0x7F) // 0 - 127
+                        utf8_char = static_cast<char>(codepoint);
+                    else if (codepoint <= 0x7FF) // 128 - 2047
+                    {
+                        utf8_char += static_cast<char>(0xC0 | (codepoint >> 6));
+                        utf8_char += static_cast<char>(0x80 | (codepoint & 0x3F));
+                    }
+                    else if (codepoint <= 0xFFFF) // 2048 - 65535
+                    {
+                        utf8_char += static_cast<char>(0xE0 | (codepoint >> 12));
+                        utf8_char += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+                        utf8_char += static_cast<char>(0x80 | (codepoint & 0x3F));
+                    }
+                    else // 65536 - 1114111
+                    {
+                        utf8_char += static_cast<char>(0xF0 | (codepoint >> 18));
+                        utf8_char += static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F));
+                        utf8_char += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+                        utf8_char += static_cast<char>(0x80 | (codepoint & 0x3F));
+                    }
+                    decoded += utf8_char;
+                    i = semi + 1;
+                    continue;
+                }
+            }
         }
-        else if (codepoint <= 0x7FF)
-        {
-            // 2-byte UTF-8
-            utf8_char += static_cast<char>(0xC0 | (codepoint >> 6));
-            utf8_char += static_cast<char>(0x80 | (codepoint & 0x3F));
-        }
-        else if (codepoint <= 0xFFFF)
-        {
-            // 3-byte UTF-8
-            utf8_char += static_cast<char>(0xE0 | (codepoint >> 12));
-            utf8_char += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
-            utf8_char += static_cast<char>(0x80 | (codepoint & 0x3F));
-        }
-        else
-        {
-            // 4-byte UTF-8
-            utf8_char += static_cast<char>(0xF0 | (codepoint >> 18));
-            utf8_char += static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F));
-            utf8_char += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
-            utf8_char += static_cast<char>(0x80 | (codepoint & 0x3F));
-        }
-        
-        decoded.replace(match.position(), match.length(), utf8_char);
+        decoded += encoded[i];
+        ++i;
     }
-    
     return decoded;
 }
 
-void Post::writeToTargetFile(HttpRequest *request, std::string uload_path)
+void Post::writeToTargetFile(HttpRequest *request, std::string upload_file)
 {
-    std::fstream file(uload_path, std::ios::out | std::ios::binary | std::ios::app);
+    std::fstream file(upload_file, std::ios::out | std::ios::binary | std::ios::app);
     if (!file.is_open())
     {
         request->SetIsStreamingUpload(false);
@@ -456,7 +525,7 @@ void Post::writeToTargetFile(HttpRequest *request, std::string uload_path)
     if (boundary_pos != std::string::npos)
     {
         file.write(buffer, boundary_pos);
-        std::cout << "Upload completed - found closing boundary at position: " << boundary_pos << std::endl;
+        // std::cout << "Upload completed - found closing boundary at position: " << boundary_pos << std::endl;
         request->SetIsStreamingUpload(false);
         std::cout << "File upload completed!" << std::endl;
     }
@@ -468,7 +537,6 @@ void Post::writeToTargetFile(HttpRequest *request, std::string uload_path)
     file.close();
 }
  
-
 /*
     1 -is it the first time to handle multipart form data
         check if boundary exist and if it's not wait until the next call ;
@@ -487,6 +555,7 @@ void Post::writeToTargetFile(HttpRequest *request, std::string uload_path)
     we should read the body until we reach the end of the body ( remaining bytes = 0 )
     first we should process the reamingbody part that exist in request body before starting to read the body in chunks    
 */
+
 void Post::handleMultipartFormData(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig)
 {
     (void)clientConfig;
@@ -593,8 +662,40 @@ void Post::handleMultipartFormData(HttpRequest *request, const ServerConfig &ser
             request->SetIsStreamingUpload(false);
             request->GetClientDatat()->http_response->setStatusCode(200);
             request->GetClientDatat()->http_response->setStatusMessage("OK");
-            request->GetClientDatat()->http_response->setBuffer("File uploaded successfully");
-            request->GetClientDatat()->http_response->setContentType("text/plain");
+            std::string html = "<!DOCTYPE html>\n"
+                "<html lang=\"en\">\n"
+                "<head>\n"
+                "    <meta charset=\"UTF-8\">\n"
+                "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n"
+                "    <title>Upload Complete - Postman Style</title>\n"
+                "    <style>\n"
+                "        body { background: #23272f; color: #fff; font-family: 'Segoe UI', 'Inter', Arial, sans-serif; margin: 0; padding: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; }\n"
+                "        .card { background: #2a2e37; border-radius: 16px; box-shadow: 0 8px 32px rgba(255,107,53,0.15); padding: 2.5rem 2rem; max-width: 400px; width: 100%; text-align: center; border: 1px solid #ff6b35; }\n"
+                "        .checkmark { font-size: 3.5rem; color: #ff6b35; margin-bottom: 1rem; }\n"
+                "        h1 { color: #ff6b35; font-size: 2rem; margin-bottom: 0.5rem; }\n"
+                "        p { color: #b8b8b8; font-size: 1.1rem; margin-bottom: 1.5rem; }\n"
+                "        .btn { background: linear-gradient(90deg, #ff6b35, #ff8c42); color: #fff; border: none; border-radius: 8px; padding: 0.8rem 2rem; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s; text-decoration: none; display: inline-block; }\n"
+                "        .btn:hover { background: linear-gradient(90deg, #ff8c42, #ff6b35); }\n"
+                "        .postman-logo { margin-top: 2rem; opacity: 0.7; }\n"
+                "    </style>\n"
+                "</head>\n"
+                "<body>\n"
+                "    <div class=\"card\">\n"
+                "        <div class=\"checkmark\">&#10003;</div>\n"
+                "        <h1>Upload Complete!</h1>\n"
+                "        <p>Your file has been uploaded successfully.</p>\n"
+                "        <a href=\"/\" class=\"btn\">Back to Home</a>\n"
+                "        <div class=\"postman-logo\">\n"
+                "            <svg width=\"80\" height=\"32\" viewBox=\"0 0 80 32\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n"
+                "                <circle cx=\"16\" cy=\"16\" r=\"16\" fill=\"#ff6b35\"/>\n"
+                "                <rect x=\"36\" y=\"12\" width=\"40\" height=\"8\" rx=\"4\" fill=\"#ff6b35\"/>\n"
+                "            </svg>\n"
+                "        </div>\n"
+                "    </div>\n"
+                "</body>\n"
+                "</html>\n";
+            request->GetClientDatat()->http_response->setBuffer(html);
+            request->GetClientDatat()->http_response->setContentType("text/html");
             std::cout << "File uploaded successfully" << std::endl;
         }
         else if (request->GetRemaineBytes() > 0 )

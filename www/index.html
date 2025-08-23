@@ -791,7 +791,7 @@
         <!-- Contributors Section -->
         <div class="contributors-section">
             <h2>🌟 Core Contributors</h2>
-            <p class="section-subtitle">Meet the talented developers who make SpeedMan possible</p>
+            <p class="section-subtitle">Meet  developers who make SpeedMan possible</p>
             
             <div class="contributors-grid">
                 <div class="contributor-card">
@@ -856,16 +856,6 @@
                 newWindow.document.write(html);
             })
             .catch(error => alert('Error: ' + error));
-        }
-
-        function deleteFile(event) {
-            event.preventDefault();
-            const filename = event.target.filename.value;
-            if (!filename) {
-                alert('Please enter a filename');
-                return;
-            }
-            confirmDelete('/delete?file=' + encodeURIComponent(filename));
         }
 
         function confirmDelete(url) {

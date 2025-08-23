@@ -79,7 +79,6 @@ void ClientConnection::GenerateRequest(int fd)
     {
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
-    std::cout << "buffer content : " << std::string(buffer, bytesRead) << std::endl;
     std::string rawRequest(buffer, bytesRead);
     HttpRequestBuilder build = HttpRequestBuilder();
 
@@ -92,7 +91,6 @@ void ClientConnection::GenerateRequest(int fd)
     
     ServerConfig base_config = this->_server->getConfigForClient(fd);
     std::string server_ip = base_config.get_host();
-    
     int server_port = base_config.get_port();
     std::string host_header = this->http_request->GetHeader("Host");
     

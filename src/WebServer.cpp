@@ -556,7 +556,7 @@ void WebServer::handleClientResponse(int fd)
         updatePollEvents(fd, POLLIN);
         return;
     }
-    
+    std::cout << "============== (START OF HANDLING CLIENT RESPONSE) ==============\n";
     // Check if we have data to send
     if (client.http_response->checkAvailablePacket())
     {

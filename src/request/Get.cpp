@@ -28,17 +28,14 @@ std::string Get::IsValidPath( std::string &path)
             path = path.substr(0, path.length() - 1);
             if (stat(path.c_str(), &_statinfo) != 0)
             {
-                std::cerr << "[ ERROR ] : Path does not exist: " << path << std::endl;
                 return "";
             }
             else
             {
-                std::cout << "[ INFO ] : Path is a directory: " << path << std::endl;
                 return path;
             }
         }
     }
-    std::cout << "[ INFO ] : Path is a file: " << path << std::endl;
     return path;
 }
 
@@ -75,8 +72,8 @@ bool Get::check_auto_indexing(const Location *cur_location, const ServerConfig &
 //To Check the auto indexing Option  Conf File
 std::string Get::ListingDir(const std::string &path, std::string request_path, const Location *cur_location,const ServerConfig &serverConfig)
 {
-    std::cout << "[DEBUG] REL PATH :" << path << std::endl;
-    std::cout << "==>[DEBUG AUTO INDEXING] : " << (cur_location ? (cur_location->get_autoindex() ? "ON" : "OFF") : "No location found") << std::endl;
+    // std::cout << "[DEBUG] REL PATH :" << path << std::endl;
+    // std::cout << "==>[DEBUG AUTO INDEXING] : " << (cur_location ? (cur_location->get_autoindex() ? "ON" : "OFF") : "No location found") << std::endl;
     if (!check_auto_indexing(cur_location, serverConfig))
     {
         std::cerr << "[ WARNING ] : Auto indexing is disabled for this location." << std::endl;
@@ -88,11 +85,9 @@ std::string Get::ListingDir(const std::string &path, std::string request_path, c
     std::string path_;
     std::string normalized_path = path;
     
-    std::cout << "[ DEBUG ] : NORMALIZED PATH : " << normalized_path << std::endl;
     if (normalized_path.empty() || normalized_path[normalized_path.length() - 1] != '/')
         normalized_path += "/";
     path_ = normalized_path; 
-    std::cout << "Opening directory: " << path_ << std::endl;
     dir = opendir(path_.c_str());
     if (dir == NULL)
     {
@@ -203,19 +198,19 @@ std::string Get::CheckIndexFile(const std::string &rel_path, const Location *cur
     
     if (!cur_location)
     {
-        std::cout << "[ DEBUG ] : No matching location found, using server index file: " << indexFile << std::endl;
+        // std::cout << "[ DEBUG ] : No matching location found, using server index file: " << indexFile << std::endl;
         if (serverConfig.get_index().empty())
         {
-            std::cerr << "[ ERROR ] : No index file specified in server configuration." << std::endl;
+            // std::cerr << "[ ERROR ] : No index file specified in server configuration." << std::endl;
             return "";
         }
         for (size_t i = 0; i < serverConfig.get_index().size(); i++)
         {
-            std::cout << "[ DEBUG ] : Checking index file: " << serverConfig.get_index()[i] << std::endl;
+            // std::cout << "[ DEBUG ] : Checking index file: " << serverConfig.get_index()[i] << std::endl;
             indexFile = rel_path + serverConfig.get_index()[i];
             if (IsFile(indexFile))
             {
-                std::cout << "[ DEBUG ] : Index file found at: " << indexFile << std::endl;
+                // std::cout << "[ DEBUG ] : Index file found at: " << indexFile << std::endl;
                 return indexFile;
             }
         }
@@ -225,10 +220,10 @@ std::string Get::CheckIndexFile(const std::string &rel_path, const Location *cur
         for (size_t i = 0; i < cur_location->get_index().size(); i++)
         {
             indexFile = rel_path + cur_location->get_index()[i];
-            std::cout << "[ DEBUG ] : Checking index file: " << indexFile << std::endl;
+            // std::cout << "[ DEBUG ] : Checking index file: " << indexFile << std::endl;
             if (IsFile(indexFile))
             {
-                std::cout << "[ DEBUG ] : Index file found at: " << indexFile << std::endl;
+                // std::cout << "[ DEBUG ] : Index file found at: " << indexFile << std::endl;
                 return indexFile;
             }
         }
@@ -240,40 +235,37 @@ void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConf
 {
     std::string rel_path;
     const Location *cur_location;
-    std::cout << "[DEBUG ]: --- PROCCESSING GET REQUEST ---\n";
+    // std::cout << "[DEBUG ]: --- PROCCESSING GET REQUEST ---\n";
     
     if (!request)
     {
-        std::cerr << "Error: Null request pointer\n";
+        // std::cerr << "Error: Null request pointer\n";
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
     if (!request->GetClientDatat())
     {
-        std::cerr << "Error: Null client data pointer\n";
+        // std::cerr << "Error: Null client data pointer\n";
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
     cur_location = clientConfig.findBestMatchingLocation(request->GetLocation());
-    std::cout << "[ Debug ] rel LOCATION: " << request->GetLocation() << std::endl;
-    std::cout << "[ Debug ] client location server name: " << clientConfig.get_server_name()<< std::endl;
-    std::cout << "[ Debug ] client location server name: " << request->GetClientDatat()->getServerConfig().get_server_name() << std::endl;
+    // std::cout << "[ Debug ] rel LOCATION: " << request->GetLocation() << std::endl;
+    // std::cout << "[ Debug ] client location server name: " << clientConfig.get_server_name()<< std::endl;
+    // std::cout << "[ Debug ] client location server name: " << request->GetClientDatat()->getServerConfig().get_server_name() << std::endl;
     
     rel_path = request->GetRelativePath(cur_location, request->GetClientDatat());
     if (rel_path.empty())
     {
-        std::cerr << "[empty rel_path Not Found ]\n";
+        // std::cerr << "[empty rel_path Not Found ]\n";
         throw HttpException(404, "404 Not Found", NOT_FOUND);
     }
     rel_path =  IsValidPath(rel_path);
     if (rel_path.empty())
     {
-        std::cerr << "[ Debug ] : file is not a Valid one \n";
+        // std::cerr << "[ Debug ] : file is not a Valid one \n";
         throw HttpException(404, "404 Not Found", NOT_FOUND);
     }
-    else
-        std::cout << "[Debug] : Valid Path Found : " << rel_path << std::endl;
     if (IsDir(rel_path))
     {
-        std::cout << "IS DIIIIIIIIIIIIRECTORY !!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
         request->GetClientDatat()->http_response->setStatusCode(200);
         request->GetClientDatat()->http_response->setStatusMessage("OK");
         request->GetClientDatat()->http_response->setContentType("text/html");
@@ -282,9 +274,8 @@ void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConf
         std::string indexFile = CheckIndexFile(rel_path, cur_location, clientConfig);
         if (!indexFile.empty())
         {
-
             request->GetClientDatat()->http_response->setByteToSend(GetFileSize(indexFile));
-            if (request->GetClientDatat()->http_response->getByteToSend() > 1000000 )
+            if (request->GetClientDatat()->http_response->getByteToSend() > 1000000  ) // 1MB
             {
                 request->GetClientDatat()->http_response->setChunked(true);
             }
@@ -292,7 +283,6 @@ void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConf
             {
                 request->GetClientDatat()->http_response->setChunked(false);
             }
-            std::cout << "[Debug] : Index file found : " << indexFile << std::endl;
             request->GetClientDatat()->http_response->setFilePath(indexFile);
             request->GetClientDatat()->http_response->setContentType(determineContentType(indexFile));
             request->GetClientDatat()->http_response->setBuffer("");
@@ -309,17 +299,13 @@ void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConf
     }
     else
     {
-        std::cout << "[Debug] : File is a regular file.!!!!!!!!!!!!!!!!!!!!" << std::endl;
         request->GetClientDatat()->http_response->setByteToSend(GetFileSize(rel_path));
-        std::cout << "[Debug] : File size to send: " << request->GetClientDatat()->http_response->getByteToSend() << " bytes." << std::endl;
         if (request->GetClientDatat()->http_response->getByteToSend() > 1024 * 1024) // 1MB 
         {
-            std::cout << "[Debug] : File size is greater than 1MB, sending as chunked response." << std::endl;
             request->GetClientDatat()->http_response->setChunked(true);
         }
         else
         {
-            std::cout << "[Debug] : File size is less than 1MB, sending as normal response." << std::endl;
             request->GetClientDatat()->http_response->setChunked(false);
         }
         request->GetClientDatat()->http_response->setFilePath(rel_path);
