@@ -346,6 +346,7 @@ std::string CgiHandler::getDirectoryFromPath(const std::string& full_path) {
     if (last_slash != std::string::npos) {
         return full_path.substr(0, last_slash);
     }
+    return (0);
 }
 
 std::string CgiHandler::getFilenameFromPath(const std::string& full_path) {
@@ -353,6 +354,7 @@ std::string CgiHandler::getFilenameFromPath(const std::string& full_path) {
     if (last_slash != std::string::npos) {
         return full_path.substr(last_slash + 1);
     }
+    return (0);
 }
 
 bool CgiHandler::fileExists(const std::string& file_path) {
