@@ -129,7 +129,7 @@ void CgiHandler::ProccessRequest(HttpRequest *request, const ServerConfig &serve
 }
 
 
-char** CgiHandler::setGgiEnv(HttpRequest *request) {
+std::vector<std::string> CgiHandler::setGgiEnv(HttpRequest *request) {
     std::vector<std::string> env_vars;
     
     env_vars.push_back("REQUEST_METHOD=" + request->GetMethod());
@@ -193,28 +193,15 @@ char** CgiHandler::setGgiEnv(HttpRequest *request) {
         }
     }
     
-    char **env = new char*[env_vars.size() + 1];
-    for (size_t i = 0; i < env_vars.size(); ++i) {
-        env[i] = strdup(env_vars[i].c_str());
-    }
-    env[env_vars.size()] = NULL;
     
-    return env;
-}
-
-void CgiHandler::cleanupEnvironment(char** env) {
-    if (!env) return;
-    
-    for (int i = 0; env[i] != NULL; ++i) {
-        free(env[i]);
-    }
-    delete[] env;
+    return env_vars;
 }
 
 bool CgiHandler::startCgiProcess(HttpRequest *request) {
     int pipe_out[2];
     int pipe_in[2];
-    
+    char *env[100];
+
     if (pipe(pipe_in) == -1 || pipe(pipe_out) == -1) {
         return false;
     }
@@ -276,18 +263,18 @@ bool CgiHandler::startCgiProcess(HttpRequest *request) {
         }
         
         std::string script_filename = getFilenameFromPath(script_path);
-        char **env = setGgiEnv(request);
-        if (!env) {
-            exit(1);
+        std::vector<std::string> env_vars = setGgiEnv(request);
+
+        for (size_t i = 0; i < env_vars.size(); ++i) {
+            env[i] = strdup(env_vars[i].c_str());
         }
-        
+        env[env_vars.size()] = NULL;
         char* argv[] = {
             strdup(interpreter_path.c_str()),
             strdup(script_filename.c_str()),
             NULL
         };
         if (!argv[0] || !argv[1]) {
-            cleanupEnvironment(env);
             exit(1);
         }
         
@@ -295,7 +282,6 @@ bool CgiHandler::startCgiProcess(HttpRequest *request) {
         
         free(argv[0]);
         free(argv[1]);
-        cleanupEnvironment(env);
         exit(1);
     }
     

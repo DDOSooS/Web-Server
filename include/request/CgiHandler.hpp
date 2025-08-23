@@ -38,9 +38,7 @@ public:
     std::string getCgiPath(HttpRequest *request) const;
     bool startCgiProcess(HttpRequest *request);
     
-    char** setGgiEnv(HttpRequest *request);
-    void cleanupEnvironment(char** env);
-    
+    std::vector<std::string> setGgiEnv(HttpRequest *request);
     std::string extractPathInfo(const std::string& url);
     std::string getDirectoryFromPath(const std::string& full_path);
     std::string getFilenameFromPath(const std::string& full_path);
