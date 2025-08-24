@@ -284,11 +284,6 @@ std::string HttpResponse::toString()
     // Final CRLF to end headers
     response += "\r\n";
     response += body;
-    std::map<std::string, std::string> headers = this->getHeaders();
-    std::cout << "################################ HEADERS ########= this->getHeaders(#############################" << std::endl;
-    for(std::map<std::string, std::string>::const_iterator it = headers.begin(); it != headers.end(); ++it) {
-        std::cout << it->first << " : " << it->second << std::endl;
-    }
     return response;
 }
 
