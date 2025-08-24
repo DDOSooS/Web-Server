@@ -277,7 +277,6 @@ bool CgiHandler::startCgiProcess(HttpRequest *request) {
         if (!argv[0] || !argv[1]) {
             exit(1);
         }
-        
         execve(interpreter_path.c_str(), argv, env);
         
         free(argv[0]);
@@ -405,78 +404,6 @@ void CgiHandler::parseHttpHeaders(const std::string& cgi_output, std::string& he
     } else {
         headers = cgi_output.substr(0, header_end);
         body = cgi_output.substr(header_end + 4);
-    }
-}
-void CgiHandler::setCgiResponseHeaders(HttpRequest* request, const std::string& headers) {
-    std::istringstream header_stream(headers);
-    std::string line;
-    
-    int status_code = 200;
-    std::string status_message = "OK";
-    std::string content_type = "text/html";
-    
-    while (std::getline(header_stream, line)) {
-        if (!line.empty() && line[line.length() - 1] == '\r') {
-            line.erase(line.length() - 1);
-        }
-        
-        if (line.empty()) continue;
-        
-        size_t colon_pos = line.find(':');
-        if (colon_pos == std::string::npos) continue;
-        
-        std::string header_name = line.substr(0, colon_pos);
-        std::string header_value = line.substr(colon_pos + 1);
-        
-         while (!header_value.empty() &&
-                               (header_value[0] == ' ' || header_value[0] == '\t')) {
-                            header_value.erase(0, 1);
-                        }
-                        // right-trim
-                        while (!header_value.empty()) {
-                            char last = header_value[header_value.size() - 1];
-                            if (last == '\r' || last == ' ' || last == '\t') {
-                                header_value.erase(header_value.size() - 1, 1);
-                            } else {
-                                break;
-                            }
-                        }
-        
-        
-        if (header_name == "Status") {
-            size_t space_pos = header_value.find(' ');
-            if (space_pos != std::string::npos) {
-                status_code = std::atoi(header_value.substr(0, space_pos).c_str());
-                status_message = header_value.substr(space_pos + 1);
-            } else {
-                status_code = std::atoi(header_value.c_str());
-            }
-        } 
-        else if (header_name == "Content-Type" || header_name == "Content-type") {
-            content_type = header_value;
-        } 
-        else if (header_name == "Location") {
-            status_code = 302;
-            status_message = "Found";
-            request->GetClientDatat()->http_response->setHeader("Location", header_value);
-        }
-        else if (header_name == "Set-Cookie") {
-            request->GetClientDatat()->http_response->setHeader("Set-Cookie", header_value);
-        }
-        else {
-            request->GetClientDatat()->http_response->setHeader(header_name, header_value);
-        }
-    }
-    
-    request->GetClientDatat()->http_response->setStatusCode(status_code);
-    request->GetClientDatat()->http_response->setStatusMessage(status_message);
-    request->GetClientDatat()->http_response->setContentType(content_type);
-    request->GetClientDatat()->http_response->setChunked(false);
-    
-    
-    std::string set_cookie_check = request->GetClientDatat()->http_response->getHeader("Set-Cookie");
-    if (!set_cookie_check.empty()) {
-    } else {
     }
 }
 

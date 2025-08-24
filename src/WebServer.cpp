@@ -166,31 +166,6 @@ int WebServer::init(std::vector<ServerConfig>& configs)
     return 0;
 }
 
-// // Debug function to monitor poll state
-// void WebServer::debugPollState() {
-//     std::cout << "=== POLL DEBUG (numfds=" << numfds << "/" << maxfds << ") ===" << std::endl;
-//     for (int i = 0; i < numfds; i++) {
-//         std::cout << "  [" << i << "] fd=" << pollfds[i].fd 
-//                   << " events=" << pollfds[i].events 
-//                   << " revents=" << pollfds[i].revents;
-        
-//         if (clients.find(pollfds[i].fd) != clients.end()) {
-//             std::cout << " (CLIENT)";
-//             if (clients[pollfds[i].fd].isStreamingUpload()) {
-//                 std::cout << " [STREAMING]";
-//             }
-//         } else if (isListeningSocket(pollfds[i].fd)) {
-//             std::cout << " (LISTENING)";
-//         } else if (isCgiFd(pollfds[i].fd)) {
-//             std::cout << " (CGI)";
-//         } else {
-//             std::cout << " (UNKNOWN!)";
-//         }
-//         std::cout << std::endl;
-//     }
-//     std::cout << "=================================" << std::endl;
-// }
-
 int WebServer::run()
 {
     bool running = true;
@@ -281,15 +256,13 @@ int WebServer::run()
                 }
                 continue;
             }
-            // ========================================= END handle CGI events
             
-            // ??????????????
             if (pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL))
             {
                 if (isListeningSocket(fd))
                 {
                     running = false;
-                    break; // To check for the condition that server must never exit
+                    break; 
                 }
                 else
                 {
@@ -731,7 +704,11 @@ void WebServer::handleCgiEvent(int fd) {
         
         std::map<std::string, std::string> headers;
         headers["Content-Type"] = "text/html";
-        cgi.client->http_response = new HttpResponse(504, headers, "text/html", false, false);
+        //(504, headers, "text/html", false, false);
+        cgi.client->http_response->setStatusCode(504);
+        cgi.client->http_response->setHeaders(headers);
+        cgi.client->http_response->setContentType("text/html");
+
         cgi.client->http_response->setBuffer("<html><body><h1>504 Gateway Timeout</h1></body></html>");
         
         updatePollEvents(cgi.client->GetFd(), POLLOUT);
@@ -871,8 +848,10 @@ void WebServer::handleCgiEvent(int fd) {
                     }
                     
                     // Create HTTP response
-                    cgi.client->http_response = new HttpResponse(status_code, response_headers, response_headers["Content-Type"], false, false);
-                    
+                    //(status_code, response_headers, response_headers["Content-Type"], false, false);
+                    cgi.client->http_response->setStatusCode(status);
+                    cgi.client->http_response->setHeaders(response_headers);
+                    cgi.client->http_response->setContentType(response_headers["Content-Type"]);
                     // Set cookies if any
                     for (std::vector<std::string>::iterator cookie_it = set_cookies.begin(); 
                          cookie_it != set_cookies.end(); ++cookie_it) {
@@ -889,7 +868,10 @@ void WebServer::handleCgiEvent(int fd) {
                     
                     std::map<std::string, std::string> error_headers;
                     error_headers["Content-Type"] = "text/html";
-                    cgi.client->http_response = new HttpResponse(500, error_headers, "text/html", false, false);
+                    //(500, error_headers, "text/html", false, false);
+                    cgi.client->http_response->setStatusCode(500);
+                    cgi.client->http_response->setHeaders(error_headers);
+                    cgi.client->http_response->setContentType("text/html");
                     cgi.client->http_response->setBuffer("<html><body><h1>500 CGI Error</h1><p>Exit code: " + std::string(1, '0' + exit_code) + "</p></body></html>");
                     updatePollEvents(cgi.client->GetFd(), POLLOUT);
                 }
@@ -899,7 +881,10 @@ void WebServer::handleCgiEvent(int fd) {
                 
                 std::map<std::string, std::string> error_headers;
                 error_headers["Content-Type"] = "text/html";
-                cgi.client->http_response = new HttpResponse(500, error_headers, "text/html", false, false);
+                //(500, error_headers, "text/html", false, false);
+                cgi.client->http_response->setStatusCode(500);
+                cgi.client->http_response->setHeaders(error_headers);
+                cgi.client->http_response->setContentType("text/html");
                 cgi.client->http_response->setBuffer("<html><body><h1>500 CGI Error</h1><p>Killed by signal: " + std::string(1, '0' + signal_num) + "</p></body></html>");
                 updatePollEvents(cgi.client->GetFd(), POLLOUT);
             } else {
@@ -907,7 +892,10 @@ void WebServer::handleCgiEvent(int fd) {
                 
                 std::map<std::string, std::string> error_headers;
                 error_headers["Content-Type"] = "text/html";
-                cgi.client->http_response = new HttpResponse(500, error_headers, "text/html", false, false);
+                //(500, error_headers, "text/html", false, false);
+                cgi.client->http_response->setStatusCode(500);
+                cgi.client->http_response->setHeaders(error_headers);
+                cgi.client->http_response->setContentType("text/html");
                 cgi.client->http_response->setBuffer("<html><body><h1>500 CGI Error</h1><p>Process ended abnormally</p></body></html>");
                 updatePollEvents(cgi.client->GetFd(), POLLOUT);
             }
@@ -916,7 +904,10 @@ void WebServer::handleCgiEvent(int fd) {
             
             std::map<std::string, std::string> error_headers;
             error_headers["Content-Type"] = "text/html";
-            cgi.client->http_response = new HttpResponse(500, error_headers, "text/html", false, false);
+            //(500, error_headers, "text/html", false, false);
+            cgi.client->http_response->setStatusCode(500);
+            cgi.client->http_response->setHeaders(error_headers);
+            cgi.client->http_response->setContentType("text/html");
             cgi.client->http_response->setBuffer("<html><body><h1>500 CGI Error</h1><p>waitpid failed</p></body></html>");
             updatePollEvents(cgi.client->GetFd(), POLLOUT);
         }

@@ -36,6 +36,7 @@ class HttpResponse
         void                                                setStatusCode(int code);
         void                                                setStatusMessage(std::string message);
         void                                                setHeader(std::string key, std::string value);
+        void                                                setHeaders(std::map<std::string, std::string> headers);
         void                                                setFilePath(std::string path);
         void                                                setChunked(bool chunked);
         void                                                setKeepAlive(bool keep_alive);

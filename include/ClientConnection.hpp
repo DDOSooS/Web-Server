@@ -44,25 +44,20 @@ public:
     bool                    should_close;
 
 
-    // Constructors and destructor
     ClientConnection(); 
     ClientConnection(int socketFd, const sockaddr_in& clientAddr);
     ~ClientConnection();
     
-    // Getter methods
     int GetFd() const;
     
-    // Main request handling methods
     void GenerateRequest(int fd);
     void ProcessRequest(int fd);
     void RespondToClient(int fd);
     void parseRequest(char *buff);
     
-    // Activity and connection management
     void updateActivity();
     bool isStale(time_t timeoutSec) const;
 
-    // Streaming upload methods
 
     void setServerConfig(const ServerConfig& config);
     ServerConfig getServerConfig() const;

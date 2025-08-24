@@ -49,7 +49,6 @@ public:
     bool isValidInterpreterPath(const std::string& interpreter_path);
     
     void parseHttpHeaders(const std::string& cgi_output, std::string& headers, std::string& body);
-    void setCgiResponseHeaders(HttpRequest* request, const std::string& headers);
     
     bool isPathTraversalSafe(const std::string& path);
     template <typename T>

@@ -405,3 +405,9 @@ HttpResponse::~HttpResponse()
 {
 
 }
+
+void HttpResponse::setHeaders(std::map<std::string, std::string> headers){
+    for (std::map<std::string, std::string>::iterator it = headers.begin(); it != headers.end(); ++it) {
+        this->setHeader(it->first, it->second);
+    }
+}
