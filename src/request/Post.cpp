@@ -369,16 +369,19 @@ void Post::writeToTargetFile(HttpRequest *request, std::string upload_file)
     }
     
     size_t buffer_size = std::min(request->GetRemaineBytes(), static_cast<size_t>(MAX_CHUNK_SIZE));
-    char buffer[buffer_size ]; 
-    size_t byte_read = recv(request->GetSocketFd(), buffer, buffer_size, 0);
+    char* buffer = new char[buffer_size];
+    int fd = request->GetSocketFd();
+    size_t byte_read = recv(fd, buffer, buffer_size, 0);
     
-    if (!byte_read)
+    if (byte_read < 0)
     {
         request->SetIsStreamingUpload(false);
+        delete [] buffer;
         throw HttpException(500, "Internal Server Error - Failed to read body chunk", INTERNAL_SERVER_ERROR);
     }
     else if (byte_read == 0)
     {
+        delete [] buffer;
         request->SetIsStreamingUpload(false);
         uploading_logger(request);
         file.close();
@@ -398,8 +401,8 @@ void Post::writeToTargetFile(HttpRequest *request, std::string upload_file)
         file.write(buffer, byte_read);
     request->SetRemaineBytes(request->GetRemaineBytes() - byte_read);
     request->SetRecvBytes(request->GetRecvBytes() + byte_read);
-
     file.close();
+    delete [] buffer;
 }
 
 void Post::handleMultipartFormData(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig)
