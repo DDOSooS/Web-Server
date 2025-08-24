@@ -13,7 +13,10 @@ bool Delete::CanHandle(std::string method) {
 }
 
 
-void Delete::ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig) {
+void Delete::ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig)
+{
+    std::cout << "\033[32m===[INFO ] : DELETE METHOD HAS BEEN CALLED !\n=====\033[0m";
+
     std::string rel_path;
     const Location *cur_location;
     (void)serverConfig;

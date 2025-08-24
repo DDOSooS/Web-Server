@@ -24,7 +24,8 @@ bool Post::CanHandle(std::string method)
 
 void    Post::ProccessRequest(HttpRequest *request, const ServerConfig &serverConfig, ServerConfig clientConfig)
 {
-
+    if (!request->IsStreamingUpload())
+    std::cout << "\033[32m===[INFO ] : POST METHOD HAS BEEN CALLED !\n=====\033[0m";
     if (request->GetBodyAsStr().empty() && !request->IsStreamingUpload())
     {
         throw HttpException(400, "Bad Request - Body should be empty for POST requests", BAD_REQUEST);

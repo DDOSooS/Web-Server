@@ -203,6 +203,7 @@ void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConf
     std::string rel_path;
     const Location *cur_location;
     
+    std::cout << "\033[32m===[INFO ] : GET METHOD HAS BEEN CALLED !\n=====\033[0m";
     if (!request)
     {
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
