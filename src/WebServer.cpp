@@ -732,7 +732,7 @@ void WebServer::handleCgiEvent(int fd) {
                         }
                     }
                     
-                    cgi.client->http_response->setStatusCode(status);
+                    cgi.client->http_response->setStatusCode(status_code);
                     cgi.client->http_response->setHeaders(response_headers);
                     cgi.client->http_response->setContentType(response_headers["Content-Type"]);
                     for (std::vector<std::string>::iterator cookie_it = set_cookies.begin(); 
