@@ -34,8 +34,6 @@ void    MethodNotAllowed::ProcessError(Error &error, const ServerConfig & config
     iss << "<p>The requested method is not allowed for the specified resource.</p>";
     iss << "</body></html>";
     std::string response = iss.str();
-
-    // Set the response buffer
     if (error.GetClientData().http_response == NULL)
     {
         std::map<std::string, std::string> emptyHeaders;

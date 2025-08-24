@@ -32,13 +32,11 @@ void    NotImplemented::ProcessError(Error &error, const ServerConfig & config)
     iss << "</body></html>";
     std::string response = iss.str();
     
-    // Set the response buffer
     if (error.GetClientData().http_response == NULL)
     {
         std::map<std::string, std::string> emptyHeaders;
         error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), emptyHeaders, "text/html", false, false);
     }
-    // Set the response buffer
     error.GetClientData().http_response->setBuffer(response);
     error.GetClientData().http_response->setStatusCode(error.GetCodeError());
     error.GetClientData().http_response->setStatusMessage("Not Implemented");

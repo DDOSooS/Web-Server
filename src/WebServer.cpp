@@ -401,9 +401,11 @@ ServerConfig WebServer::getConfigByHost(std::string host) {
 void WebServer::handleClientRequest(int fd)
 {
 
-    std::cout << "============== (START OF HANDLING CLIENT REQUEST) ==============\n";
-    
     clients[fd].updateActivity();
+    if (clients[fd].http_request && !clients[fd].http_request->IsStreamingUpload())
+    {
+        std::cout << "============== (START OF HANDLING CLIENT REQUEST) ==============\n";
+    }
 
     ClientConnection &client = clients[fd];
 
@@ -454,7 +456,8 @@ void WebServer::handleClientResponse(int fd)
         updatePollEvents(fd, POLLIN);
         return;
     }
-    std::cout << "============== (START OF HANDLING CLIENT RESPONSE) ==============\n";
+    if (client.http_response && !client.http_response->isChunked())
+        std::cout << "============== (START OF HANDLING CLIENT RESPONSE) ==============\n";
     if (client.http_response->checkAvailablePacket())
     {
         if (client.http_response->isChunked())

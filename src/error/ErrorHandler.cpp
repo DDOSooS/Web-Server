@@ -27,9 +27,6 @@ ErrorHandler *ErrorHandler::SetNext(ErrorHandler *handler)
         this->nextHandler = handler;
         return handler;
     }
-    /*
-        hand the csr when the error is being null
-    */
    return this;
 }
 

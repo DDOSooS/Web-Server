@@ -67,7 +67,7 @@ class HttpRequest
         size_t                                              _body_size;
         std::string                                         _upload_file_path;
         bool                                                _is_streaming_upload;
-        int                                                 _upload_file_type; // binary, text, etc.
+        int                                                 _upload_file_type; 
         std::string                                         _boundry;
         enum UploadingStatus                               _uploading_status;
 

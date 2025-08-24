@@ -26,7 +26,6 @@ void    NotFound::ProcessError(Error &error, const ServerConfig & config)
     iss << "<p>The requested resource could not be found on the server.</p>";
     iss << "</body></html>";
     std::string response = iss.str();
-    // Set the response buffer
     if (error.GetClientData().http_response == NULL)
     {
         std::map<std::string, std::string> emptyHeaders;
@@ -38,7 +37,6 @@ void    NotFound::ProcessError(Error &error, const ServerConfig & config)
     error.GetClientData().http_response->setStatusMessage("Not Found");
     if (!error.GetClientData().http_response->getContentType().empty())
         error.GetClientData().http_response->setContentType("text/html");
-    // error->GetClientData().http_response.send(response, response);
     std::cerr << "Not Found Error: " << error.GetErroeMessage() << std::endl;
 }
 

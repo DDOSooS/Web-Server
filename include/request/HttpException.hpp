@@ -4,7 +4,6 @@
 #include <string>
 #include "../error/ErrorType.hpp"
 
-// Forward declarations to avoid circular includes
 class HttpRequest;
 
 class HttpException : public std::runtime_error
@@ -21,6 +20,4 @@ class HttpException : public std::runtime_error
         ~HttpException() throw();
 };
 
-// // Include these after the class declaration to avoid circular dependency
-// #include "./HttpRequest.hpp"
 

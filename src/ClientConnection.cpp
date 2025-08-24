@@ -68,7 +68,6 @@ ClientConnection::~ClientConnection()
     }
 }
 
-
 void ClientConnection::GenerateRequest(int fd)
 {
     std::cout << "Socket Fd: " << fd << "=====" << std::endl;
@@ -117,7 +116,6 @@ void ClientConnection::GenerateRequest(int fd)
     }
     this->http_request->SetClientData(this);
 }
-
 
 void ClientConnection::ProcessRequest(int fd)
 {

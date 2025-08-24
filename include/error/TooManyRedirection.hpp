@@ -4,8 +4,6 @@
 
 class TooManyRedirection : public ErrorHandler
 {
-    private:
-        /* data */
     public:
         TooManyRedirection(/* args */);
         bool            CanHandle(ERROR_TYPE ) const;

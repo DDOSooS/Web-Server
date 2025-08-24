@@ -4,9 +4,6 @@
 
 class MethodNotAllowed : public ErrorHandler
 {
-    private:
-    /* data */
-
     public:
         MethodNotAllowed();
         bool    CanHandle(ERROR_TYPE ) const;

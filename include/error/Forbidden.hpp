@@ -4,8 +4,7 @@
 
 class Forbidden : public ErrorHandler
 {
-    private:
-        /* data */
+
     public:
         Forbidden();
         bool    CanHandle(ERROR_TYPE ) const;

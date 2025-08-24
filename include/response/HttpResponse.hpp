@@ -17,14 +17,10 @@ class HttpResponse
         std::map<std::string, std::string>                  _headers;
         std::string                                         _status_message;
         std::string                                         _content_type;
-
         // if the response is a string
         std::string                                         _buffer;
-
         // if the response is a file
         std::string                                         _file_path;
-
-
         bool                                                _is_chunked;
         bool                                                _keep_alive;
         int                                                 _byte_sent;

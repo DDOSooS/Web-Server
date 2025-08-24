@@ -28,8 +28,6 @@ void    BadRequest::ProcessError(Error &error, const ServerConfig & config)
     iss << "<p>The server could not understand the request due to invalid syntax.</p>";
     iss << "</body></html>";
     std::string response = iss.str();
-
-    // Set the response buffer
     if (! error.GetClientData().http_response)
     {
         std::map<std::string, std::string> emptyHeaders;

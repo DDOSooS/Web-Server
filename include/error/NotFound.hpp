@@ -4,9 +4,6 @@
 
 class NotFound : public ErrorHandler
 {
-    private:
-    /* data */
-
     public:
         NotFound();
         bool    CanHandle(ERROR_TYPE ) const;

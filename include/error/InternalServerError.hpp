@@ -4,8 +4,6 @@
 
 class InternalServerError : public ErrorHandler
 {
-    private:
-    
     public:
         InternalServerError();
         bool    CanHandle(ERROR_TYPE ) const;

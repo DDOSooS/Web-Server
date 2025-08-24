@@ -16,7 +16,6 @@ class Error
         ClientConnection&   _client;
 
     public:
-        // Error( ClientConnection &, int, std::string &, ERROR_TYPE);
         Error(ClientConnection& client, int code, const std::string& message, ERROR_TYPE type);
         ~Error();
         std::string    GetErroeMessage() const;

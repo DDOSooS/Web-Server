@@ -8,7 +8,7 @@
 class Get : public RequestHandler
 {
     private:
-        bool _is_redirected; // Flag to indicate if the request is redirected or not
+        bool _is_redirected; 
 
     public:
         Get();

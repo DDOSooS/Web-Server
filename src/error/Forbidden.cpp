@@ -26,21 +26,17 @@ void    Forbidden::ProcessError(Error &error, const ServerConfig & config)
     iss << "<p>You do not have permission to access this resource.</p>";
     iss << "</body></html>";
     std::string response = iss.str();
-    // Set the response buffer
     if (!error.GetClientData().http_response)
     {
         std::map<std::string, std::string> emptyHeaders;
         error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), emptyHeaders, "text/html", false, false);
     }
-    
     if (!error.GetClientData().http_response->getContentType().empty())
         error.GetClientData().http_response->setContentType("text/html");
     // Set the response buffer
     error.GetClientData().http_response->setBuffer(response);
     error.GetClientData().http_response->setStatusCode(error.GetCodeError());
     error.GetClientData().http_response->setStatusMessage("Forbidden");
-
-    std::cout << "================= (End of Processing Forbidden Error) ====================\n";
     return ;
 }
 
@@ -51,5 +47,4 @@ const char *    Forbidden::what() const throw()
 
 Forbidden::~Forbidden()
 {
-    // std::cout << "Forbidden Error Handler Destructor Called" << std::endl;
 }

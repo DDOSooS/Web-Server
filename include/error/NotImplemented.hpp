@@ -4,8 +4,7 @@
 
 class NotImplemented : public ErrorHandler
 {
-    private:
-        /* data */
+
     public:
         NotImplemented(/* args */);
         bool            CanHandle(ERROR_TYPE ) const;

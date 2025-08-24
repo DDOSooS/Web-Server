@@ -2,7 +2,6 @@
 #include <sys/socket.h>
 #include <cstdlib>
 #include <sys/stat.h>
-#include <cstring>  // for strerror
 #include <iostream>
 #include <fstream>
 

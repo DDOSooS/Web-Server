@@ -23,7 +23,7 @@ class RequestHandler;
 
 #define REQUSET_LINE_BUFFER 8192 
 #define MAX_MEMORY_UPLOAD 512000  // 512KB threshold
-#define STREAM_CHUNK_SIZE 32768    // 32KB chunks
+#define STREAM_CHUNK_SIZE 32768    
 
 class ClientConnection
 {
@@ -47,18 +47,13 @@ public:
     ClientConnection(); 
     ClientConnection(int socketFd, const sockaddr_in& clientAddr);
     ~ClientConnection();
-    
     int GetFd() const;
-    
     void GenerateRequest(int fd);
     void ProcessRequest(int fd);
     void RespondToClient(int fd);
     void parseRequest(char *buff);
-    
     void updateActivity();
     bool isStale(time_t timeoutSec) const;
-
-
     void setServerConfig(const ServerConfig& config);
     ServerConfig getServerConfig() const;
 };

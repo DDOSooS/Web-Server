@@ -5,9 +5,6 @@
 
 class BadRequest : public ErrorHandler
 {
-    private:
-    /* data */
-
     public:
         BadRequest();
         bool    CanHandle(ERROR_TYPE ) const;
