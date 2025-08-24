@@ -35,8 +35,6 @@ ErrorHandler *ErrorHandler::SetNext(ErrorHandler *handler)
 
 bool ErrorHandler::IsErrorPageDefined(const ServerConfig &config, short error_code) const
 {
-    std::cout << " [DEBUG] : Checking if error page is defined for error code: " << error_code << std::endl;
-
     std::map<short, std::string> error_pages = config.get_error_pages();
     if (error_pages.find(error_code) != error_pages.end() && !error_pages[error_code].empty())
     {
@@ -44,11 +42,9 @@ bool ErrorHandler::IsErrorPageDefined(const ServerConfig &config, short error_co
         if (!root.empty() && root[root.length() - 1] != '/')
             root += '/';
         std::string error_page_path = root + error_pages[error_code];
-        std::cout << " [ INFO ] : Error page is defined for error code: " << error_code << " at " << error_page_path << std::endl;
         struct stat _statinfo;
         if (stat(error_page_path.c_str(), &_statinfo) != 0)
         {
-            std::cerr << " [ ERROR ] : Error page file does not exist for error code: " << error_code << std::endl;
             return false;
         }
         return true;
@@ -59,7 +55,6 @@ bool ErrorHandler::IsErrorPageDefined(const ServerConfig &config, short error_co
 void ErrorHandler::ErrorPageChecker(Error &error, const ServerConfig &config)
 {
 
-    std::cout << " [ INFO ] : Error Page is defined for error code: " << error.GetCodeError() << std::endl;
     if (error.GetClientData().http_response == NULL)
     {
         std::map<std::string, std::string> emptyHeaders;

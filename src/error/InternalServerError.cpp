@@ -19,7 +19,6 @@ void    InternalServerError::ProcessError(Error &error, const ServerConfig & con
     std::cout << "Internal Server Error: " << error.GetErroeMessage() << std::endl;
     if (IsErrorPageDefined(config, error.GetCodeError()))
     {
-        std::cout << "[INFO] [---ERRORS HANDLING --- Internal Server Error Page is defined in the server configuration --- ]\n";    
         ErrorPageChecker(error, config);
         return;
     }

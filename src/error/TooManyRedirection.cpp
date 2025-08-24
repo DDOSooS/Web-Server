@@ -16,7 +16,6 @@ void TooManyRedirection::ProcessError(Error &error, const ServerConfig & config)
     std::cout << "================= [Start of Processing Too Many Redirection Error] ====================\n";
     if (IsErrorPageDefined(config, error.GetCodeError()))
     {
-        std::cout << "[INFO] [---ERRORS HANDLING --- Too Many Redirections Error Page is defined in the server configuration --- ]\n";
         ErrorPageChecker(error, config);
         return;
     }
@@ -50,5 +49,4 @@ const char * TooManyRedirection::what() const throw()
 
 TooManyRedirection::~TooManyRedirection()
 {
-    // std::cout << "[ INFO ] : TooManyRedirection Destructor Called" << std::endl;
 }

@@ -24,7 +24,6 @@ void    MethodNotAllowed::ProcessError(Error &error, const ServerConfig & config
 
     if (IsErrorPageDefined(config, error.GetCodeError()))
     {
-        std::cout << "[INFO] [---ERRORS HANDLING --- Method Not Allowed Error Page is defined in the server configuration --- ]\n";
         ErrorPageChecker(error, config);
         return;
     }

@@ -6,11 +6,6 @@ NotFound::NotFound()
 
 bool    NotFound::CanHandle(ERROR_TYPE type) const
 {
-    std::cout << "Can Handle Error Type: " << (int)(type) << std::endl;
-    if (type == NOT_FOUND)
-    {
-        std::cout << "Not Found Error Handler is being used!!!!!!!!!!!!!\n";
-    }
     return NOT_FOUND == type;
 }
 
@@ -21,11 +16,9 @@ void    NotFound::ProcessError(Error &error, const ServerConfig & config)
 
     if (IsErrorPageDefined(config, error.GetCodeError()))
     {
-        std::cout << "[INFO] [---ERRORS HANDLING --- Not Found Error Page is defined in the server configuration --- ]\n";
         ErrorPageChecker(error, config);
         return;
     }
-    // std::cout << "[INFO] [---ERRORS HANDLING ---!!!!! Not Found Error Page is NOT defined in the server configuration --- ]\n";
     std::stringstream iss;
 
     iss << "<html><head><title>404 Not Found</title></head>";

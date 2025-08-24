@@ -16,12 +16,8 @@ BadRequest::~BadRequest() {}
 
 void    BadRequest::ProcessError(Error &error, const ServerConfig & config)
 {
-    std::cout << "[INFO] [---ERRORS HANDLING --- Start of Processing Bad Request Error --- ]\n";
-    std::cout << "Bad Request Error: " << error.GetErroeMessage() << std::endl;
-    // Check if the error page is defined in the server configuration
     if (IsErrorPageDefined(config, error.GetCodeError()))
     {
-        std::cout << "[INFO] [---ERRORS HANDLING --- Bad Request Error Page is defined in the server configuration --- ]\n";
         ErrorPageChecker(error, config);
         return;
     }

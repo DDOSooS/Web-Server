@@ -16,7 +16,6 @@ void    Forbidden::ProcessError(Error &error, const ServerConfig & config)
     std::cout << "================= [Start of Processing Forbidden Error] ====================\n";
     if (IsErrorPageDefined(config, error.GetCodeError()))
     {
-        std::cout << "[INFO] [---ERRORS HANDLING --- Forbidden Error Page is defined in the server configuration --- ]\n";
         ErrorPageChecker(error, config);
         return;
     }

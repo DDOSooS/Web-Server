@@ -229,7 +229,6 @@ const Location *ServerConfig::findMatchingLocation(const std::string &path) cons
     }
     for (size_t i = 0; i < this->_locations.size(); i++)
     {
-        // std::cout << "[DEBUG] Checking location: " << this->_locations[i].get_path() << std::endl << std::endl;
         if (!this->_locations[i].get_path().empty() && this->_locations[i].get_path() == tmp_path)
         {
             return &this->_locations[i];

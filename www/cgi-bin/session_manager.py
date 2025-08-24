@@ -308,7 +308,7 @@ def main():
                     debug_log(f"DESTROYED SESSION: {session_id}")
             
             # Expire cookie
-            expire_cookie = "SESSIONID=; Path=/; Max-Age=0"
+            expire_cookie = "SESSIONID=Session Was Destroyed; Path=/; Max-Age=2"
             debug_log(f"EXPIRING COOKIE: {expire_cookie}")
             
             html = """<!DOCTYPE html>
