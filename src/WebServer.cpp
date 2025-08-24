@@ -90,17 +90,13 @@ int WebServer::init(std::vector<ServerConfig>& configs)
         return -1;
     }
 
-    // Store configurations
     m_configs = configs;
     m_sockets.resize(configs.size());
 
-    // Initialize pollfd structure
    memset(&pollfds_vec[0], 0, sizeof(struct pollfd) * maxfds);
 
-    // Create listening socket for each server configuration
     for (size_t i = 0; i < configs.size(); ++i)
     {
-        // Create socket
         int server_socket = socket(AF_INET, SOCK_STREAM, 0);
         if (server_socket <= 0)
         {
@@ -108,7 +104,6 @@ int WebServer::init(std::vector<ServerConfig>& configs)
             return -1;
         }
 
-        // Set socket options for robust port reuse
         int optval = 1;
         if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)))
         {
@@ -119,10 +114,8 @@ int WebServer::init(std::vector<ServerConfig>& configs)
         if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval)))
         {
             perror("setsockopt(SO_REUSEPORT) failed");
-            // Continue anyway as this is optional
         }
 
-        // Bind the socket
         sockaddr_in hint;
         hint.sin_family = AF_INET;
         hint.sin_port = htons(configs[i].get_port());
@@ -140,7 +133,6 @@ int WebServer::init(std::vector<ServerConfig>& configs)
             return -1;
         }
 
-        // Listen
         if (listen(server_socket, SOMAXCONN) < 0)
         {
             std::cerr << "listen failed" << std::endl;
@@ -148,11 +140,9 @@ int WebServer::init(std::vector<ServerConfig>& configs)
             return -1;
         }
 
-        // Store socket and create mappings
         m_sockets[i] = server_socket;
         socket_to_config_index[server_socket] = i;
 
-        // Add to poll set
         pollfds[numfds].fd = server_socket;
         pollfds[numfds].events = POLLIN;
         pollfds[numfds].revents = 0;
@@ -171,14 +161,12 @@ int WebServer::run()
     bool running = true;
     time_t last_timeout_check = time(NULL);
 
-    std::cout << "WebServer is running with " << m_configs.size() << " server(s)" << std::endl;
     for (size_t i = 0; i < m_configs.size(); ++i)
     {
         std::cout << "Server '" << m_configs[i].get_server_name() 
                   << "' is listening on port: " << m_configs[i].get_port() << std::endl;
     }
 
-    // error chain
     NotFound             eh0;
     BadRequest           eh1;
     InternalServerError  eh2;
@@ -192,7 +180,6 @@ int WebServer::run()
 
     while (running)
     {
-        // ============ CHECK FOR TIME OUT ===============
         time_t current_time = time(NULL);
         if (current_time - last_timeout_check >= 2)
         {
@@ -203,7 +190,6 @@ int WebServer::run()
         int ready = poll(pollfds, numfds, 1000);
         setActiveEvents(ready);
 
-        // =================== Check for new CGI processes ===================================
         std::vector<int> new_cgi_fds;
         for (std::map<int, CgiHandler::CgiProcess>::iterator it = CgiHandler::active_cgis.begin();
              it != CgiHandler::active_cgis.end(); ++it)
@@ -224,15 +210,12 @@ int WebServer::run()
                 }
         }
         
-        // Add new CGI file descriptors safely
         for (std::vector<int>::iterator it = new_cgi_fds.begin(); it != new_cgi_fds.end(); ++it)
         {
             addCgiToPoll(*it);
         }
-        // =================== END Check for new CGI processes ===================================
         for (int i = 0; i < numfds; i++)
         {
-            // ==> checking time out for client connections <==
             if (clients.find(pollfds[i].fd) != clients.end())
             {
                 ClientConnection& conn = clients[pollfds[i].fd];
@@ -248,7 +231,6 @@ int WebServer::run()
                 continue;
             int fd = pollfds[i].fd;
 
-            // ========================================= handle CGI events first:
             if (isCgiFd(fd))
             {
                 if (pollfds[i].revents & (POLLIN | POLLHUP | POLLERR)) {
@@ -278,7 +260,6 @@ int WebServer::run()
                 else
                        handleClientRequest(fd);
             }
-            // Handle outgoing data
             if (pollfds[i].revents & POLLOUT)
             {
                 try
@@ -295,7 +276,6 @@ int WebServer::run()
             }
         }
     }
-    // Clean up before exiting
     for (int i = 0; i < numfds; i++)
     {
         if (!isListeningSocket(pollfds[i].fd))
@@ -318,10 +298,8 @@ void WebServer::acceptNewConnection(int listening_socket)
         return;
     }
 
-    // Set non-blocking
     fcntl(clientFd, F_SETFL, O_NONBLOCK);
 
-    // Check if we've reached maximum connections (leave buffer for CGI)
     if (numfds >= maxfds - 10)
     {
         std::cerr << "Maximum connections reached (" << numfds << "/" << maxfds << "), rejecting client" << std::endl;
@@ -330,7 +308,6 @@ void WebServer::acceptNewConnection(int listening_socket)
     }
 
     try {
-        // Get server index for this listening socket
         int server_index = getServerIndexForSocket(listening_socket);
         if (server_index == -1)
         {
@@ -339,17 +316,14 @@ void WebServer::acceptNewConnection(int listening_socket)
             return;
         }
 
-        // Create a client connection object first
         ClientConnection conn(clientFd, clientAddr);
         conn._server = this;
 
-        // Add to poll set
         pollfds[numfds].fd = clientFd;
         pollfds[numfds].events = POLLIN;
         pollfds[numfds].revents = 0;
         numfds++;
 
-        // Store mappings
         clients[clientFd] = conn;
         client_to_server_index[clientFd] = server_index;
 
@@ -360,7 +334,6 @@ void WebServer::acceptNewConnection(int listening_socket)
     catch (const std::exception& e) {
         std::cerr << "Error creating client connection: " << e.what() << std::endl;
         close(clientFd);
-        // Remove from poll if it was added
         if (numfds > 0 && pollfds[numfds-1].fd == clientFd) {
             numfds--;
         }
@@ -374,7 +347,6 @@ void WebServer::closeClientConnection(int clientSocket)
     {
         printf("Client ip: %s disconnected\n", it->second.ipAddress.c_str());
 
-        // Clean up allocated resources
         if (it->second.http_request != NULL)
         {
             delete it->second.http_request;
@@ -386,29 +358,20 @@ void WebServer::closeClientConnection(int clientSocket)
             it->second.http_response = NULL;
         }
 
-        // Remove from all tracking maps FIRST
         clients.erase(it);
         client_to_server_index.erase(clientSocket);
         
-        // Close socket
         close(clientSocket);
 
-        // Remove from poll set LAST
         for (int i = 0; i < numfds; i++)
         {
             if (pollfds[i].fd == clientSocket)
             {
-                // Move last element to this position ?? what does happens to the last element? pollfds[numfds - 1] will be moved to pollfds[i]? or not?
                 pollfds[i] = pollfds[numfds - 1];
                 numfds--;
-                std::cout << "[EVENT] Removed client fd=" << clientSocket << " from poll (numfds=" << numfds << ")" << std::endl;
                 break;
             }
         }
-    }
-    else
-    {
-        std::cerr << "Warning: Attempted to close non-existent client connection: " << clientSocket << std::endl;
     }
 }
 
@@ -418,48 +381,25 @@ void WebServer::updatePollEvents(int fd, short events) {
         if (pollfds[i].fd == fd)
         {
             if (pollfds[i].events != events) {
-                std::cout << "[EVENT] fd=" << fd << " events: " << pollfds[i].events << " -> " << events << std::endl;
                 pollfds[i].events = events;
-                pollfds[i].revents = 0; // Clear any pending events
+                pollfds[i].revents = 0;
             }
             return;
         }
     }
-    std::cerr << "[EVENT ERROR] fd=" << fd << " not found in poll array!" << std::endl;
 }
 
 ServerConfig WebServer::getConfigByHost(std::string host) {
-    std::cout << "---------------------Searching for config with host: " << host.length() <<host << "=======||||" << std::endl;
     for (size_t i = 0; i < m_configs.size(); ++i)
     {
-        // std::cout << "----------------------Checking config: " << m_configs[i].get_host() << std::endl;
-        std::cout << "----------------------Host to match:[" << m_configs[i].get_server_name().length()  << m_configs[i].get_server_name() <<"]" << std::endl;
-        std::cout << "----------------------ORIGANAL Host to match:[" << host << "]" << std::endl;
         if (m_configs[i].get_server_name() == host)
-        {
-            std::cout << "Found matching server configuration for host: " << host << std::endl;
-            // exit(0);
             return m_configs[i];
-
-        }
     }
-    std::cerr << "No matching server configuration found for host: " << host << "|"<< std::endl;
-    // exit(0);
-    return m_configs[0]; // Return the first config if no match found
+    return m_configs[0];
 }
 
-
-/*
-    handling http request
-    -> if it's a new request, generate it and process it
-    -> if we are completing uploading process, we will not generate a new request 
-    we will just process the request 
-    -- we need to check if the request is in streaming mode that mean that the request is not bein Null 
-    
-*/
 void WebServer::handleClientRequest(int fd)
 {
-    // excpetion handling management should be reviewd
 
     std::cout << "============== (START OF HANDLING CLIENT REQUEST) ==============\n";
     
@@ -488,7 +428,6 @@ void WebServer::handleClientRequest(int fd)
     }
     catch(HttpException &e)
     {
-        std::cerr << "HttpException: " << e.what() << std::endl;
         try
         {
             Error error(client, e.GetCode(), e.GetMessage(), e.GetErrorType());
@@ -516,7 +455,6 @@ void WebServer::handleClientResponse(int fd)
         return;
     }
     std::cout << "============== (START OF HANDLING CLIENT RESPONSE) ==============\n";
-    // Check if we have data to send
     if (client.http_response->checkAvailablePacket())
     {
         if (client.http_response->isChunked())
@@ -594,23 +532,15 @@ void WebServer::handleClientResponse(int fd)
         }
     }
     else
-    {
-        std::cout << "No data available for fd=" << fd << ", switching to POLLIN\n";
         updatePollEvents(fd, POLLIN);
-    }
 }
 
-// ================= CGI TIME OUT MANAGEMENT
 void WebServer::addCgiToPoll(int cgi_fd) {
-    if (numfds >= maxfds - 2) {  // Leave buffer for safety
-        std::cerr << "ERROR: Cannot add CGI fd " << cgi_fd << " - poll array full (numfds=" << numfds << "/" << maxfds << ")" << std::endl;
+    if (numfds >= maxfds - 2)
         return;
-    }
     
-    // Check if already exists
     for (int i = 0; i < numfds; i++) {
         if (pollfds[i].fd == cgi_fd) {
-            std::cout << "CGI fd " << cgi_fd << " already in poll" << std::endl;
             return;
         }
     }
@@ -619,15 +549,13 @@ void WebServer::addCgiToPoll(int cgi_fd) {
     pollfds[numfds].events = POLLIN;
     pollfds[numfds].revents = 0;
     numfds++;
-    std::cout << "Added CGI fd " << cgi_fd << " to poll (numfds=" << numfds << "/" << maxfds << ")" << std::endl;
 }
 
 void WebServer::removeCgiFromPoll(int cgi_fd) {
-    for (int i = 0; i < numfds; i++) {  // Fixed: start from 0, not 1
+    for (int i = 0; i < numfds; i++) {
         if (pollfds[i].fd == cgi_fd) {
             pollfds[i] = pollfds[numfds - 1];
             numfds--;
-            std::cout << "Removed CGI fd " << cgi_fd << " from poll (numfds=" << numfds << ")" << std::endl;
             break;
         }
     }
@@ -637,22 +565,18 @@ bool WebServer::isCgiFd(int fd) {
     return CgiHandler::active_cgis.find(fd) != CgiHandler::active_cgis.end();
 }
 
-// ======================== CGI Time Out ========================
 void WebServer::checkCgiTimeouts() {
     time_t current_time = time(NULL);
     std::vector<int> timed_out_fds;
     
-    // First pass: identify timed out processes
     for (std::map<int, CgiHandler::CgiProcess>::iterator it = CgiHandler::active_cgis.begin();
          it != CgiHandler::active_cgis.end(); ++it) {
         
-        if (current_time - it->second.start_time > 10) {  // 10 second timeout
-            std::cout << "CGI process " << it->second.pid << " timed out after 10 seconds" << std::endl;
+        if (current_time - it->second.start_time > 10) {
             timed_out_fds.push_back(it->first);
         }
     }
     
-    // Second pass: clean up timed out processes
     for (std::vector<int>::iterator fd_it = timed_out_fds.begin(); 
          fd_it != timed_out_fds.end(); ++fd_it) {
         
@@ -660,9 +584,8 @@ void WebServer::checkCgiTimeouts() {
         std::map<int, CgiHandler::CgiProcess>::iterator cgi_it = CgiHandler::active_cgis.find(cgi_fd);
         
         if (cgi_it != CgiHandler::active_cgis.end()) {
-            // Kill the process
             kill(cgi_it->second.pid, SIGTERM);
-            usleep(100000); // 100ms
+            usleep(100000);
             
             int status;
             if (waitpid(cgi_it->second.pid, &status, WNOHANG) == 0) {
@@ -670,24 +593,20 @@ void WebServer::checkCgiTimeouts() {
                 waitpid(cgi_it->second.pid, &status, 0);
             }
             
-            // Set timeout error response
             std::map<std::string, std::string> headers;
             headers["Content-Type"] = "text/html";
             cgi_it->second.client->http_response = new HttpResponse(504, headers, "text/html", false, false);
             cgi_it->second.client->http_response->setBuffer("<html><body><h1>504 Gateway Timeout</h1><p>CGI script exceeded 10 second limit</p></body></html>");
             
-            // Signal client to send response
             updatePollEvents(cgi_it->second.client->GetFd(), POLLOUT);
             
-            // Clean up
             close(cgi_fd);
             removeCgiFromPoll(cgi_fd);
-            CgiHandler::active_cgis.erase(cgi_it);  // Safe to erase now
+            CgiHandler::active_cgis.erase(cgi_it);
         }
     }
 }
 
-// ================== CGI Events ==================================
 void WebServer::handleCgiEvent(int fd) {
     std::map<int, CgiHandler::CgiProcess>::iterator it = CgiHandler::active_cgis.find(fd);
     if (it == CgiHandler::active_cgis.end()) {
@@ -696,15 +615,12 @@ void WebServer::handleCgiEvent(int fd) {
     
     CgiHandler::CgiProcess& cgi = it->second;
     
-    // Check timeout (10 seconds)
     if (time(NULL) - cgi.start_time > 10) {
-        std::cout << "CGI timeout, killing process " << cgi.pid << std::endl;
         kill(cgi.pid, SIGKILL);
         waitpid(cgi.pid, NULL, 0);
         
         std::map<std::string, std::string> headers;
         headers["Content-Type"] = "text/html";
-        //(504, headers, "text/html", false, false);
         cgi.client->http_response->setStatusCode(504);
         cgi.client->http_response->setHeaders(headers);
         cgi.client->http_response->setContentType("text/html");
@@ -719,42 +635,27 @@ void WebServer::handleCgiEvent(int fd) {
         return;
     }
     
-    // Read CGI output
     char buffer[4096];
     ssize_t bytes = read(fd, buffer, sizeof(buffer) - 1);
     
     if (bytes > 0) {
         buffer[bytes] = '\0';
         cgi.output += buffer;
-        std::cout << "🔍 Read " << bytes << " bytes from CGI process " << cgi.pid << std::endl;
     } else if (bytes == 0) {
-        // EOF - CGI finished
-        std::cout << "🔍 CGI process " << cgi.pid << " finished (EOF)" << std::endl;
-        std::cout << "🔍 Total output length: " << cgi.output.length() << " bytes" << std::endl;
         
-        // Print first 200 characters of output for debugging
         if (cgi.output.length() > 0) {
             std::string preview = cgi.output.substr(0, 200);
-            std::cout << "🔍 Output preview: " << preview << "..." << std::endl;
-        } else {
-            std::cout << "🔍 No output received from CGI!" << std::endl;
         }
-        
         int status;
         pid_t wait_result = waitpid(cgi.pid, &status, 0);
-        std::cout << "🔍 waitpid result: " << wait_result << " for PID " << cgi.pid << std::endl;
         
         if (wait_result == cgi.pid) {
-            std::cout << "🔍 Process status raw value: " << status << std::endl;
             
             if (WIFEXITED(status)) {
                 int exit_code = WEXITSTATUS(status);
-                std::cout << "🔍 Process exited normally with code: " << exit_code << std::endl;
                 
                 if (exit_code == 0) {
-                    std::cout << "🔍 SUCCESS: Processing CGI output" << std::endl;
                     
-                    // Parse headers and body
                     std::string headers, body;
                     size_t header_end = cgi.output.find("\r\n\r\n");
                     if (header_end == std::string::npos) {
@@ -771,10 +672,7 @@ void WebServer::handleCgiEvent(int fd) {
                         body = cgi.output.substr(header_end + 4);
                     }
                     
-                    std::cout << "🔍 Headers found: " << headers.length() << " chars" << std::endl;
-                    std::cout << "🔍 Body found: " << body.length() << " chars" << std::endl;
                     
-                    // Parse CGI headers
                     std::map<std::string, std::string> response_headers;
                     response_headers["Content-Type"] = "text/html";
                     
@@ -782,32 +680,26 @@ void WebServer::handleCgiEvent(int fd) {
                     std::string status_message = "OK";
                     std::vector<std::string> set_cookies;
                     
-                    // Parse each header line
                     std::istringstream header_stream(headers);
                     std::string line;
                     
                     while (std::getline(header_stream, line)) {
-                        // Remove carriage return if present
                         if (!line.empty() && line[line.length() - 1] == '\r') {
                             line.erase(line.length() - 1);
                         }
                         
-                        // Skip empty lines
                         if (line.empty()) continue;
                         
-                        // Find colon separator
                         size_t colon_pos = line.find(':');
                         if (colon_pos == std::string::npos) continue;
                         
                         std::string header_name = line.substr(0, colon_pos);
                         std::string header_value = line.substr(colon_pos + 1);
                         
-                        // Trim whitespace from header value
                          while (!header_value.empty() &&
                                 (header_value[0] == ' ' || header_value[0] == '\t')) {
                              header_value.erase(0, 1);
                          }
-                         // right-trim
                          while (!header_value.empty()) {
                              char last = header_value[header_value.size() - 1];
                              if (last == '\r' || last == ' ' || last == '\t') {
@@ -816,9 +708,7 @@ void WebServer::handleCgiEvent(int fd) {
                                  break;
                              }
                          }
-                        std::cout << "🔍 Processing CGI header: " << header_name << ": " << header_value << std::endl;
                         
-                        // Handle special CGI headers
                         if (header_name == "Status") {
                             size_t space_pos = header_value.find(' ');
                             if (space_pos != std::string::npos) {
@@ -827,48 +717,36 @@ void WebServer::handleCgiEvent(int fd) {
                             } else {
                                 status_code = std::atoi(header_value.c_str());
                             }
-                            std::cout << "🔍 Set status: " << status_code << " " << status_message << std::endl;
                         } 
                         else if (header_name == "Content-Type" || header_name == "Content-type") {
                             response_headers["Content-Type"] = header_value;
-                            std::cout << "🔍 Set content-type: " << header_value << std::endl;
                         } 
                         else if (header_name == "Location") {
                             response_headers["Location"] = header_value;
-                            std::cout << "🔍 Set redirect location: " << header_value << std::endl;
                         }
                         else if (header_name == "Set-Cookie") {
                             set_cookies.push_back(header_value);
-                            std::cout << "🔍 [CRITICAL] Found Set-Cookie: " << header_value << std::endl;
                         }
                         else {
                             response_headers[header_name] = header_value;
-                            std::cout << "🔍 Set header: " << header_name << ": " << header_value << std::endl;
                         }
                     }
                     
-                    // Create HTTP response
-                    //(status_code, response_headers, response_headers["Content-Type"], false, false);
                     cgi.client->http_response->setStatusCode(status);
                     cgi.client->http_response->setHeaders(response_headers);
                     cgi.client->http_response->setContentType(response_headers["Content-Type"]);
-                    // Set cookies if any
                     for (std::vector<std::string>::iterator cookie_it = set_cookies.begin(); 
-                         cookie_it != set_cookies.end(); ++cookie_it) {
+                        cookie_it != set_cookies.end(); ++cookie_it) {
                         cgi.client->http_response->setHeader("Set-Cookie", *cookie_it);
-                        std::cout << "🔍 [CRITICAL] Added Set-Cookie to response: " << *cookie_it << std::endl;
                     }
                     
                     cgi.client->http_response->setBuffer(body);
                     
-                    std::cout << "🔍 Final CGI response - Status: " << status_code << " " << status_message << std::endl;
                     updatePollEvents(cgi.client->GetFd(), POLLOUT);
                 } else {
-                    std::cout << "🔍 ERROR: CGI process exited with non-zero code: " << exit_code << std::endl;
                     
                     std::map<std::string, std::string> error_headers;
                     error_headers["Content-Type"] = "text/html";
-                    //(500, error_headers, "text/html", false, false);
                     cgi.client->http_response->setStatusCode(500);
                     cgi.client->http_response->setHeaders(error_headers);
                     cgi.client->http_response->setContentType("text/html");
@@ -877,22 +755,18 @@ void WebServer::handleCgiEvent(int fd) {
                 }
             } else if (WIFSIGNALED(status)) {
                 int signal_num = WTERMSIG(status);
-                std::cout << "🔍 ERROR: CGI process terminated by signal: " << signal_num << std::endl;
                 
                 std::map<std::string, std::string> error_headers;
                 error_headers["Content-Type"] = "text/html";
-                //(500, error_headers, "text/html", false, false);
                 cgi.client->http_response->setStatusCode(500);
                 cgi.client->http_response->setHeaders(error_headers);
                 cgi.client->http_response->setContentType("text/html");
                 cgi.client->http_response->setBuffer("<html><body><h1>500 CGI Error</h1><p>Killed by signal: " + std::string(1, '0' + signal_num) + "</p></body></html>");
                 updatePollEvents(cgi.client->GetFd(), POLLOUT);
             } else {
-                std::cout << "🔍 ERROR: CGI process ended abnormally" << std::endl;
                 
                 std::map<std::string, std::string> error_headers;
                 error_headers["Content-Type"] = "text/html";
-                //(500, error_headers, "text/html", false, false);
                 cgi.client->http_response->setStatusCode(500);
                 cgi.client->http_response->setHeaders(error_headers);
                 cgi.client->http_response->setContentType("text/html");
@@ -900,11 +774,9 @@ void WebServer::handleCgiEvent(int fd) {
                 updatePollEvents(cgi.client->GetFd(), POLLOUT);
             }
         } else {
-            std::cout << "🔍 ERROR: waitpid failed or returned unexpected result" << std::endl;
             
             std::map<std::string, std::string> error_headers;
             error_headers["Content-Type"] = "text/html";
-            //(500, error_headers, "text/html", false, false);
             cgi.client->http_response->setStatusCode(500);
             cgi.client->http_response->setHeaders(error_headers);
             cgi.client->http_response->setContentType("text/html");
@@ -916,7 +788,6 @@ void WebServer::handleCgiEvent(int fd) {
         removeCgiFromPoll(fd);
         CgiHandler::active_cgis.erase(it);
     } else if (bytes < 0) {
-        std::cout << "🔍 ERROR: read() failed" << std::endl;
         
         close(fd);
         removeCgiFromPoll(fd);
@@ -944,14 +815,12 @@ ServerConfig WebServer::getConfigByIpPortAndHost(const std::string& ip, int port
 {
     std::vector<ServerConfig> matching_configs;
     
-    std::cout << "🔍 Searching for servers on " << ip << ":" << port << " with host: " << host << std::endl;
     
     for (size_t i = 0; i < m_configs.size(); ++i)
     {
         if (m_configs[i].get_host() == ip && m_configs[i].get_port() == port)
         {
             matching_configs.push_back(m_configs[i]);
-            std::cout << "🔍 Found server on " << ip << ":" << port << " - " << m_configs[i].get_server_name() << std::endl;
         }
     }
     
@@ -967,8 +836,5 @@ ServerConfig WebServer::getConfigByIpPortAndHost(const std::string& ip, int port
             return *it;
         }
     }
-    
-   
-    std::cout << "🔧 Using first server for " << ip << ":" << port << " (" << matching_configs[0].get_server_name() << ")" << std::endl;
     return matching_configs[0];
 }

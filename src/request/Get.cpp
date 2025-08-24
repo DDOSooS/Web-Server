@@ -69,11 +69,8 @@ bool Get::check_auto_indexing(const Location *cur_location, const ServerConfig &
     return cur_location->get_autoindex();
 }
 
-//To Check the auto indexing Option  Conf File
 std::string Get::ListingDir(const std::string &path, std::string request_path, const Location *cur_location,const ServerConfig &serverConfig)
 {
-    // std::cout << "[DEBUG] REL PATH :" << path << std::endl;
-    // std::cout << "==>[DEBUG AUTO INDEXING] : " << (cur_location ? (cur_location->get_autoindex() ? "ON" : "OFF") : "No location found") << std::endl;
     if (!check_auto_indexing(cur_location, serverConfig))
     {
         std::cerr << "[ WARNING ] : Auto indexing is disabled for this location." << std::endl;
@@ -149,30 +146,6 @@ std::string Get::ListingDir(const std::string &path, std::string request_path, c
     return response.str();
 }
 
-/*
-    case scenario for an http request 
-    incomming request !!!!
-    | |
-    -_-
-    check if the location exist in the conf file -> (NO) check the / location ->(NO) -> 404 error page
-                                                |
-                                                 -> (Yes) handle location as it is 
-    Nginx processes directives in this order of precedence:
-    nginxlocation /example {
-        # 1. RETURN - Highest priority (stops processing)
-        return 301 /new-location;
-        
-        # 2. ALIAS - If no return, and alias exists
-        alias /var/www/files/;
-        
-        # 3. ROOT - If no return and no alias
-        root /var/www/html;
-        
-        # 4. Other directives (try_files, etc.)
-        try_files $uri $uri/ =404;
-    }
-*/
-
 std::string Get::determineContentType(const std::string& path)
 {
     int size;
@@ -198,19 +171,15 @@ std::string Get::CheckIndexFile(const std::string &rel_path, const Location *cur
     
     if (!cur_location)
     {
-        // std::cout << "[ DEBUG ] : No matching location found, using server index file: " << indexFile << std::endl;
         if (serverConfig.get_index().empty())
         {
-            // std::cerr << "[ ERROR ] : No index file specified in server configuration." << std::endl;
             return "";
         }
         for (size_t i = 0; i < serverConfig.get_index().size(); i++)
         {
-            // std::cout << "[ DEBUG ] : Checking index file: " << serverConfig.get_index()[i] << std::endl;
             indexFile = rel_path + serverConfig.get_index()[i];
             if (IsFile(indexFile))
             {
-                // std::cout << "[ DEBUG ] : Index file found at: " << indexFile << std::endl;
                 return indexFile;
             }
         }
@@ -220,10 +189,8 @@ std::string Get::CheckIndexFile(const std::string &rel_path, const Location *cur
         for (size_t i = 0; i < cur_location->get_index().size(); i++)
         {
             indexFile = rel_path + cur_location->get_index()[i];
-            // std::cout << "[ DEBUG ] : Checking index file: " << indexFile << std::endl;
             if (IsFile(indexFile))
             {
-                // std::cout << "[ DEBUG ] : Index file found at: " << indexFile << std::endl;
                 return indexFile;
             }
         }
@@ -235,33 +202,25 @@ void    Get::ProccessRequest(HttpRequest *request,const ServerConfig &serverConf
 {
     std::string rel_path;
     const Location *cur_location;
-    // std::cout << "[DEBUG ]: --- PROCCESSING GET REQUEST ---\n";
     
     if (!request)
     {
-        // std::cerr << "Error: Null request pointer\n";
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
     if (!request->GetClientDatat())
     {
-        // std::cerr << "Error: Null client data pointer\n";
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
     cur_location = clientConfig.findBestMatchingLocation(request->GetLocation());
-    // std::cout << "[ Debug ] rel LOCATION: " << request->GetLocation() << std::endl;
-    // std::cout << "[ Debug ] client location server name: " << clientConfig.get_server_name()<< std::endl;
-    // std::cout << "[ Debug ] client location server name: " << request->GetClientDatat()->getServerConfig().get_server_name() << std::endl;
-    
+
     rel_path = request->GetRelativePath(cur_location, request->GetClientDatat());
     if (rel_path.empty())
     {
-        // std::cerr << "[empty rel_path Not Found ]\n";
         throw HttpException(404, "404 Not Found", NOT_FOUND);
     }
     rel_path =  IsValidPath(rel_path);
     if (rel_path.empty())
     {
-        // std::cerr << "[ Debug ] : file is not a Valid one \n";
         throw HttpException(404, "404 Not Found", NOT_FOUND);
     }
     if (IsDir(rel_path))

@@ -40,7 +40,6 @@ void HttpRequestBuilder::ParseQueryString(std::string &query_string)
     std::pair<std::string, std::string>     pair;
     std::string                             query;
 
-    // this->_http_request.SetQueryStringStr(query_string);
     while (std::getline(iss, query, '&'))
     {
         size_t pos =  query.find("=");
@@ -190,10 +189,8 @@ void HttpRequestBuilder::ParseRequsetHeaders(std::istringstream &iss)
             throw HttpException(400, "Malformed Header: Missing ':'", BAD_REQUEST);
         }
         key = line.substr(0, pos);
-        // Trim leading whitespace from value
         value = line.substr(pos + 1);
         value.erase(0, value.find_first_not_of(" \t\r\n"));
-        // // Trim trailing whitespace (safe)
         size_t endpos = value.find_last_not_of(" \t\r\n");
         if (endpos != std::string::npos)
             value.erase(endpos + 1);
@@ -214,11 +211,9 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
     std::istringstream iss(rawRequest);
     std::string line;
 
-    // Parse request line
     std::getline(iss, line);
     ParseRequestLine(line, serverConfig);
 
-    //i should find more optimization for error handling here
     if (_http_request.GetIsRl() != REQ_DONE)
     {
         if (_http_request.GetIsRl() == REQ_HTTP_VERSION_ERROR)
@@ -238,8 +233,7 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
         return;
     }
     
-    // in case if we didn't find the end of the request's headers
-    // we should read until we reach the end of the headers
+
     size_t header_start;
     size_t first_line_end;
     
@@ -284,9 +278,7 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
 
     std::istringstream is(headersPart);
 
-    // Parse headers
     ParseRequsetHeaders(is);
-    //i should find more optimization for error handling here
     if (_http_request.GetStatus() != PARSER)
     {
         std::cerr << "Invalid headers" << std::endl;
@@ -336,11 +328,9 @@ void HttpRequestBuilder::ParseRequest(std::string &rawRequest,const ServerConfig
             }
         }
     }
-    // Settng the socket file descriptor
     _http_request.SetSocketFd(socketFd);
 }
 
-/* build the http request   */
 HttpRequest& HttpRequestBuilder::GetHttpRequest()
 {
     return _http_request;

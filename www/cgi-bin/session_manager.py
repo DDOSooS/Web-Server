@@ -187,8 +187,10 @@ def main():
                     # Send redirect
                     headers = [
                         f"Set-Cookie: {cookie_value}",
-                        "Location: /cgi-bin/session_manager.py?action=profile"
-                    ]
+                        "Location: /cgi-bin/session_manager.py?action=profile",
+                        "X-Original-Method : GET",
+                        "Status: 302 Found"
+                        ]
                     
                     debug_log("SENDING REDIRECT WITH SET-COOKIE")
                     send_response("", headers, "302 Found")

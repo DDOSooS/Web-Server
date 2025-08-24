@@ -222,35 +222,28 @@ long getFileSize(std::string &file_name)
     
 std::string HttpResponse::toString() 
 {
-    std::cout << "[INFO ] : [ --- HTTP RESPONSE TO STRING METHOD --- ]\n";
     std::stringstream ss;
     std::map<std::string, std::string>::const_iterator it;
 
     ss << this->getStatusCode();
     std::string response = "HTTP/1.1 " + ss.str() + " " + this->_status_message + "\r\n";
     
-    // CRITICAL FIX: Handle Set-Cookie headers specially
     std::vector<std::string> set_cookie_headers;
     
-    // First pass: collect Set-Cookie headers and add other headers
     for (it = this->_headers.begin(); it != this->_headers.end(); ++it)
     {
         if (it->first == "Set-Cookie")
         {
             set_cookie_headers.push_back(it->second);
-            std::cout << "🍪 Found Set-Cookie header: " << it->second << std::endl;
         }
         else {
             response += it->first + ": " + it->second + "\r\n";
-            std::cout << "📤 Adding header: " << it->first << ": " << it->second << std::endl;
         }
     }
     
-    // CRITICAL: Add each Set-Cookie header on a separate line
     for (size_t i = 0; i < set_cookie_headers.size(); ++i)
     {
         response += "Set-Cookie: " + set_cookie_headers[i] + "\r\n";
-        std::cout << "🍪 Added Set-Cookie to response: " << set_cookie_headers[i] << std::endl;
     }
     
     if (this->_is_chunked)
@@ -273,7 +266,6 @@ std::string HttpResponse::toString()
     {
         std::string normalized_path = this->_file_path;
         std::string file_name = normalized_path;
-        std::cout << "🔐 Serving file: " << file_name << std::endl;
         std::ifstream file(file_name.c_str(), std::ios::binary);
         if (!file)
         {
@@ -292,13 +284,10 @@ std::string HttpResponse::toString()
     // Final CRLF to end headers
     response += "\r\n";
     response += body;
-    
-    std::cout << "🔐 Final response headers:" << std::endl;
-    // Log the full response headers for debugging
-    size_t header_end = response.find("\r\n\r\n");
-    if (header_end != std::string::npos)
-    {
-        std::string headers_only = response.substr(0, header_end);
+    std::map<std::string, std::string> headers = this->getHeaders();
+    std::cout << "################################ HEADERS ########= this->getHeaders(#############################" << std::endl;
+    for(std::map<std::string, std::string>::const_iterator it = headers.begin(); it != headers.end(); ++it) {
+        std::cout << it->first << " : " << it->second << std::endl;
     }
     return response;
 }
@@ -316,8 +305,6 @@ void HttpResponse::sendResponse(int socket_fd)
 
 }
 
-
-
 void HttpResponse::sendLastChunk( int socket_fd)
 {
     std::string final_chunk = "0\r\n\r\n";
@@ -333,7 +320,6 @@ void HttpResponse::sendChunkedResponse(int socket_fd)
 {
     std::string response;
     
-    // Handle buffer-based responses (non-file) -> BUFFER
     if (!this->_buffer.empty())
     {
         response = this->toString();
@@ -344,14 +330,12 @@ void HttpResponse::sendChunkedResponse(int socket_fd)
         this->_byte_sent = this->_byte_to_send; 
         return;
     }
-    // Handle file-based responses
     std::ifstream file(this->_file_path.c_str(), std::ios::binary);
     if (!file)
     {
         std::cerr << "Error opening file: " << this->_file_path << std::endl;
         throw HttpException(404, "Not Found", NOT_FOUND);
     }
-    // Send headers only once (when _byte_sent == 0) => FIRST CHUNK
     if (this->_byte_sent == 0)
     {
         std::ostringstream headers;
@@ -376,16 +360,13 @@ void HttpResponse::sendChunkedResponse(int socket_fd)
     file.seekg(this->_byte_sent);
     size_t remaining_bytes = this->_byte_to_send - this->_byte_sent;
     size_t chunk_size = std::min(static_cast<size_t>(CHUNKED_SIZE), remaining_bytes);
-    // Read chunk from file
     std::vector<char> buffer(chunk_size);
     file.read(buffer.data(), chunk_size);
     if (!file && !file.eof())
     {
         throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
     }
-    // Get actual bytes read (might be less than requested at end of file)
     size_t actual_bytes_read = file.gcount();
-    // Create chunk response
     std::ostringstream chunk_stream;
     chunk_stream << std::hex << actual_bytes_read << "\r\n";
     std::string chunk_response = chunk_stream.str();
@@ -406,7 +387,8 @@ HttpResponse::~HttpResponse()
 
 }
 
-void HttpResponse::setHeaders(std::map<std::string, std::string> headers){
+void HttpResponse::setHeaders(std::map<std::string, std::string> headers)
+{
     for (std::map<std::string, std::string>::iterator it = headers.begin(); it != headers.end(); ++it) {
         this->setHeader(it->first, it->second);
     }
