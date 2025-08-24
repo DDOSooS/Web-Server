@@ -588,13 +588,16 @@ void WebServer::handleClientResponse(int fd)
                         client.redirect_counter = 0;
                         Error error(client, 429, "Too Many Redirections", TOO_MANY_REDIRECTION);
                         TooManyRedirection tr;
-                        tr.HanldeError(error, this->getConfigForClient(fd));
+                        tr.HanldeError(error, this->getConfigForClient(fd));  
                         client.should_close = true; 
                     }
                 }
                 else
                     client.redirect_counter = 0; 
-                client.http_response->sendChunkedResponse(fd);
+                if (client.http_response->isFile())
+                    client.http_response->sendResponse(fd);
+                else  
+                    client.http_response->sendChunkedResponse(fd);
                 if (client.should_close)
                 {
                     closeClientConnection(fd);

@@ -13,22 +13,23 @@ bool TooManyRedirection::CanHandle(ERROR_TYPE error_type) const
 
 void TooManyRedirection::ProcessError(Error &error, const ServerConfig & config)
 {
-    std::cout << "================= [Start of Processing Forbidden Error] ====================\n";
+    std::cout << "================= [Start of Processing Too Many Redirection Error] ====================\n";
     if (IsErrorPageDefined(config, error.GetCodeError()))
     {
         std::cout << "[INFO] [---ERRORS HANDLING --- Too Many Redirections Error Page is defined in the server configuration --- ]\n";
         ErrorPageChecker(error, config);
         return;
     }
-    std::cout << "Too Many Redirections Error: " << error.GetErroeMessage() << std::endl;
     std::stringstream iss;
+
     iss << "<html><head><title>Too Many Redirections</title></head>";
     iss << "<body><h1>Too Many Redirections</h1>";
     iss << "<p>The request has been redirected too many times.</p>";
     iss << "</body></html>";
     std::string response = iss.str();
+
     // Set the response buffer
-    if (!error.GetClientData().http_response)
+    if (error.GetClientData().http_response == NULL)
     {
         std::map<std::string, std::string> emptyHeaders;
         error.GetClientData().http_response = new HttpResponse(error.GetCodeError(), emptyHeaders, "text/html", false, false);
@@ -39,7 +40,6 @@ void TooManyRedirection::ProcessError(Error &error, const ServerConfig & config)
     error.GetClientData().http_response->setBuffer(response);
     error.GetClientData().http_response->setStatusCode(error.GetCodeError());
     error.GetClientData().http_response->setStatusMessage("Too Many Redirections");
-    std::cout << "================= (End of Processing Too Many Redirections Error) ====================\n";
     return ;
 }
 

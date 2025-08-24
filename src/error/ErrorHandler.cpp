@@ -70,12 +70,20 @@ void ErrorHandler::ErrorPageChecker(Error &error, const ServerConfig &config)
     if (error_pages.find(error.GetCodeError()) == error_pages.end())
     {
         std::cerr << " [ ERROR ] : Error page not defined for error code: " << error.GetCodeError() << std::endl;
-        // exit(1);
     }
-    // std::cout << " [ Debug] : Error page path : " << config.get_root() + error_pages[error.GetCodeError()] << " ] " << std::endl; 
-    error.GetClientData().http_response->setFilePath((config.get_root()[config.get_root().length() -1] == '/' ? config.get_root() : config.get_root() + "/" ) + error_pages[error.GetCodeError()]);
+
+    char cwd[1024];
+    if (getcwd(cwd, sizeof(cwd)) != NULL) 
+        std::cout << "Current working dir: " << cwd << std::endl;
+    else
+    {
+        throw HttpException(500, "Internal Server Error", INTERNAL_SERVER_ERROR);
+        return;
+    }    
+    std::string error_page_path = std::string(cwd) + "/" + (config.get_root()[config.get_root().length() -1] == '/' ? config.get_root() : config.get_root() + "/" ) + error_pages[error.GetCodeError()];
+    error.GetClientData().http_response->setFilePath(error_page_path);
+    error.GetClientData().http_response->setBuffer("");    
     error.GetClientData().http_response->setStatusCode(error.GetCodeError());
-    // std::cout << " [ Debug] : Error page file path : " << error.GetClientData().http_response->getFilePath() <<" ] " << std::endl; 
     return ;
 }
 

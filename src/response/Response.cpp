@@ -273,6 +273,7 @@ std::string HttpResponse::toString()
     {
         std::string normalized_path = this->_file_path;
         std::string file_name = normalized_path;
+        std::cout << "🔐 Serving file: " << file_name << std::endl;
         std::ifstream file(file_name.c_str(), std::ios::binary);
         if (!file)
         {
