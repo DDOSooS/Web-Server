@@ -16,3 +16,6 @@ tmp/
 # Keep directory structure
 !www/uploads/.gitkeep
 */upload
+
+*.json
+*.pdf
