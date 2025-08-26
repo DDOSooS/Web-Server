@@ -246,7 +246,8 @@ Custom error pages can be configured for different HTTP status codes, providing 
 
 ## 👥 Author
 
-**42 Network Student Project**
+https://github.com/DDOSooS
+https://github.com/aezzahir
 
 This project is part of the 42 Network curriculum, designed to teach advanced C++ programming, network programming, and web server architecture.
 
